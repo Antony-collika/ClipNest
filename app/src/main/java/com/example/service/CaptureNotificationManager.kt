@@ -5,9 +5,6 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Paint
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.RemoteInput
@@ -27,8 +24,10 @@ object CaptureNotificationManager {
                 "Clipboard capture",
                 NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
-                description = "Quick foreground entry point to capture clipboard content"
+                description = "Quick notification to capture clipboard content"
                 setShowBadge(false)
+                setSound(null, null)
+                enableVibration(false)
             }
             val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             manager.createNotificationChannel(channel)
@@ -36,6 +35,7 @@ object CaptureNotificationManager {
     }
 
     fun showCaptureNotification(context: Context) {
+        createNotificationChannel(context)
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         // Intent to open Main App (Kho)
@@ -45,15 +45,27 @@ object CaptureNotificationManager {
             putExtra(EXTRA_START_TAB, "vault")
         }
 
-        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        val immutableFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         } else {
             PendingIntent.FLAG_UPDATE_CURRENT
         }
 
-        val openAppPendingIntent = PendingIntent.getActivity(context, 101, openAppIntent, flags)
+        val openAppPendingIntent = PendingIntent.getActivity(context, 101, openAppIntent, immutableFlags)
 
-        // RemoteInput for direct inline typing / pasting
+        // Action 1: Lưu Clipboard (Auto capture current clipboard without app switch)
+        val captureIntent = Intent(context, TransparentCaptureActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION
+        }
+        val capturePendingIntent = PendingIntent.getActivity(context, 104, captureIntent, immutableFlags)
+
+        val captureAction = NotificationCompat.Action.Builder(
+            android.R.drawable.ic_menu_save,
+            "Lưu Clipboard",
+            capturePendingIntent
+        ).build()
+
+        // Action 2: Nhập / Dán (RemoteInput inline in shade)
         val remoteInput = RemoteInput.Builder(QuickCaptureReceiver.KEY_TEXT_REPLY)
             .setLabel("Dán nội dung clipboard vào đây...")
             .build()
@@ -62,40 +74,32 @@ object CaptureNotificationManager {
             action = QuickCaptureReceiver.ACTION_DIRECT_REPLY
         }
 
-        val replyFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val mutableFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
         } else {
             PendingIntent.FLAG_UPDATE_CURRENT
         }
 
-        val replyPendingIntent = PendingIntent.getBroadcast(context, 102, replyIntent, replyFlags)
+        val replyPendingIntent = PendingIntent.getBroadcast(context, 102, replyIntent, mutableFlags)
 
-        // Action 1: Nhập / Dán (RemoteInput)
         val replyAction = NotificationCompat.Action.Builder(
             android.R.drawable.ic_menu_edit,
             "Nhập / Dán",
             replyPendingIntent
         ).addRemoteInput(remoteInput).build()
 
-        // Action 2: Mở kho (Open App)
-        val openAction = NotificationCompat.Action.Builder(
-            android.R.drawable.ic_menu_agenda,
-            "Mở kho",
-            openAppPendingIntent
-        ).build()
-
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_save)
             .setContentTitle("Lưu nội dung vào Clipboard")
-            .setContentText("Nhập hoặc dán nội dung bạn muốn lưu")
+            .setContentText("Chạm 'Lưu Clipboard' hoặc nhập/dán để lưu nhanh")
             .setStyle(
                 NotificationCompat.BigTextStyle()
-                    .bigText("Nhập hoặc dán nội dung bạn muốn lưu")
+                    .bigText("Chạm 'Lưu Clipboard' để tự động lưu clipboard hiện tại, hoặc chọn 'Nhập / Dán'")
                     .setSummaryText("Clipboard Manager")
             )
             .setContentIntent(openAppPendingIntent)
+            .addAction(captureAction)
             .addAction(replyAction)
-            .addAction(openAction)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(false)

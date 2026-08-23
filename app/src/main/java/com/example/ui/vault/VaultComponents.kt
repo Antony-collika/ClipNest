@@ -8,6 +8,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -596,7 +597,7 @@ fun VaultSelectionBar(
 fun ShareCaptureDialog(
     sharedText: String,
     onDismiss: () -> Unit,
-    onChoiceSelected: (ShareChoice) -> Unit
+    onConfirm: (saveShared: Boolean, saveClipboard: Boolean) -> Unit
 ) {
     val context = LocalContext.current
     val clipManager = remember { context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager }
@@ -608,6 +609,13 @@ fun ShareCaptureDialog(
         }
     }
 
+    val hasShared = sharedText.isNotBlank()
+    val hasClipboard = clipboardText.isNotBlank() && clipboardText != sharedText
+
+    var isSharedSelected by remember { mutableStateOf(hasShared) }
+    var isClipboardSelected by remember { mutableStateOf(hasClipboard && !hasShared) }
+
+    val isAnySelected = (isSharedSelected && hasShared) || (isClipboardSelected && hasClipboard)
     val isDark = MaterialTheme.colorScheme.background.red < 0.5f
 
     AlertDialog(
@@ -619,7 +627,6 @@ fun ShareCaptureDialog(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
             ) {
-                // Top Icon Badge
                 Surface(
                     shape = RoundedCornerShape(12.dp),
                     color = MaterialTheme.colorScheme.primaryContainer,
@@ -642,7 +649,8 @@ fun ShareCaptureDialog(
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.Bold,
                         fontSize = 20.sp
-                    )
+                    ),
+                    modifier = Modifier.testTag("share_dialog_title")
                 )
             }
         },
@@ -651,53 +659,72 @@ fun ShareCaptureDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 // Section 1: Nội dung chia sẻ
-                Column {
-                    Text(
-                        text = "Nội dung chia sẻ từ Facebook",
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp
-                        ),
-                        modifier = Modifier.padding(bottom = 6.dp, start = 2.dp)
-                    )
+                if (hasShared) {
+                    val isSelected = isSharedSelected
+                    val containerBg = if (isSelected) {
+                        if (isDark) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+                        else Color(0xFFE8F5E9)
+                    } else {
+                        if (isDark) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                        else Color(0xFFF4F6F4)
+                    }
+                    val borderColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
 
-                    Surface(
-                        color = if (isDark) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f) else Color(0xFFF4F6F4),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
+                    Card(
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = containerBg),
+                        border = BorderStroke(1.5.dp, borderColor),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { isSharedSelected = !isSharedSelected }
+                            .testTag("share_option_shared")
                     ) {
                         Row(
-                            modifier = Modifier.padding(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            Checkbox(
+                                checked = isSelected,
+                                onCheckedChange = { isSharedSelected = it },
+                                colors = CheckboxDefaults.colors(
+                                    checkedColor = MaterialTheme.colorScheme.primary
+                                )
+                            )
+
+                            Spacer(modifier = Modifier.width(6.dp))
+
                             Icon(
                                 imageVector = if (sharedText.startsWith("http")) Icons.Default.Link else Icons.Default.Description,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(22.dp)
                             )
+
                             Spacer(modifier = Modifier.width(10.dp))
+
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = sharedText.ifBlank { "(Không có nội dung)" },
+                                    text = "Nội dung chia sẻ",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp
+                                    )
+                                )
+                                Text(
+                                    text = sharedText,
                                     style = MaterialTheme.typography.bodyMedium.copy(
                                         color = MaterialTheme.colorScheme.onSurface,
-                                        fontWeight = FontWeight.Medium,
+                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                                         fontSize = 13.5.sp
                                     ),
                                     maxLines = 2,
                                     overflow = TextOverflow.Ellipsis
-                                )
-                                Text(
-                                    text = if (sharedText.startsWith("http")) "(Liên kết bài viết)" else "(Văn bản chia sẻ)",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                        fontSize = 11.5.sp
-                                    )
                                 )
                             }
                         }
@@ -705,56 +732,72 @@ fun ShareCaptureDialog(
                 }
 
                 // Section 2: Clipboard hiện tại trên thiết bị
-                if (clipboardText.isNotBlank()) {
-                    Column {
-                        Text(
-                            text = "Clipboard hiện tại trên thiết bị",
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp
-                            ),
-                            modifier = Modifier.padding(bottom = 6.dp, start = 2.dp)
-                        )
+                if (hasClipboard) {
+                    val isSelected = isClipboardSelected
+                    val containerBg = if (isSelected) {
+                        if (isDark) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+                        else Color(0xFFE8F5E9)
+                    } else {
+                        if (isDark) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                        else Color(0xFFF4F6F4)
+                    }
+                    val borderColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
 
-                        Surface(
-                            color = if (isDark) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f) else Color(0xFFEBF6EC),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth()
+                    Card(
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = containerBg),
+                        border = BorderStroke(1.5.dp, borderColor),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { isClipboardSelected = !isClipboardSelected }
+                            .testTag("share_option_clipboard")
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(
-                                modifier = Modifier.padding(12.dp),
-                                verticalAlignment = Alignment.Top
-                            ) {
-                                Text(
-                                    text = "❝",
-                                    style = MaterialTheme.typography.titleLarge.copy(
-                                        color = MaterialTheme.colorScheme.primary,
-                                        fontWeight = FontWeight.Bold
-                                    ),
-                                    modifier = Modifier.padding(end = 6.dp)
+                            Checkbox(
+                                checked = isSelected,
+                                onCheckedChange = { isClipboardSelected = it },
+                                colors = CheckboxDefaults.colors(
+                                    checkedColor = MaterialTheme.colorScheme.primary
                                 )
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = clipboardText,
-                                        style = MaterialTheme.typography.bodyMedium.copy(
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            fontWeight = FontWeight.Medium,
-                                            fontSize = 13.5.sp,
-                                            lineHeight = 19.sp
-                                        ),
-                                        maxLines = 3,
-                                        overflow = TextOverflow.Ellipsis
+                            )
+
+                            Spacer(modifier = Modifier.width(6.dp))
+
+                            Text(
+                                text = "❝",
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                modifier = Modifier.padding(horizontal = 2.dp)
+                            )
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Clipboard trên thiết bị",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp
                                     )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = RelativeTimeFormatter.format(System.currentTimeMillis()),
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                            fontSize = 11.sp
-                                        )
-                                    )
-                                }
+                                )
+                                Text(
+                                    text = clipboardText,
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                        fontSize = 13.5.sp
+                                    ),
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
                             }
                         }
                     }
@@ -771,15 +814,14 @@ fun ShareCaptureDialog(
                         imageVector = Icons.Default.Lightbulb,
                         contentDescription = null,
                         tint = Color(0xFFEAB308),
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(18.dp)
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Nội dung clipboard có vẻ đầy đủ hơn nội dung chia sẻ. Bạn muốn lưu nội dung nào?",
+                        text = "Chạm để chọn 1 hoặc cả hai nội dung muốn lưu vào kho.",
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 12.sp,
-                            lineHeight = 16.sp
+                            fontSize = 12.sp
                         )
                     )
                 }
@@ -790,53 +832,31 @@ fun ShareCaptureDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 4.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Button 1: Hủy
                 OutlinedButton(
                     onClick = onDismiss,
                     shape = RoundedCornerShape(24.dp),
                     modifier = Modifier
                         .weight(1f)
-                        .testTag("share_cancel_button")
+                        .testTag("share_dialog_cancel_button")
                 ) {
-                    Text("Hủy", fontSize = 13.sp)
+                    Text("Hủy", fontSize = 14.sp)
                 }
 
-                // Button 2: Dùng liên kết
-                OutlinedButton(
-                    onClick = { onChoiceSelected(ShareChoice.USE_SHARED) },
-                    shape = RoundedCornerShape(24.dp),
-                    modifier = Modifier
-                        .weight(1.3f)
-                        .testTag("share_use_shared_button")
-                ) {
-                    Text(
-                        text = if (sharedText.startsWith("http")) "Dùng liên kết" else "Dùng chia sẻ",
-                        fontSize = 12.5.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                // Button 3: Dùng clipboard
                 Button(
-                    onClick = { onChoiceSelected(ShareChoice.USE_CLIPBOARD) },
+                    onClick = { onConfirm(isSharedSelected, isClipboardSelected) },
+                    enabled = isAnySelected,
                     shape = RoundedCornerShape(24.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary
                     ),
                     modifier = Modifier
-                        .weight(1.4f)
-                        .testTag("share_use_clipboard_button")
+                        .weight(1f)
+                        .testTag("share_dialog_save_button")
                 ) {
-                    Text(
-                        text = "Dùng clipboard",
-                        fontSize = 12.5.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Text("Lưu", fontSize = 14.sp)
                 }
             }
         },

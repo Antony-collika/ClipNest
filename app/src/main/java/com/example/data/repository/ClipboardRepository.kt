@@ -63,7 +63,7 @@ class ClipboardRepositoryImpl(
         val resolvedType = contentType ?: TextNormalizer.detectContentType(normalized)
         val now = System.currentTimeMillis()
         val maxOrder = dao.getMaxSortOrder()
-        val nextOrder = maxOrder + OrderHelper.ORDER_STEP
+        val nextOrder = maxOf(maxOrder + OrderHelper.ORDER_STEP, now)
 
         val card = ClipboardCard(
             id = now + (0..999).random(),

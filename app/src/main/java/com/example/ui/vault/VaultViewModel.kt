@@ -325,44 +325,32 @@ class VaultViewModel(
         _shareContent.value = ""
     }
 
-    fun saveShareOption(choice: ShareChoice, context: Context) {
+    fun saveShareSelections(saveShared: Boolean, saveClipboard: Boolean, context: Context) {
         val shared = _shareContent.value
         val clipManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        val clipText = clipManager.primaryClip?.getItemAt(0)?.text?.toString() ?: ""
+        val clipText = try {
+            clipManager.primaryClip?.getItemAt(0)?.text?.toString() ?: ""
+        } catch (e: Exception) {
+            ""
+        }
 
         viewModelScope.launch {
-            when (choice) {
-                ShareChoice.USE_SHARED -> {
-                    if (shared.isNotBlank()) {
-                        repository.saveCard(
-                            content = shared,
-                            sourceApp = "Android Share",
-                            contentType = TextNormalizer.detectContentType(shared)
-                        )
-                    }
-                }
-                ShareChoice.USE_CLIPBOARD -> {
-                    if (clipText.isNotBlank()) {
-                        repository.saveCard(
-                            content = clipText,
-                            sourceApp = "System Clipboard",
-                            contentType = TextNormalizer.detectContentType(clipText)
-                        )
-                    }
-                }
-                ShareChoice.USE_BOTH -> {
-                    val combined = TextNormalizer.combine(shared, clipText)
-                    if (combined.isNotBlank()) {
-                        repository.saveCard(
-                            content = combined,
-                            sourceApp = "Share & Clipboard",
-                            contentType = ContentType.COMBINED
-                        )
-                    }
-                }
+            if (saveShared && shared.isNotBlank()) {
+                repository.saveCard(
+                    content = shared,
+                    sourceApp = "Android Share",
+                    contentType = TextNormalizer.detectContentType(shared)
+                )
+            }
+            if (saveClipboard && clipText.isNotBlank()) {
+                repository.saveCard(
+                    content = clipText,
+                    sourceApp = "System Clipboard",
+                    contentType = TextNormalizer.detectContentType(clipText)
+                )
             }
             dismissShareDialog()
-            _eventFlow.emit(VaultEvent.ShowToast("Clipboard saved"))
+            _eventFlow.emit(VaultEvent.ShowToast("Đã lưu vào kho!"))
         }
     }
 

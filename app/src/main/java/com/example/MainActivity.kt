@@ -1,10 +1,14 @@
 package com.example
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -18,6 +22,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -49,6 +54,14 @@ class MainActivity : ComponentActivity() {
     private lateinit var database: AppDatabase
     private lateinit var repository: ClipboardRepositoryImpl
 
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            CaptureNotificationManager.showCaptureNotification(applicationContext)
+        }
+    }
+
     private val vaultViewModel: VaultViewModel by viewModels {
         VaultViewModelFactory(repository, settingsDataStore, fileManager)
     }
@@ -72,12 +85,35 @@ class MainActivity : ComponentActivity() {
 
         CaptureNotificationManager.createNotificationChannel(applicationContext)
 
+        // Request notification permission for Android 13+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                CaptureNotificationManager.showCaptureNotification(applicationContext)
+            }
+        } else {
+            CaptureNotificationManager.showCaptureNotification(applicationContext)
+        }
+
         handleIntent(intent)
 
         setContent {
             val userSettings by settingsDataStore.userSettingsFlow.collectAsStateWithLifecycle(
                 initialValue = com.example.data.local.UserSettings()
             )
+
+            LaunchedEffect(userSettings.notificationEnabled) {
+                if (userSettings.notificationEnabled) {
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                        ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+                    ) {
+                        CaptureNotificationManager.showCaptureNotification(applicationContext)
+                    }
+                } else {
+                    CaptureNotificationManager.dismissCaptureNotification(applicationContext)
+                }
+            }
 
             ClipboardManagerTheme(themeMode = userSettings.themeMode) {
                 MainAppContent(
@@ -98,13 +134,7 @@ class MainActivity : ComponentActivity() {
     private fun handleIntent(intent: Intent?) {
         if (intent == null) return
 
-        if (intent.action == Intent.ACTION_SEND && intent.type?.startsWith("text/") == true) {
-            val sharedText = intent.getStringExtra(Intent.EXTRA_TEXT)
-                ?: intent.clipData?.getItemAt(0)?.text?.toString()
-            if (!sharedText.isNullOrBlank()) {
-                vaultViewModel.handleIncomingShare(sharedText)
-            }
-        } else if (intent.getBooleanExtra(CaptureNotificationManager.EXTRA_OPEN_CAPTURE, false)) {
+        if (intent.getBooleanExtra(CaptureNotificationManager.EXTRA_OPEN_CAPTURE, false)) {
             vaultViewModel.openInAppCapture()
         }
     }

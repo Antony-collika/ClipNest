@@ -248,7 +248,9 @@ fun VaultScreen(
         ShareCaptureDialog(
             sharedText = uiState.shareContent,
             onDismiss = viewModel::dismissShareDialog,
-            onChoiceSelected = { choice -> viewModel.saveShareOption(choice, context) }
+            onConfirm = { saveShared, saveClipboard ->
+                viewModel.saveShareSelections(saveShared, saveClipboard, context)
+            }
         )
     }
 

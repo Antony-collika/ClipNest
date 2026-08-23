@@ -13,6 +13,8 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.MyApplication">
+
+        <!-- Main Dashboard Activity -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -24,14 +26,30 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+        </activity>
 
-            <!-- Android Sharesheet receiver -->
+        <!-- Translucent Overlay Share Dialog (Does NOT switch app, appears on top of calling app) -->
+        <activity
+            android:name=".ui.share.ShareDialogActivity"
+            android:exported="true"
+            android:theme="@style/Theme.TransparentDialog"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
+
+        <!-- Translucent 0ms Capture Activity for Quick Tile and Notification click -->
+        <activity
+            android:name=".service.TransparentCaptureActivity"
+            android:exported="true"
+            android:theme="@style/Theme.TransparentDialog"
+            android:excludeFromRecents="true"
+            android:noHistory="true" />
 
         <!-- Quick Settings Tile -->
         <service

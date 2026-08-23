@@ -10,7 +10,7 @@ object OrderHelper {
         items: List<ClipboardCardProjection>,
         showPinnedFirst: Boolean
     ): List<ClipboardCardProjection> {
-        val sortedByManual = items.sortedBy { it.sortOrder }
+        val sortedByManual = items.sortedByDescending { it.sortOrder }
         if (!showPinnedFirst) {
             return sortedByManual
         }
@@ -30,8 +30,9 @@ object OrderHelper {
         val moved = mutable.removeAt(fromIndex)
         mutable.add(toIndex, moved)
 
+        val total = mutable.size
         return mutable.mapIndexed { index, item ->
-            item.id to ((index + 1) * ORDER_STEP)
+            item.id to ((total - index) * ORDER_STEP)
         }
     }
 }

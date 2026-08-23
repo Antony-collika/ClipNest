@@ -17,7 +17,7 @@ interface ClipboardDao {
         """
         SELECT id, preview, createdAtMillis, sortOrder, sourceApp, contentType, pinned, isSensitive 
         FROM clipboard_cards 
-        ORDER BY sortOrder ASC
+        ORDER BY sortOrder DESC
         """
     )
     fun getAllCardProjections(): Flow<List<ClipboardCardProjection>>
@@ -27,7 +27,7 @@ interface ClipboardDao {
         SELECT id, preview, createdAtMillis, sortOrder, sourceApp, contentType, pinned, isSensitive 
         FROM clipboard_cards 
         WHERE content LIKE '%' || :query || '%' OR (sourceApp IS NOT NULL AND sourceApp LIKE '%' || :query || '%')
-        ORDER BY sortOrder ASC
+        ORDER BY sortOrder DESC
         """
     )
     fun searchCardProjections(query: String): Flow<List<ClipboardCardProjection>>
