@@ -1,0 +1,6 @@
+{
+  "name": "Clipboard Manager",
+  "description": "A private, offline-first clipboard vault and markdown workspace.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
