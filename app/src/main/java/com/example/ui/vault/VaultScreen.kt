@@ -1,9 +1,11 @@
 package com.example.ui.vault
 
+import android.content.Intent
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,17 +31,23 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.TabRowDefaults
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.local.NoteDocType
 import com.example.data.model.ClipboardCardProjection
@@ -75,37 +83,120 @@ fun VaultScreen(
     val hasSelection = selectedCount > 0
     val selectedCards = uiState.cards.filter { uiState.selectedIds.contains(it.id) }
     val allSelectedPinned = selectedCards.isNotEmpty() && selectedCards.all { it.pinned }
+    val allSelected = uiState.cards.isNotEmpty() && selectedCount == uiState.cards.size
 
     Scaffold(
         topBar = {
-            VaultTopBar(
-                hasSelection = hasSelection,
-                selectedCount = selectedCount,
-                allSelectedPinned = allSelectedPinned,
-                isSearchOpen = uiState.isSearchOpen,
-                searchQuery = uiState.searchQuery,
-                showPinnedFirst = uiState.userSettings.showPinnedFirst,
-                onSearchOpen = viewModel::openSearch,
-                onSearchClose = viewModel::closeSearch,
-                onSearchQueryChange = viewModel::setSearchQuery,
-                onPinSelected = viewModel::togglePinSelected,
-                onDeleteSelected = viewModel::requestDeleteSelected,
-                onCopySelected = { viewModel.copySelectedCards(context) },
-                onToggleShowPinnedFirst = viewModel::toggleShowPinnedFirst,
-                onSelectAll = viewModel::selectAll,
-                onSaveFile = viewModel::openExportDialog,
-                onOpenEditor = viewModel::openEditorAction,
-                onOpenSettings = viewModel::openSettingsAction
-            )
+            Column {
+                VaultTopBar(
+                    isSearchOpen = uiState.isSearchOpen,
+                    searchQuery = uiState.searchQuery,
+                    onMenuClick = onNavigateToSettings,
+                    onSearchOpen = viewModel::openSearch,
+                    onSearchClose = viewModel::closeSearch,
+                    onSearchQueryChange = viewModel::setSearchQuery,
+                    onSaveFile = viewModel::openExportDialog,
+                    onOpenEditor = viewModel::openEditorAction,
+                    onOpenSettings = viewModel::openSettingsAction
+                )
+
+                // Top Tab Row: "Kho" and "Soạn thảo"
+                TabRow(
+                    selectedTabIndex = 0,
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.primary,
+                    indicator = { tabPositions ->
+                        TabRowDefaults.SecondaryIndicator(
+                            Modifier.tabIndicatorOffset(tabPositions[0]),
+                            color = MaterialTheme.colorScheme.primary,
+                            height = 3.dp
+                        )
+                    },
+                    divider = {
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                        )
+                    },
+                    modifier = Modifier.testTag("vault_top_tab_row")
+                ) {
+                    Tab(
+                        selected = true,
+                        onClick = { /* Already in Vault */ },
+                        text = {
+                            Text(
+                                text = "Kho",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp
+                                )
+                            )
+                        },
+                        modifier = Modifier.testTag("vault_tab_kho")
+                    )
+                    Tab(
+                        selected = false,
+                        onClick = { onNavigateToEditor(NoteDocType.NOTE) },
+                        text = {
+                            Text(
+                                text = "Soạn thảo",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Normal,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 15.sp
+                                )
+                            )
+                        },
+                        modifier = Modifier.testTag("vault_tab_soan_thao")
+                    )
+                }
+
+                // Selection / Subheader action bar
+                VaultSelectionBar(
+                    selectedCount = selectedCount,
+                    allSelected = allSelected,
+                    allSelectedPinned = allSelectedPinned,
+                    showPinnedFirst = uiState.userSettings.showPinnedFirst,
+                    onToggleSelectAll = {
+                        if (allSelected) {
+                            viewModel.clearSelection()
+                        } else {
+                            viewModel.selectAll()
+                        }
+                    },
+                    onShareSelected = {
+                        val orderedSelected = uiState.cards.filter { uiState.selectedIds.contains(it.id) }
+                        if (orderedSelected.isNotEmpty()) {
+                            val shareText = orderedSelected.joinToString("\n\n") { it.preview }
+                            val sendIntent: Intent = Intent().apply {
+                                action = Intent.ACTION_SEND
+                                putExtra(Intent.EXTRA_TEXT, shareText)
+                                type = "text/plain"
+                            }
+                            val shareIntent = Intent.createChooser(sendIntent, "Chia sẻ nội dung clipboard")
+                            context.startActivity(shareIntent)
+                        }
+                    },
+                    onCopySelected = { viewModel.copySelectedCards(context) },
+                    onDeleteSelected = viewModel::requestDeleteSelected,
+                    onPinSelected = viewModel::togglePinSelected,
+                    onToggleShowPinnedFirst = viewModel::toggleShowPinnedFirst,
+                    onSaveFile = viewModel::openExportDialog
+                )
+            }
         },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = viewModel::openInAppCapture,
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
+                shape = androidx.compose.foundation.shape.CircleShape,
                 modifier = Modifier.testTag("vault_add_fab")
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Add new clipboard card")
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Add new clipboard card",
+                    modifier = Modifier.size(28.dp)
+                )
             }
         },
         modifier = modifier.fillMaxSize()
@@ -196,7 +287,7 @@ private fun VaultCardList(
         val (pinnedCards, normalCards) = cards.partition { it.pinned }
 
         LazyColumn(
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 88.dp),
+            contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 8.dp, bottom = 88.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier
                 .fillMaxSize()
@@ -210,7 +301,7 @@ private fun VaultCardList(
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold
                         ),
-                        modifier = Modifier.padding(start = 4.dp, top = 6.dp, bottom = 2.dp)
+                        modifier = Modifier.padding(start = 4.dp, top = 4.dp, bottom = 2.dp)
                     )
                 }
 
@@ -272,7 +363,7 @@ private fun VaultCardList(
         }
     } else {
         LazyColumn(
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 88.dp),
+            contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 8.dp, bottom = 88.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier
                 .fillMaxSize()
@@ -321,7 +412,7 @@ private fun VaultEmptyState(
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = if (isSearch) "No matching items found" else "Your Vault is empty",
+            text = if (isSearch) "Không tìm thấy nội dung phù hợp" else "Kho Clipboard trống",
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
             textAlign = TextAlign.Center
         )
@@ -330,42 +421,12 @@ private fun VaultEmptyState(
 
         Text(
             text = if (isSearch) {
-                "Try searching for different keywords or clear the search filter."
+                "Thử tìm kiếm với từ khóa khác hoặc xóa bộ lọc tìm kiếm."
             } else {
-                "Capture text explicitly using the + button below, Android Share from any app, Notification, or Quick Settings Tile."
+                "Dán nhanh nội dung bằng nút + bên dưới, Chia sẻ từ ứng dụng khác, Thông báo hoặc phím Quick Settings."
             },
             style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
             textAlign = TextAlign.Center
         )
-
-        if (!isSearch) {
-            Spacer(modifier = Modifier.height(24.dp))
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                        Spacer(modifier = Modifier.padding(start = 8.dp))
-                        Text("Tap + to paste from clipboard or type", style = MaterialTheme.typography.bodySmall)
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Share, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                        Spacer(modifier = Modifier.padding(start = 8.dp))
-                        Text("Share text from any app to Clipboard Manager", style = MaterialTheme.typography.bodySmall)
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Notifications, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                        Spacer(modifier = Modifier.padding(start = 8.dp))
-                        Text("Use capture notification or Quick Settings tile", style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            }
-        }
     }
 }

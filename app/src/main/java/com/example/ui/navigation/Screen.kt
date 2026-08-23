@@ -17,21 +17,21 @@ sealed class Screen(
 ) {
     data object Vault : Screen(
         route = "vault",
-        title = "Vault",
+        title = "Kho",
         selectedIcon = Icons.Filled.Folder,
         unselectedIcon = Icons.Outlined.Folder
     )
 
     data object Note : Screen(
         route = "note",
-        title = "Note",
+        title = "Soạn thảo",
         selectedIcon = Icons.Filled.Description,
         unselectedIcon = Icons.Outlined.Description
     )
 
     data object Settings : Screen(
         route = "settings",
-        title = "Settings",
+        title = "Cài đặt",
         selectedIcon = Icons.Filled.Settings,
         unselectedIcon = Icons.Outlined.Settings
     )
