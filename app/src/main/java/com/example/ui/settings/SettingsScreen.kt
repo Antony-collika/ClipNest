@@ -1,6 +1,8 @@
 package com.example.ui.settings
 
 import android.content.Context
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
@@ -76,6 +78,11 @@ fun SettingsScreen(
     val context = LocalContext.current
     val userSettings by viewModel.userSettings.collectAsStateWithLifecycle()
     val exportedFiles by viewModel.exportedFiles.collectAsStateWithLifecycle()
+    val saveFolderLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        if (uri != null) viewModel.setDefaultSaveFolder(uri, context.contentResolver)
+    }
 
     LaunchedEffect(Unit) {
         viewModel.eventFlow.collect { event ->
@@ -88,20 +95,6 @@ fun SettingsScreen(
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Settings",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                        modifier = Modifier.testTag("settings_title")
-                    )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
-            )
-        },
         modifier = modifier.fillMaxSize()
     ) { innerPadding ->
         Column(
@@ -213,7 +206,42 @@ fun SettingsScreen(
                 }
             }
 
-            // 3. Capture & Notifications Section
+            // 3. File export location
+            SettingsSectionHeader(title = "File Storage", icon = Icons.Default.Folder)
+
+            OutlinedCard(
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Default save folder",
+                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)
+                    )
+                    Text(
+                        text = userSettings.defaultSaveFolderUri?.let { folderLabel(it) } ?: "Not set — the system picker will ask when needed",
+                        style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(onClick = { saveFolderLauncher.launch(null) }) {
+                            Text("Choose folder")
+                        }
+                        if (userSettings.defaultSaveFolderUri != null) {
+                            TextButton(onClick = viewModel::clearDefaultSaveFolder) {
+                                Text("Clear")
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 4. Capture & Notifications Section
             SettingsSectionHeader(title = "Capture Shortcuts", icon = Icons.Default.Notifications)
 
             OutlinedCard(
@@ -274,7 +302,7 @@ fun SettingsScreen(
                 }
             }
 
-            // 4. Data Retention Section
+            // 5. Data Retention Section
             SettingsSectionHeader(title = "Data Retention", icon = Icons.Default.Storage)
 
             OutlinedCard(
@@ -340,7 +368,7 @@ fun SettingsScreen(
                 }
             }
 
-            // 5. Exported Documents Section
+            // 6. Exported Documents Section
             if (exportedFiles.isNotEmpty()) {
                 SettingsSectionHeader(title = "Exported Documents", icon = Icons.Default.Folder)
 
@@ -372,7 +400,7 @@ fun SettingsScreen(
                 }
             }
 
-            // 6. Privacy & Security Notice
+            // 7. Privacy & Security Notice
             SettingsSectionHeader(title = "Privacy & Security", icon = Icons.Default.Security)
 
             Card(
@@ -409,6 +437,11 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(24.dp))
         }
     }
+}
+
+private fun folderLabel(uri: String): String {
+    val segment = android.net.Uri.parse(uri).lastPathSegment.orEmpty()
+    return "Selected: ${segment.substringAfterLast(':').ifBlank { "folder" }}"
 }
 
 private fun shareFile(context: Context, file: File) {

@@ -8,7 +8,6 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.data.local.ExportFormat
 import com.example.data.local.FileManager
-import com.example.data.local.NoteDocType
 import com.example.data.local.SettingsDataStore
 import com.example.data.local.UserSettings
 import com.example.data.model.ClipboardCard
@@ -48,7 +47,7 @@ data class VaultUiState(
 
 sealed class VaultEvent {
     data class ShowToast(val message: String) : VaultEvent()
-    data class NavigateToEditor(val docType: NoteDocType) : VaultEvent()
+    data object NavigateToEditor : VaultEvent()
     data object NavigateToSettings : VaultEvent()
 }
 
@@ -252,6 +251,26 @@ class VaultViewModel(
         }
     }
 
+    fun shareSelected(context: Context) {
+        val selected = _selectedIds.value
+        if (selected.isEmpty()) return
+        val orderedSelectedIds = uiState.value.cards
+            .filter { selected.contains(it.id) }
+            .map { it.id }
+
+        viewModelScope.launch {
+            val fullCards = repository.getCardsByIds(orderedSelectedIds)
+            if (fullCards.isNotEmpty()) {
+                val shareText = fullCards.joinToString("\n\n---\n\n") { it.content }
+                val sendIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                    putExtra(android.content.Intent.EXTRA_TEXT, shareText)
+                    type = "text/plain"
+                }
+                context.startActivity(android.content.Intent.createChooser(sendIntent, "Share selected clipboard cards"))
+            }
+        }
+    }
+
     fun copySelectedCards(context: Context) {
         val selected = _selectedIds.value
         if (selected.isEmpty()) return
@@ -394,8 +413,7 @@ class VaultViewModel(
 
     fun openEditorAction() {
         viewModelScope.launch {
-            settingsDataStore.setLastActiveNoteFile(NoteDocType.DRAFT)
-            _eventFlow.emit(VaultEvent.NavigateToEditor(NoteDocType.DRAFT))
+            _eventFlow.emit(VaultEvent.NavigateToEditor)
         }
     }
 

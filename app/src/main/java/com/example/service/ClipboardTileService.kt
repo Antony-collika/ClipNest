@@ -1,5 +1,6 @@
 package com.example.service
 
+import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.ClipboardManager
 import android.content.Context
@@ -30,6 +31,7 @@ class ClipboardTileService : TileService() {
         tile.updateTile()
     }
 
+    @SuppressLint("StartActivityAndCollapseDeprecated")
     override fun onClick() {
         super.onClick()
 

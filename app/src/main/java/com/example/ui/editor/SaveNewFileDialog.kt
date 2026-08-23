@@ -1,5 +1,6 @@
 package com.example.ui.editor
 
+import android.net.Uri
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -28,28 +29,24 @@ import com.example.data.local.ExportFormat
 
 @Composable
 fun SaveNewFileDialog(
+    defaultFolderUri: String?,
+    onChooseFolder: () -> Unit,
     onDismiss: () -> Unit,
     onConfirm: (fileName: String, format: ExportFormat) -> Unit
 ) {
-    var fileName by remember { mutableStateOf("New_Note") }
+    var fileName by remember { mutableStateOf("Editor") }
     var selectedFormat by remember { mutableStateOf(ExportFormat.MARKDOWN) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = "Save to new file",
+                text = "Save file",
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
             )
         },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = "Export the current draft content to a new independent file in local documents:",
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(bottom = 12.dp)
-                )
-
                 OutlinedTextField(
                     value = fileName,
                     onValueChange = { fileName = it },
@@ -60,15 +57,17 @@ fun SaveNewFileDialog(
                         .testTag("save_new_filename_input")
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
-                Text("Format:", style = MaterialTheme.typography.labelLarge)
-
+                Text(
+                    text = "Format",
+                    style = MaterialTheme.typography.labelLarge
+                )
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 4.dp)
+                        .padding(top = 2.dp)
                 ) {
                     RadioButton(
                         selected = selectedFormat == ExportFormat.MARKDOWN,
@@ -77,7 +76,7 @@ fun SaveNewFileDialog(
                     )
                     Text("Markdown (.md)")
 
-                    Spacer(modifier = Modifier.width(16.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
 
                     RadioButton(
                         selected = selectedFormat == ExportFormat.PLAIN_TEXT,
@@ -86,15 +85,30 @@ fun SaveNewFileDialog(
                     )
                     Text("Plain text (.txt)")
                 }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = if (defaultFolderUri.isNullOrBlank()) {
+                        "Save location: not set"
+                    } else {
+                        "Save location: ${folderLabel(defaultFolderUri)}"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag("save_new_folder_label")
+                )
+                TextButton(
+                    onClick = onChooseFolder,
+                    modifier = Modifier.testTag("save_new_choose_folder_button")
+                ) {
+                    Text("Choose folder")
+                }
             }
         },
         confirmButton = {
             Button(
-                onClick = {
-                    if (fileName.isNotBlank()) {
-                        onConfirm(fileName, selectedFormat)
-                    }
-                },
+                onClick = { if (fileName.isNotBlank()) onConfirm(fileName, selectedFormat) },
                 enabled = fileName.isNotBlank(),
                 modifier = Modifier.testTag("save_new_confirm_button")
             ) {
@@ -111,4 +125,9 @@ fun SaveNewFileDialog(
         },
         modifier = Modifier.testTag("save_new_file_dialog")
     )
+}
+
+private fun folderLabel(uri: String): String {
+    val segment = Uri.parse(uri).lastPathSegment.orEmpty()
+    return segment.substringAfterLast(':').ifBlank { "Selected folder" }
 }

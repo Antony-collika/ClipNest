@@ -1,6 +1,8 @@
 package com.example.ui.settings
 
 import android.content.Context
+import android.content.ContentResolver
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -84,6 +86,20 @@ class SettingsViewModel(
                 CaptureNotificationManager.dismissCaptureNotification(context)
             }
         }
+    }
+
+    fun setDefaultSaveFolder(uri: Uri, contentResolver: ContentResolver) {
+        runCatching {
+            contentResolver.takePersistableUriPermission(
+                uri,
+                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            )
+        }
+        viewModelScope.launch { settingsDataStore.setDefaultSaveFolderUri(uri.toString()) }
+    }
+
+    fun clearDefaultSaveFolder() {
+        viewModelScope.launch { settingsDataStore.setDefaultSaveFolderUri(null) }
     }
 
     fun setRetentionPolicy(policy: RetentionPolicy) {

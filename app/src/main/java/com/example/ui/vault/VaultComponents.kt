@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -294,6 +296,37 @@ fun ClipboardCardItem(
                     modifier = Modifier.size(20.dp)
                 )
             }
+
+            var dragAccumulator by remember(card.id) { mutableStateOf(0f) }
+            val density = androidx.compose.ui.platform.LocalDensity.current
+            val dragThreshold = with(density) { 52.dp.toPx() }
+            Icon(
+                imageVector = Icons.Default.DragHandle,
+                contentDescription = "Drag to reorder",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                modifier = Modifier
+                    .size(44.dp)
+                    .testTag("drag_handle_${card.id}")
+                    .pointerInput(card.id) {
+                        detectDragGestures(
+                            onDragStart = { dragAccumulator = 0f },
+                            onDragCancel = { dragAccumulator = 0f },
+                            onDragEnd = { dragAccumulator = 0f },
+                            onDrag = { change, dragAmount ->
+                                change.consume()
+                                dragAccumulator += dragAmount.y
+                                while (dragAccumulator >= dragThreshold) {
+                                    if (canMoveDown) onMoveDown()
+                                    dragAccumulator -= dragThreshold
+                                }
+                                while (dragAccumulator <= -dragThreshold) {
+                                    if (canMoveUp) onMoveUp()
+                                    dragAccumulator += dragThreshold
+                                }
+                            }
+                        )
+                    }
+            )
         }
     }
 }

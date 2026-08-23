@@ -25,11 +25,6 @@ enum class RetentionPolicy(val days: Int, val label: String) {
     DAYS_90(90, "After 90 days")
 }
 
-enum class NoteDocType(val fileName: String, val displayName: String) {
-    NOTE("Note.md", "Note"),
-    DRAFT("Draft.md", "Draft")
-}
-
 data class UserSettings(
     val showPinnedFirst: Boolean = false,
     val isSensitivePreviewMasked: Boolean = true,
@@ -37,7 +32,7 @@ data class UserSettings(
     val notificationEnabled: Boolean = true,
     val firstRunEducationShown: Boolean = false,
     val retentionPolicy: RetentionPolicy = RetentionPolicy.NEVER,
-    val lastActiveNoteFile: NoteDocType = NoteDocType.DRAFT
+    val defaultSaveFolderUri: String? = null
 )
 
 class SettingsDataStore(private val context: Context) {
@@ -49,83 +44,59 @@ class SettingsDataStore(private val context: Context) {
         val NOTIFICATION_ENABLED = booleanPreferencesKey("notification_enabled")
         val FIRST_RUN_EDUCATION_SHOWN = booleanPreferencesKey("first_run_education_shown")
         val RETENTION_POLICY = stringPreferencesKey("retention_policy")
-        val LAST_ACTIVE_NOTE_FILE = stringPreferencesKey("last_active_note_file")
+        val DEFAULT_SAVE_FOLDER_URI = stringPreferencesKey("default_save_folder_uri")
     }
 
     val userSettingsFlow: Flow<UserSettings> = context.dataStore.data.map { preferences ->
-        val showPinnedFirst = preferences[PreferencesKeys.SHOW_PINNED_FIRST] ?: false
-        val isSensitiveMasked = preferences[PreferencesKeys.SENSITIVE_PREVIEW_MASKED] ?: true
-        val themeModeStr = preferences[PreferencesKeys.THEME_MODE] ?: ThemeMode.SYSTEM.name
-        val themeMode = try {
-            ThemeMode.valueOf(themeModeStr)
-        } catch (_: Exception) {
-            ThemeMode.SYSTEM
-        }
-        val notificationEnabled = preferences[PreferencesKeys.NOTIFICATION_ENABLED] ?: true
-        val firstRunShown = preferences[PreferencesKeys.FIRST_RUN_EDUCATION_SHOWN] ?: false
-        val retentionStr = preferences[PreferencesKeys.RETENTION_POLICY] ?: RetentionPolicy.NEVER.name
-        val retention = try {
-            RetentionPolicy.valueOf(retentionStr)
-        } catch (_: Exception) {
-            RetentionPolicy.NEVER
-        }
-        val lastNoteStr = preferences[PreferencesKeys.LAST_ACTIVE_NOTE_FILE] ?: NoteDocType.DRAFT.name
-        val lastNote = try {
-            NoteDocType.valueOf(lastNoteStr)
-        } catch (_: Exception) {
-            NoteDocType.DRAFT
-        }
+        val themeMode = runCatching {
+            ThemeMode.valueOf(preferences[PreferencesKeys.THEME_MODE] ?: ThemeMode.SYSTEM.name)
+        }.getOrDefault(ThemeMode.SYSTEM)
+        val retention = runCatching {
+            RetentionPolicy.valueOf(preferences[PreferencesKeys.RETENTION_POLICY] ?: RetentionPolicy.NEVER.name)
+        }.getOrDefault(RetentionPolicy.NEVER)
 
         UserSettings(
-            showPinnedFirst = showPinnedFirst,
-            isSensitivePreviewMasked = isSensitiveMasked,
+            showPinnedFirst = preferences[PreferencesKeys.SHOW_PINNED_FIRST] ?: false,
+            isSensitivePreviewMasked = preferences[PreferencesKeys.SENSITIVE_PREVIEW_MASKED] ?: true,
             themeMode = themeMode,
-            notificationEnabled = notificationEnabled,
-            firstRunEducationShown = firstRunShown,
+            notificationEnabled = preferences[PreferencesKeys.NOTIFICATION_ENABLED] ?: true,
+            firstRunEducationShown = preferences[PreferencesKeys.FIRST_RUN_EDUCATION_SHOWN] ?: false,
             retentionPolicy = retention,
-            lastActiveNoteFile = lastNote
+            defaultSaveFolderUri = preferences[PreferencesKeys.DEFAULT_SAVE_FOLDER_URI]
         )
     }
 
     suspend fun setShowPinnedFirst(enabled: Boolean) {
-        context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.SHOW_PINNED_FIRST] = enabled
-        }
+        context.dataStore.edit { it[PreferencesKeys.SHOW_PINNED_FIRST] = enabled }
     }
 
     suspend fun setSensitivePreviewMasked(masked: Boolean) {
-        context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.SENSITIVE_PREVIEW_MASKED] = masked
-        }
+        context.dataStore.edit { it[PreferencesKeys.SENSITIVE_PREVIEW_MASKED] = masked }
     }
 
     suspend fun setThemeMode(mode: ThemeMode) {
-        context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.THEME_MODE] = mode.name
-        }
+        context.dataStore.edit { it[PreferencesKeys.THEME_MODE] = mode.name }
     }
 
     suspend fun setNotificationEnabled(enabled: Boolean) {
-        context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.NOTIFICATION_ENABLED] = enabled
-        }
+        context.dataStore.edit { it[PreferencesKeys.NOTIFICATION_ENABLED] = enabled }
     }
 
     suspend fun setFirstRunEducationShown(shown: Boolean) {
-        context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.FIRST_RUN_EDUCATION_SHOWN] = shown
-        }
+        context.dataStore.edit { it[PreferencesKeys.FIRST_RUN_EDUCATION_SHOWN] = shown }
     }
 
     suspend fun setRetentionPolicy(policy: RetentionPolicy) {
-        context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.RETENTION_POLICY] = policy.name
-        }
+        context.dataStore.edit { it[PreferencesKeys.RETENTION_POLICY] = policy.name }
     }
 
-    suspend fun setLastActiveNoteFile(docType: NoteDocType) {
+    suspend fun setDefaultSaveFolderUri(uri: String?) {
         context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.LAST_ACTIVE_NOTE_FILE] = docType.name
+            if (uri.isNullOrBlank()) {
+                preferences.remove(PreferencesKeys.DEFAULT_SAVE_FOLDER_URI)
+            } else {
+                preferences[PreferencesKeys.DEFAULT_SAVE_FOLDER_URI] = uri
+            }
         }
     }
 }
