@@ -6,6 +6,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.tween
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,6 +32,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -59,6 +62,13 @@ fun VaultScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val exportFolderLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        if (uri != null) {
+            viewModel.setExportFolder(uri, context.contentResolver)
+        }
+    }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val settingsLoaded by viewModel.settingsLoaded.collectAsStateWithLifecycle()
     var educationReady by remember { mutableStateOf(false) }
@@ -76,6 +86,7 @@ fun VaultScreen(
             when (event) {
                 is VaultEvent.ShowToast -> android.widget.Toast.makeText(context, event.message, android.widget.Toast.LENGTH_SHORT).show()
                 VaultEvent.NavigateToEditor -> onOpenEditor()
+                VaultEvent.RequestExportFolder -> exportFolderLauncher.launch(null)
                 VaultEvent.NavigateToSettings -> Unit
             }
         }
@@ -170,7 +181,9 @@ fun VaultScreen(
     if (uiState.showExportDialog) {
         ExportDialog(
             onDismiss = viewModel::dismissExportDialog,
-            onConfirm = viewModel::exportFiles
+            onConfirm = { fileName, format ->
+                viewModel.exportFiles(fileName, format, context.contentResolver)
+            }
         )
     }
     if (uiState.showDeleteConfirmDialog) {
@@ -212,12 +225,11 @@ private fun VaultCardList(
     var displayedCards by remember { mutableStateOf(initialDisplayedCards) }
     var draggingId by remember { mutableStateOf<Long?>(null) }
     var dragOffset by remember { mutableFloatStateOf(0f) }
+    var dragDropIndex by remember { mutableIntStateOf(-1) }
     var dragTargetId by remember { mutableStateOf<Long?>(null) }
     var dragStartOrder by remember { mutableStateOf<List<Long>>(emptyList()) }
     val cardBounds = remember { mutableStateMapOf<Long, Rect>() }
     val listState = rememberLazyListState()
-    val cardsById = remember(cards) { cards.associateBy { it.id } }
-    val itemSpacingPx = with(androidx.compose.ui.platform.LocalDensity.current) { 8.dp.toPx() }
 
     LaunchedEffect(cards) {
         if (draggingId == null) {
@@ -285,6 +297,10 @@ private fun VaultCardList(
                 onDragStart = {
                     draggingId = card.id
                     dragOffset = 0f
+                    dragDropIndex = displayedCards
+                        .filter { !showPinnedFirst || it.pinned == card.pinned }
+                        .indexOfFirst { it.id == card.id }
+                        .coerceAtLeast(0)
                     dragTargetId = null
                     dragStartOrder = displayedCards.map { it.id }
                 },
@@ -292,45 +308,58 @@ private fun VaultCardList(
                     if (draggingId != card.id) return@ClipboardCardItem
                     change.consume()
                     dragOffset += dragAmount.y
-                    val draggedInfo = listState.layoutInfo.visibleItemsInfo
-                        .firstOrNull { it.key == card.id }
-                    if (draggedInfo != null) {
-                        val direction = if (dragOffset > 0f) 1 else if (dragOffset < 0f) -1 else 0
-                        val currentIndex = displayedCards.indexOfFirst { it.id == card.id }
-                        val neighborIndex = currentIndex + direction
-                        val neighbor = displayedCards.getOrNull(neighborIndex)
-                        val neighborInfo = neighbor?.let { target ->
-                            listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == target.id }
+
+                    // Keep the dragged card in its original LazyColumn slot while moving.
+                    // Reordering the backing list during pointer movement was the source of
+                    // the first-item snap and made the visual card lose its finger anchor.
+                    val draggedBounds = cardBounds[card.id]
+                    if (draggedBounds != null) {
+                        val draggedCenter = draggedBounds.center.y + dragOffset
+                        val sameGroupCards = displayedCards.filter {
+                            it.id != card.id && (!showPinnedFirst || it.pinned == card.pinned)
                         }
-                        if (direction != 0 && neighbor != null && neighborInfo != null &&
-                            (!showPinnedFirst || neighbor.pinned == card.pinned)
-                        ) {
-                            val draggedCenter = draggedInfo.offset + draggedInfo.size / 2f + dragOffset
-                            val neighborCenter = neighborInfo.offset + neighborInfo.size / 2f
-                            val crossed = if (direction > 0) draggedCenter > neighborCenter else draggedCenter < neighborCenter
-                            if (crossed) {
-                                val mutable = displayedCards.toMutableList()
-                                val moved = mutable.removeAt(currentIndex)
-                                mutable.add(neighborIndex.coerceIn(0, mutable.size), moved)
-                                displayedCards = mutable
-                                dragTargetId = neighbor.id
-                                dragOffset -= direction * (neighborInfo.size + itemSpacingPx)
-                            }
+                        val insertionIndex = sameGroupCards.count { target ->
+                            val targetBounds = cardBounds[target.id]
+                            targetBounds != null && draggedCenter > targetBounds.center.y
                         }
+                        dragDropIndex = insertionIndex
+                        dragTargetId = sameGroupCards
+                            .getOrNull(insertionIndex)
+                            ?.id
+                            ?: sameGroupCards.lastOrNull()?.id
                     }
                 },
                 onDragEnd = {
-                    if (draggingId == card.id && displayedCards.map { it.id } != dragStartOrder) {
-                        onReorder(displayedCards.map { it.id })
+                    if (draggingId == card.id && dragDropIndex >= 0) {
+                        val groupCards = displayedCards.filter {
+                            !showPinnedFirst || it.pinned == card.pinned
+                        }
+                        val remaining = groupCards.filterNot { it.id == card.id }
+                        val insertAt = dragDropIndex.coerceIn(0, remaining.size)
+                        val reorderedGroup = remaining.toMutableList().apply {
+                            add(insertAt, card)
+                        }
+                        val reorderedIds = displayedCards.map { item ->
+                            if (!showPinnedFirst || item.pinned == card.pinned) {
+                                reorderedGroup.removeFirstOrNull()?.id ?: item.id
+                            } else {
+                                item.id
+                            }
+                        }
+                        if (reorderedIds != dragStartOrder) {
+                            onReorder(reorderedIds)
+                        }
                     }
                     draggingId = null
                     dragOffset = 0f
+                    dragDropIndex = -1
                     dragTargetId = null
                     dragStartOrder = emptyList()
                 },
                 onDragCancel = {
                     draggingId = null
                     dragOffset = 0f
+                    dragDropIndex = -1
                     dragTargetId = null
                     dragStartOrder = emptyList()
                 },

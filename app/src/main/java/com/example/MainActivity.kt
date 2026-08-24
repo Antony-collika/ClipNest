@@ -267,7 +267,11 @@ fun MainAppContent(
                         },
                         onShareSelected = { vaultViewModel.shareSelected(context) },
                         onSaveFile = vaultViewModel::openExportDialog,
-                        onOpenEditor = { navigateToMainTab(1) },
+                        onOpenEditor = {
+                            vaultViewModel.copySelectedCardsThenOpenEditor(context) {
+                                navigateToMainTab(1)
+                            }
+                        },
                         onToggleShowPinnedFirst = vaultViewModel::toggleShowPinnedFirst
                     )
                     if (isMainTab) {
@@ -312,7 +316,11 @@ fun MainAppContent(
                 composable(Screen.Vault.route) {
                     VaultScreen(
                         viewModel = vaultViewModel,
-                        onOpenEditor = { navigateToMainTab(1) }
+                        onOpenEditor = {
+                            vaultViewModel.copySelectedCardsThenOpenEditor(context) {
+                                navigateToMainTab(1)
+                            }
+                        }
                     )
                 }
                 composable(Screen.Note.route) {
@@ -456,6 +464,9 @@ private fun MainTopBar(
                 DropdownMenu(
                     expanded = overflowExpanded,
                     onDismissRequest = { overflowExpanded = false },
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 2.dp,
+                    shadowElevation = 2.dp,
                     modifier = Modifier.testTag("main_overflow_menu")
                 ) {
                     if (isVault) {

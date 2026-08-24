@@ -3,6 +3,7 @@ package com.example.ui.vault
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -30,6 +31,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 data class VaultUiState(
@@ -51,6 +53,7 @@ data class VaultUiState(
 sealed class VaultEvent {
     data class ShowToast(val message: String) : VaultEvent()
     data object NavigateToEditor : VaultEvent()
+    data object RequestExportFolder : VaultEvent()
     data object NavigateToSettings : VaultEvent()
 }
 
@@ -477,7 +480,10 @@ class VaultViewModel(
         _showExportDialog.value = false
     }
 
-    fun exportFiles(fileName: String, format: ExportFormat) {
+    private data class PendingExport(val fileName: String, val format: ExportFormat)
+    private var pendingExport: PendingExport? = null
+
+    fun exportFiles(fileName: String, format: ExportFormat, contentResolver: android.content.ContentResolver) {
         val selected = _selectedIds.value
         val targetIds = if (selected.isNotEmpty()) {
             uiState.value.cards.filter { selected.contains(it.id) }.map { it.id }
@@ -491,9 +497,79 @@ class VaultViewModel(
                 ExportFormat.MARKDOWN -> ExportFormatter.formatMarkdown(cards)
                 ExportFormat.PLAIN_TEXT -> ExportFormatter.formatPlainText(cards)
             }
-            val file = fileManager.saveNewFile(fileName, format, formatted)
-            _showExportDialog.value = false
-            _eventFlow.emit(VaultEvent.ShowToast("Saved to ${file.name}"))
+            val folderUri = userSettings.value.defaultSaveFolderUri
+            if (folderUri.isNullOrBlank()) {
+                pendingExport = PendingExport(fileName.trim(), format)
+                _showExportDialog.value = false
+                _eventFlow.emit(VaultEvent.RequestExportFolder)
+            } else {
+                saveExportToFolder(contentResolver, android.net.Uri.parse(folderUri), fileName.trim(), format, formatted)
+            }
+        }
+    }
+
+    fun setExportFolder(uri: android.net.Uri, contentResolver: android.content.ContentResolver) {
+        runCatching {
+            contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            )
+        }
+        viewModelScope.launch {
+            settingsDataStore.setDefaultSaveFolderUri(uri.toString())
+            val request = pendingExport ?: return@launch
+            pendingExport = null
+            val selected = _selectedIds.value
+            val targetIds = if (selected.isNotEmpty()) {
+                uiState.value.cards.filter { selected.contains(it.id) }.map { it.id }
+            } else {
+                uiState.value.cards.map { it.id }
+            }
+            val cards = repository.getCardsByIds(targetIds)
+            val formatted = when (request.format) {
+                ExportFormat.MARKDOWN -> ExportFormatter.formatMarkdown(cards)
+                ExportFormat.PLAIN_TEXT -> ExportFormatter.formatPlainText(cards)
+            }
+            saveExportToFolder(contentResolver, uri, request.fileName, request.format, formatted)
+        }
+    }
+
+    private fun saveExportToFolder(
+        contentResolver: android.content.ContentResolver,
+        folderUri: android.net.Uri,
+        fileName: String,
+        format: ExportFormat,
+        content: String
+    ) {
+        viewModelScope.launch {
+            val saved = runCatching {
+                fileManager.saveNewFileToTree(contentResolver, folderUri, fileName, format, content)
+            }.getOrNull()
+            _eventFlow.emit(
+                VaultEvent.ShowToast(if (saved == null) "Could not save file" else "Saved file")
+            )
+        }
+    }
+
+    fun copySelectedCardsThenOpenEditor(context: Context, onComplete: () -> Unit) {
+        val selected = _selectedIds.value
+        if (selected.isEmpty()) {
+            onComplete()
+            return
+        }
+        val orderedSelectedIds = uiState.value.cards
+            .filter { selected.contains(it.id) }
+            .map { it.id }
+        viewModelScope.launch {
+            val fullCards = repository.getCardsByIds(orderedSelectedIds)
+            if (fullCards.isNotEmpty()) {
+                val combinedText = fullCards.joinToString("\\n\\n---\\n\\n") { it.content }
+                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText("Vault Cards", combinedText))
+            }
+            withContext(kotlinx.coroutines.Dispatchers.Main.immediate) {
+                onComplete()
+            }
         }
     }
 

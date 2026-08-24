@@ -103,6 +103,9 @@ class EditorViewModel(
                         isDirty = false,
                         lastSavedTimestamp = System.currentTimeMillis()
                     )
+                    if (_searchQuery.value.isNotBlank()) {
+                        updateSearchResults(_searchQuery.value)
+                    }
                 }
                 editorLoaded = true
             }
@@ -121,7 +124,12 @@ class EditorViewModel(
             content = newValue,
             isDirty = _uiState.value.isDirty || newValue.text != current.text
         )
-        if (newValue.text != current.text) scheduleDebouncedAutoSave()
+        if (newValue.text != current.text) {
+            if (_searchQuery.value.isNotBlank()) {
+                updateSearchResults(_searchQuery.value)
+            }
+            scheduleDebouncedAutoSave()
+        }
     }
 
     fun openSearch() {

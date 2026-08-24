@@ -49,15 +49,23 @@ class FileManager(private val context: android.content.Context) {
         format: ExportFormat,
         content: String
     ): Uri? {
+        val parentDocumentUri = if (DocumentsContract.isTreeUri(treeUri)) {
+            val treeDocumentId = DocumentsContract.getTreeDocumentId(treeUri)
+            DocumentsContract.buildDocumentUriUsingTree(treeUri, treeDocumentId)
+        } else {
+            treeUri
+        }
         val documentUri = DocumentsContract.createDocument(
             contentResolver,
-            treeUri,
+            parentDocumentUri,
             format.mimeType,
             buildFileName(baseName, format)
         ) ?: return null
 
-        contentResolver.openOutputStream(documentUri)?.use { output ->
-            output.write(content.toByteArray(StandardCharsets.UTF_8))
+        val bytes = content.toByteArray(StandardCharsets.UTF_8)
+        contentResolver.openOutputStream(documentUri, "wt")?.use { output ->
+            output.write(bytes)
+            output.flush()
         } ?: return null
         return documentUri
     }

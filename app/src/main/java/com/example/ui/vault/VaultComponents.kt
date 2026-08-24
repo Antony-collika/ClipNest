@@ -467,6 +467,9 @@ fun VaultTopBar(
                     DropdownMenu(
                         expanded = overflowExpanded,
                         onDismissRequest = { overflowExpanded = false },
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        tonalElevation = 2.dp,
+                        shadowElevation = 2.dp,
                         modifier = Modifier.testTag("vault_overflow_menu")
                     ) {
                         DropdownMenuItem(
@@ -619,12 +622,11 @@ fun ShareCaptureDialog(
     var isClipboardSelected by remember { mutableStateOf(hasClipboard) }
 
     val isAnySelected = (isSharedSelected && hasShared) || (isClipboardSelected && hasClipboard)
-    val isDark = MaterialTheme.colorScheme.background.red < 0.5f
 
     AlertDialog(
         onDismissRequest = onDismiss,
         shape = RoundedCornerShape(24.dp),
-        containerColor = if (isDark) MaterialTheme.colorScheme.surface else Color.White,
+        containerColor = MaterialTheme.colorScheme.surface,
         title = {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -668,11 +670,9 @@ fun ShareCaptureDialog(
                 if (hasClipboard) {
                     val isSelected = isClipboardSelected
                     val containerBg = if (isSelected) {
-                        if (isDark) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
-                        else Color(0xFFE8F5E9)
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
                     } else {
-                        if (isDark) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-                        else Color(0xFFF4F6F4)
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
                     }
                     val borderColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
 
@@ -734,11 +734,9 @@ fun ShareCaptureDialog(
                 if (hasShared) {
                     val isSelected = isSharedSelected
                     val containerBg = if (isSelected) {
-                        if (isDark) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
-                        else Color(0xFFE8F5E9)
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
                     } else {
-                        if (isDark) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-                        else Color(0xFFF4F6F4)
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
                     }
                     val borderColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
 

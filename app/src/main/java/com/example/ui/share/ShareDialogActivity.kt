@@ -183,8 +183,6 @@ fun ShareDialogOverlay(
     // If both exist, user can select both or either one
     val isAnySelected = (isSharedSelected && hasShared) || (isClipboardSelected && hasClipboard)
 
-    val isDark = MaterialTheme.colorScheme.background.red < 0.5f
-
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(
@@ -195,7 +193,7 @@ fun ShareDialogOverlay(
     ) {
         Surface(
             shape = RoundedCornerShape(24.dp),
-            color = if (isDark) MaterialTheme.colorScheme.surface else Color.White,
+            color = MaterialTheme.colorScheme.surface,
             tonalElevation = 6.dp,
             modifier = Modifier
                 .widthIn(max = 440.dp)
@@ -242,11 +240,9 @@ fun ShareDialogOverlay(
                 if (hasClipboard) {
                     val isSelected = isClipboardSelected
                     val containerBg = if (isSelected) {
-                        if (isDark) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
-                        else Color(0xFFE8F5E9)
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
                     } else {
-                        if (isDark) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-                        else Color(0xFFF4F6F4)
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
                     }
                     val borderColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
 
@@ -315,11 +311,9 @@ fun ShareDialogOverlay(
                 if (hasShared) {
                     val isSelected = isSharedSelected
                     val containerBg = if (isSelected) {
-                        if (isDark) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
-                        else Color(0xFFE8F5E9)
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
                     } else {
-                        if (isDark) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-                        else Color(0xFFF4F6F4)
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
                     }
                     val borderColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
 
