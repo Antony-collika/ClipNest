@@ -87,8 +87,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerInputChange
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -122,7 +125,8 @@ fun ClipboardCardItem(
     onLongPress: () -> Unit,
     onCopy: () -> Unit,
     onToggleRevealSensitive: () -> Unit,
-    onDragStart: () -> Unit,
+    onDragStart: (Offset) -> Unit,
+    onDragHandlePositioned: (Rect) -> Unit = {},
     onDrag: (PointerInputChange, Offset) -> Unit,
     onDragEnd: () -> Unit,
     onDragCancel: () -> Unit,
@@ -141,7 +145,7 @@ fun ClipboardCardItem(
             containerColor = if (isSelected) {
                 MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
             } else {
-                if (isDark) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f) else Color.White
+                MaterialTheme.colorScheme.surface
             }
         ),
         border = BorderStroke(
@@ -156,7 +160,7 @@ fun ClipboardCardItem(
                 isDropTarget -> MaterialTheme.colorScheme.primary.copy(alpha = 0.75f)
                 isSelected -> MaterialTheme.colorScheme.primary
                 isDark -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                else -> Color(0xFFE6EAE5)
+                else -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
             }
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = if (isDragging) 8.dp else 0.dp),
@@ -327,9 +331,12 @@ fun ClipboardCardItem(
                 modifier = Modifier
                     .size(48.dp)
                     .testTag("drag_handle_${card.id}")
+                    .onGloballyPositioned { coordinates ->
+                        onDragHandlePositioned(coordinates.boundsInWindow())
+                    }
                     .pointerInput(card.id) {
                         detectDragGestures(
-                            onDragStart = { onDragStart() },
+                            onDragStart = onDragStart,
                             onDragCancel = { onDragCancel() },
                             onDragEnd = { onDragEnd() },
                             onDrag = onDrag
@@ -345,25 +352,18 @@ private fun DragDots(
     tint: Color,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = modifier.padding(10.dp),
-        horizontalArrangement = Arrangement.spacedBy(3.dp),
-        verticalAlignment = Alignment.CenterVertically
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center
     ) {
-        repeat(2) {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(3.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                repeat(3) {
-                    Box(
-                        modifier = Modifier
-                            .size(3.dp)
-                            .background(tint, CircleShape)
-                    )
-                }
-            }
-        }
+        Text(
+            text = "::",
+            style = MaterialTheme.typography.titleMedium.copy(
+                color = tint,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp
+            )
+        )
     }
 }
 
@@ -603,13 +603,13 @@ fun VaultSelectionBar(
 fun ShareCaptureDialog(
     sharedText: String,
     onDismiss: () -> Unit,
-    onConfirm: (saveShared: Boolean, saveClipboard: Boolean) -> Unit
+    onConfirm: (saveShared: Boolean, saveClipboard: Boolean, clipboardSnapshot: String) -> Unit
 ) {
     val context = LocalContext.current
     val clipManager = remember { context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager }
     val clipboardText = remember {
         try {
-            clipManager.primaryClip?.getItemAt(0)?.text?.toString() ?: ""
+            clipManager.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString() ?: ""
         } catch (e: Exception) {
             ""
         }
@@ -802,7 +802,7 @@ fun ShareCaptureDialog(
                     Icon(
                         imageVector = Icons.Default.Lightbulb,
                         contentDescription = null,
-                        tint = Color(0xFFEAB308),
+                        tint = MaterialTheme.colorScheme.tertiary,
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
@@ -835,7 +835,7 @@ fun ShareCaptureDialog(
                 }
 
                 Button(
-                    onClick = { onConfirm(isSharedSelected, isClipboardSelected) },
+                    onClick = { onConfirm(isSharedSelected, isClipboardSelected, clipboardText) },
                     enabled = isAnySelected,
                     shape = RoundedCornerShape(24.dp),
                     colors = ButtonDefaults.buttonColors(
@@ -1115,6 +1115,7 @@ fun ClipboardPreviewPopup(
         .toInt()
     val popupWidth = minOf(360.dp, (configuration.screenWidthDp - 24).dp)
     val isMasked = card.isSensitive && isMaskingEnabled && !isSensitiveRevealed
+    val sensitiveColor = if (MaterialTheme.colorScheme.background.red < 0.5f) SensitiveAmberDark else SensitiveAmberLight
 
     fun dismissAnimated() {
         if (dismissing) return
@@ -1179,7 +1180,7 @@ fun ClipboardPreviewPopup(
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(
                                     text = "••••••••••••••••",
-                                    style = MaterialTheme.typography.bodyLarge.copy(color = Color(0xFFB7791F))
+                                    style = MaterialTheme.typography.bodyLarge.copy(color = sensitiveColor)
                                 )
                                 TextButton(onClick = onToggleRevealSensitive) {
                                     Text("Reveal sensitive content")

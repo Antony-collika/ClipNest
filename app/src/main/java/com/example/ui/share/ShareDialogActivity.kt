@@ -67,32 +67,59 @@ import kotlinx.coroutines.withContext
 
 class ShareDialogActivity : ComponentActivity() {
 
+    private var clipboardRead = false
+    private var sharedText by mutableStateOf("")
+    private var clipboardText by mutableStateOf("")
+    private var clipboardReady by mutableStateOf(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         overridePendingTransition(0, 0)
 
-        val sharedText = intent.getStringExtra(Intent.EXTRA_TEXT)
+        // The shared payload is safe to snapshot from the user-initiated Intent.
+        // The system clipboard is intentionally not read here: on Android 10+
+        // this activity may not yet own the focused window.
+        sharedText = intent.getStringExtra(Intent.EXTRA_TEXT)
             ?: intent.clipData?.getItemAt(0)?.text?.toString()
             ?: ""
 
-        val clipManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        val clipboardText = try {
-            clipManager.primaryClip?.getItemAt(0)?.text?.toString() ?: ""
-        } catch (e: Exception) {
-            ""
-        }
-
         setContent {
             ClipboardManagerTheme {
-                ShareDialogOverlay(
-                    sharedText = sharedText,
-                    clipboardText = clipboardText,
-                    onDismiss = { finishActivity() },
-                    onSave = { saveShared, saveClipboard ->
-                        saveSelections(saveShared, sharedText, saveClipboard, clipboardText)
-                    }
-                )
+                if (clipboardReady) {
+                    ShareDialogOverlay(
+                        sharedText = sharedText,
+                        clipboardText = clipboardText,
+                        onDismiss = { finishActivity() },
+                        onSave = { saveShared, saveClipboard ->
+                            saveSelections(saveShared, sharedText, saveClipboard, clipboardText)
+                        }
+                    )
+                }
             }
+        }
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus && !clipboardRead) {
+            clipboardRead = true
+            clipboardText = readCurrentClipboard()
+            clipboardReady = true
+        }
+    }
+
+    private fun readCurrentClipboard(): String {
+        return try {
+            val clipManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            clipManager.primaryClip
+                ?.takeIf { it.itemCount > 0 }
+                ?.getItemAt(0)
+                ?.coerceToText(this)
+                ?.toString()
+                ?.trim()
+                ?: ""
+        } catch (_: Exception) {
+            ""
         }
     }
 
@@ -386,7 +413,7 @@ fun ShareDialogOverlay(
                     Icon(
                         imageVector = Icons.Default.Lightbulb,
                         contentDescription = null,
-                        tint = Color(0xFFEAB308),
+                        tint = MaterialTheme.colorScheme.tertiary,
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))

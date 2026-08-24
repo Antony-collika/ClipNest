@@ -406,14 +406,13 @@ class VaultViewModel(
         _shareContent.value = ""
     }
 
-    fun saveShareSelections(saveShared: Boolean, saveClipboard: Boolean, context: Context) {
+    fun saveShareSelections(
+        saveShared: Boolean,
+        saveClipboard: Boolean,
+        clipboardSnapshot: String
+    ) {
         val shared = _shareContent.value.takeIf { saveShared && it.isNotBlank() }
-        val clipManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        val clipText = try {
-            clipManager.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString() ?: ""
-        } catch (_: Exception) {
-            ""
-        }.takeIf { saveClipboard && it.isNotBlank() }
+        val clipText = clipboardSnapshot.takeIf { saveClipboard && it.isNotBlank() }
 
         val payloads = when {
             clipText != null && shared != null && clipText != shared -> listOf(
@@ -563,7 +562,7 @@ class VaultViewModel(
         viewModelScope.launch {
             val fullCards = repository.getCardsByIds(orderedSelectedIds)
             if (fullCards.isNotEmpty()) {
-                val combinedText = fullCards.joinToString("\\n\\n---\\n\\n") { it.content }
+                val combinedText = fullCards.joinToString("\n\n---\n\n") { it.content }
                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 clipboard.setPrimaryClip(ClipData.newPlainText("Vault Cards", combinedText))
             }

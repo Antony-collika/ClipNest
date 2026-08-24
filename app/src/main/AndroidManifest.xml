@@ -35,6 +35,7 @@
             android:theme="@style/Theme.TransparentDialog"
             android:excludeFromRecents="true"
             android:noHistory="true"
+            android:taskAffinity=""
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />

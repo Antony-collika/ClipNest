@@ -13,8 +13,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -37,7 +41,6 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
@@ -45,6 +48,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -52,8 +57,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.model.ClipboardCardProjection
-import com.example.ui.common.FirstRunEducationDialog
-import kotlin.math.abs
+import kotlin.math.roundToInt
 
 @Composable
 fun VaultScreen(
@@ -70,17 +74,6 @@ fun VaultScreen(
         }
     }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val settingsLoaded by viewModel.settingsLoaded.collectAsStateWithLifecycle()
-    var educationReady by remember { mutableStateOf(false) }
-
-    LaunchedEffect(settingsLoaded, uiState.userSettings.firstRunEducationShown) {
-        educationReady = false
-        if (settingsLoaded) {
-            delay(160)
-            educationReady = true
-        }
-    }
-
     LaunchedEffect(Unit) {
         viewModel.eventFlow.collect { event ->
             when (event) {
@@ -160,9 +153,6 @@ fun VaultScreen(
         }
     }
 
-    if (educationReady && !uiState.userSettings.firstRunEducationShown) {
-        FirstRunEducationDialog(onDismiss = viewModel::markFirstRunEducationShown)
-    }
     if (uiState.showInAppCaptureSheet) {
         InAppCaptureSheet(
             onDismiss = viewModel::closeInAppCapture,
@@ -173,8 +163,8 @@ fun VaultScreen(
         ShareCaptureDialog(
             sharedText = uiState.shareContent,
             onDismiss = viewModel::dismissShareDialog,
-            onConfirm = { saveShared, saveClipboard ->
-                viewModel.saveShareSelections(saveShared, saveClipboard, context)
+            onConfirm = { saveShared, saveClipboard, clipboardSnapshot ->
+                viewModel.saveShareSelections(saveShared, saveClipboard, clipboardSnapshot)
             }
         )
     }
@@ -221,17 +211,23 @@ private fun VaultCardList(
     onReorder: (List<Long>) -> Unit
 ) {
     val (pinnedCards, normalCards) = cards.partition { it.pinned }
-    val initialDisplayedCards = if (showPinnedFirst) pinnedCards + normalCards else cards
-    var displayedCards by remember { mutableStateOf(initialDisplayedCards) }
+    val displayedFromState = if (showPinnedFirst) pinnedCards + normalCards else cards
+    var displayedCards by remember { mutableStateOf(displayedFromState) }
     var draggingId by remember { mutableStateOf<Long?>(null) }
-    var dragOffset by remember { mutableFloatStateOf(0f) }
+    var dragTotalDelta by remember { mutableFloatStateOf(0f) }
+    var pointerDownOffsetInCard by remember { mutableFloatStateOf(0f) }
+    var dragPointerAbsoluteY by remember { mutableFloatStateOf(0f) }
     var dragDropIndex by remember { mutableIntStateOf(-1) }
     var dragTargetId by remember { mutableStateOf<Long?>(null) }
     var dragStartOrder by remember { mutableStateOf<List<Long>>(emptyList()) }
+    var dragStartBounds by remember { mutableStateOf<Rect?>(null) }
+    var listBounds by remember { mutableStateOf<Rect?>(null) }
     val cardBounds = remember { mutableStateMapOf<Long, Rect>() }
+    val handleBounds = remember { mutableStateMapOf<Long, Rect>() }
+    val density = LocalDensity.current
     val listState = rememberLazyListState()
 
-    LaunchedEffect(cards) {
+    LaunchedEffect(cards, showPinnedFirst) {
         if (draggingId == null) {
             displayedCards = if (showPinnedFirst) {
                 cards.filter { it.pinned } + cards.filterNot { it.pinned }
@@ -241,141 +237,194 @@ private fun VaultCardList(
         }
     }
 
-    LazyColumn(
-        state = listState,
-        contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 2.dp, bottom = 88.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .testTag("vault_card_list")
-    ) {
-        if (showPinnedFirst && pinnedCards.isNotEmpty()) {
-            item(key = "pinned_header") {
-                Text(
-                    text = "PINNED",
-                    style = MaterialTheme.typography.labelMedium.copy(
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold
-                    ),
-                    modifier = Modifier.padding(start = 4.dp, top = 4.dp, bottom = 2.dp)
-                )
+            .onGloballyPositioned { coordinates ->
+                listBounds = coordinates.boundsInWindow()
             }
-        }
-
-        items(displayedCards, key = { it.id }) { card ->
-            if (showPinnedFirst && normalCards.isNotEmpty() && card.id == normalCards.first().id) {
-                Column(modifier = Modifier.padding(vertical = 4.dp)) {
-                    HorizontalDivider(
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                        modifier = Modifier.testTag("pinned_first_divider")
-                    )
+    ) {
+        LazyColumn(
+            state = listState,
+            contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 2.dp, bottom = 88.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .testTag("vault_card_list")
+        ) {
+            if (showPinnedFirst && pinnedCards.isNotEmpty()) {
+                item(key = "pinned_header") {
                     Text(
-                        text = "OTHER",
+                        text = "PINNED",
                         style = MaterialTheme.typography.labelMedium.copy(
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold
                         ),
-                        modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 2.dp)
+                        modifier = Modifier.padding(start = 4.dp, top = 4.dp, bottom = 2.dp)
                     )
                 }
             }
 
-            val isDragging = draggingId == card.id
-            ClipboardCardItem(
-                card = card,
-                isSelected = selectedIds.contains(card.id),
-                isSensitiveRevealed = revealedSensitiveIds.contains(card.id),
-                isMaskingEnabled = isMaskingEnabled,
-                isDragging = isDragging,
-                isDropTarget = draggingId != null && dragTargetId == card.id && draggingId != card.id,
-                onToggleSelect = { onToggleSelect(card.id) },
-                onLongPress = {
-                    onLongPress(card.id, cardBounds[card.id]?.center?.y ?: 0f)
-                },
-                onCopy = { onCopy(card.id) },
-                onToggleRevealSensitive = { onToggleRevealSensitive(card.id) },
-                onDragStart = {
-                    draggingId = card.id
-                    dragOffset = 0f
-                    dragDropIndex = displayedCards
-                        .filter { !showPinnedFirst || it.pinned == card.pinned }
-                        .indexOfFirst { it.id == card.id }
-                        .coerceAtLeast(0)
-                    dragTargetId = null
-                    dragStartOrder = displayedCards.map { it.id }
-                },
-                onDrag = { change, dragAmount ->
-                    if (draggingId != card.id) return@ClipboardCardItem
-                    change.consume()
-                    dragOffset += dragAmount.y
+            items(displayedCards, key = { it.id }) { card ->
+                if (showPinnedFirst && normalCards.isNotEmpty() && card.id == normalCards.first().id) {
+                    Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.testTag("pinned_first_divider")
+                        )
+                        Text(
+                            text = "OTHER",
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = FontWeight.Bold
+                            ),
+                            modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 2.dp)
+                        )
+                    }
+                }
 
-                    // Keep the dragged card in its original LazyColumn slot while moving.
-                    // Reordering the backing list during pointer movement was the source of
-                    // the first-item snap and made the visual card lose its finger anchor.
-                    val draggedBounds = cardBounds[card.id]
-                    if (draggedBounds != null) {
-                        val draggedCenter = draggedBounds.center.y + dragOffset
-                        val sameGroupCards = displayedCards.filter {
-                            it.id != card.id && (!showPinnedFirst || it.pinned == card.pinned)
-                        }
-                        val insertionIndex = sameGroupCards.count { target ->
-                            val targetBounds = cardBounds[target.id]
-                            targetBounds != null && draggedCenter > targetBounds.center.y
-                        }
-                        dragDropIndex = insertionIndex
-                        dragTargetId = sameGroupCards
-                            .getOrNull(insertionIndex)
-                            ?.id
-                            ?: sameGroupCards.lastOrNull()?.id
-                    }
-                },
-                onDragEnd = {
-                    if (draggingId == card.id && dragDropIndex >= 0) {
-                        val groupCards = displayedCards.filter {
-                            !showPinnedFirst || it.pinned == card.pinned
-                        }
-                        val remaining = groupCards.filterNot { it.id == card.id }
-                        val insertAt = dragDropIndex.coerceIn(0, remaining.size)
-                        val reorderedGroup = remaining.toMutableList().apply {
-                            add(insertAt, card)
-                        }
-                        val reorderedIds = displayedCards.map { item ->
-                            if (!showPinnedFirst || item.pinned == card.pinned) {
-                                reorderedGroup.removeFirstOrNull()?.id ?: item.id
-                            } else {
-                                item.id
+                val isDragging = draggingId == card.id
+                if (isDragging) {
+                    val measuredHeight = cardBounds[card.id]?.height ?: with(density) { 72.dp.toPx() }
+                    Spacer(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(with(density) { measuredHeight.coerceAtLeast(1f).toDp() })
+                            .testTag("drag_placeholder_${card.id}")
+                    )
+                } else {
+                    ClipboardCardItem(
+                        card = card,
+                        isSelected = selectedIds.contains(card.id),
+                        isSensitiveRevealed = revealedSensitiveIds.contains(card.id),
+                        isMaskingEnabled = isMaskingEnabled,
+                        isDragging = false,
+                        isDropTarget = draggingId != null && dragTargetId == card.id,
+                        onToggleSelect = { onToggleSelect(card.id) },
+                        onLongPress = {
+                            onLongPress(card.id, cardBounds[card.id]?.center?.y ?: 0f)
+                        },
+                        onCopy = { onCopy(card.id) },
+                        onToggleRevealSensitive = { onToggleRevealSensitive(card.id) },
+                        onDragStart = { pointerPosition ->
+                            val itemBounds = cardBounds[card.id] ?: return@ClipboardCardItem
+                            val handle = handleBounds[card.id]
+                            val pointerAbsoluteY = handle?.top?.plus(pointerPosition.y)
+                                ?: itemBounds.center.y
+                            draggingId = card.id
+                            dragTotalDelta = 0f
+                            pointerDownOffsetInCard = pointerAbsoluteY - itemBounds.top
+                            dragPointerAbsoluteY = pointerAbsoluteY
+                            dragStartBounds = itemBounds
+                            dragDropIndex = displayedCards
+                                .filter { !showPinnedFirst || it.pinned == card.pinned }
+                                .indexOfFirst { it.id == card.id }
+                                .coerceAtLeast(0)
+                            dragTargetId = null
+                            dragStartOrder = displayedCards.map { it.id }
+                        },
+                        onDragHandlePositioned = { bounds ->
+                            handleBounds[card.id] = bounds
+                        },
+                        onDrag = { change, dragAmount ->
+                            if (draggingId != card.id) return@ClipboardCardItem
+                            change.consume()
+                            dragTotalDelta += dragAmount.y
+                            dragPointerAbsoluteY += dragAmount.y
+
+                            val startBounds = dragStartBounds ?: return@ClipboardCardItem
+                            val draggedCenter = startBounds.top + dragTotalDelta + startBounds.height / 2f
+                            val sameGroupCards = displayedCards.filter {
+                                it.id != card.id && (!showPinnedFirst || it.pinned == card.pinned)
                             }
-                        }
-                        if (reorderedIds != dragStartOrder) {
-                            onReorder(reorderedIds)
-                        }
-                    }
-                    draggingId = null
-                    dragOffset = 0f
-                    dragDropIndex = -1
-                    dragTargetId = null
-                    dragStartOrder = emptyList()
-                },
-                onDragCancel = {
-                    draggingId = null
-                    dragOffset = 0f
-                    dragDropIndex = -1
-                    dragTargetId = null
-                    dragStartOrder = emptyList()
-                },
+                            val insertionIndex = sameGroupCards.count { target ->
+                                cardBounds[target.id]?.center?.y?.let { draggedCenter > it } == true
+                            }
+                            dragDropIndex = insertionIndex
+                            dragTargetId = sameGroupCards
+                                .getOrNull(insertionIndex)
+                                ?.id
+                                ?: sameGroupCards.lastOrNull()?.id
+                        },
+                        onDragEnd = {
+                            if (draggingId == card.id && dragDropIndex >= 0) {
+                                val groupCards = displayedCards.filter {
+                                    !showPinnedFirst || it.pinned == card.pinned
+                                }
+                                val remaining = groupCards.filterNot { it.id == card.id }.toMutableList()
+                                val insertAt = dragDropIndex.coerceIn(0, remaining.size)
+                                remaining.add(insertAt, card)
+                                val reorderedIds = displayedCards.map { item ->
+                                    if (!showPinnedFirst || item.pinned == card.pinned) {
+                                        remaining.removeFirstOrNull()?.id ?: item.id
+                                    } else {
+                                        item.id
+                                    }
+                                }
+                                if (reorderedIds != dragStartOrder) {
+                                    onReorder(reorderedIds)
+                                }
+                            }
+                            draggingId = null
+                            dragTotalDelta = 0f
+                            pointerDownOffsetInCard = 0f
+                            dragPointerAbsoluteY = 0f
+                            dragDropIndex = -1
+                            dragTargetId = null
+                            dragStartOrder = emptyList()
+                            dragStartBounds = null
+                        },
+                        onDragCancel = {
+                            draggingId = null
+                            dragTotalDelta = 0f
+                            pointerDownOffsetInCard = 0f
+                            dragPointerAbsoluteY = 0f
+                            dragDropIndex = -1
+                            dragTargetId = null
+                            dragStartOrder = emptyList()
+                            dragStartBounds = null
+                        },
+                        modifier = Modifier
+                            .zIndex(if (dragTargetId == card.id) 1f else 0f)
+                            .onGloballyPositioned { coordinates ->
+                                cardBounds[card.id] = coordinates.boundsInWindow()
+                            }
+                    )
+                }
+            }
+        }
+
+        val draggedCard = displayedCards.firstOrNull { it.id == draggingId }
+        val startBounds = dragStartBounds
+        val containerBounds = listBounds
+        if (draggedCard != null && startBounds != null && containerBounds != null) {
+            val proxyTop = (dragPointerAbsoluteY - pointerDownOffsetInCard - containerBounds.top)
+                .coerceIn(0f, (containerBounds.height - startBounds.height).coerceAtLeast(0f))
+            ClipboardCardItem(
+                card = draggedCard,
+                isSelected = selectedIds.contains(draggedCard.id),
+                isSensitiveRevealed = revealedSensitiveIds.contains(draggedCard.id),
+                isMaskingEnabled = isMaskingEnabled,
+                isDragging = true,
+                isDropTarget = false,
+                onToggleSelect = {},
+                onLongPress = {},
+                onCopy = {},
+                onToggleRevealSensitive = {},
+                onDragStart = { _ -> },
+                onDragHandlePositioned = { _ -> },
+                onDrag = { _, _ -> },
+                onDragEnd = {},
+                onDragCancel = {},
                 modifier = Modifier
-                    .then(if (!isDragging) Modifier.animateItemPlacement(animationSpec = tween(150)) else Modifier)
-                    .zIndex(if (isDragging) 1f else 0f)
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp)
+                    .offset { IntOffset(0, proxyTop.roundToInt()) }
+                    .zIndex(10f)
                     .graphicsLayer {
-                        if (isDragging) {
-                            translationY = dragOffset
-                            scaleX = 1.02f
-                            scaleY = 1.02f
-                            shadowElevation = 8.dp.toPx()
-                        }
-                    }
-                    .onGloballyPositioned { coordinates ->
-                        cardBounds[card.id] = coordinates.boundsInWindow()
+                        scaleX = 1.02f
+                        scaleY = 1.02f
+                        shadowElevation = 8.dp.toPx()
                     }
             )
         }

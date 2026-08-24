@@ -44,4 +44,13 @@ class TextNormalizerTest {
         assertEquals("Shared Only", TextNormalizer.combine("Shared Only", ""))
         assertEquals("Clip Only", TextNormalizer.combine("", "Clip Only"))
     }
+
+    @Test
+    fun combine_usesRealNewlinesAndCanPlaceClipboardBeforeShared() {
+        val combined = TextNormalizer.combine("Copied clipboard", "https://example.com")
+
+        assertEquals("Copied clipboard\n\n---\n\nhttps://example.com", combined)
+        assertEquals(-1, combined.indexOf("\\\\n"))
+        assertEquals(-1, combined.indexOf("\\n"))
+    }
 }
