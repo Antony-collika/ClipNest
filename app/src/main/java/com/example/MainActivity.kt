@@ -58,7 +58,9 @@ import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.rememberDrawerState
 import kotlinx.coroutines.launch
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -99,13 +101,6 @@ class MainActivity : ComponentActivity() {
         VaultViewModelFactory(repository, settingsDataStore, fileManager)
     }
 
-    private val editorViewModel: EditorViewModel by viewModels {
-        EditorViewModelFactory(fileManager, settingsDataStore)
-    }
-
-    private val settingsViewModel: SettingsViewModel by viewModels {
-        SettingsViewModelFactory(settingsDataStore, repository, fileManager)
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -146,8 +141,8 @@ class MainActivity : ComponentActivity() {
             ClipboardManagerTheme(themeMode = userSettings.themeMode) {
                 MainAppContent(
                     vaultViewModel = vaultViewModel,
-                    editorViewModel = editorViewModel,
-                    settingsViewModel = settingsViewModel
+                    editorViewModelFactory = EditorViewModelFactory(fileManager, settingsDataStore),
+                    settingsViewModelFactory = SettingsViewModelFactory(settingsDataStore, repository, fileManager)
                 )
             }
         }
@@ -170,8 +165,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainAppContent(
     vaultViewModel: VaultViewModel,
-    editorViewModel: EditorViewModel,
-    settingsViewModel: SettingsViewModel
+    editorViewModelFactory: ViewModelProvider.Factory,
+    settingsViewModelFactory: ViewModelProvider.Factory
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -253,9 +248,11 @@ fun MainAppContent(
                     )
                 }
                 composable(Screen.Note.route) {
+                    val editorViewModel: EditorViewModel = viewModel(factory = editorViewModelFactory)
                     EditorScreen(viewModel = editorViewModel)
                 }
                 composable(Screen.Settings.route) {
+                    val settingsViewModel: SettingsViewModel = viewModel(factory = settingsViewModelFactory)
                     SettingsScreen(viewModel = settingsViewModel)
                 }
             }
