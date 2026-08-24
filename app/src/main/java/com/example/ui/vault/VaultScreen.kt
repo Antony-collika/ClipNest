@@ -2,25 +2,17 @@ package com.example.ui.vault
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -28,27 +20,16 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.boundsInWindow
-import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.data.model.ClipboardCardProjection
 
 @Composable
 fun VaultScreen(
@@ -68,7 +49,11 @@ fun VaultScreen(
     LaunchedEffect(Unit) {
         viewModel.eventFlow.collect { event ->
             when (event) {
-                is VaultEvent.ShowToast -> android.widget.Toast.makeText(context, event.message, android.widget.Toast.LENGTH_SHORT).show()
+                is VaultEvent.ShowToast -> android.widget.Toast.makeText(
+                    context,
+                    event.message,
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
                 VaultEvent.NavigateToEditor -> onOpenEditor()
                 VaultEvent.RequestExportFolder -> exportFolderLauncher.launch(null)
                 VaultEvent.NavigateToSettings -> Unit
@@ -109,6 +94,7 @@ fun VaultScreen(
                     revealedSensitiveIds = uiState.revealedSensitiveCardIds,
                     isMaskingEnabled = uiState.userSettings.isSensitivePreviewMasked,
                     showPinnedFirst = uiState.userSettings.showPinnedFirst,
+                    searchQuery = uiState.searchQuery,
                     onToggleSelect = viewModel::toggleCardSelection,
                     onLongPress = { id, anchorY -> viewModel.openPreview(id, anchorY) },
                     onCopy = { id -> viewModel.copySingleCard(context, id) },
@@ -162,244 +148,56 @@ fun VaultScreen(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun VaultCardList(
-    cards: List<ClipboardCardProjection>,
+    cards: List<com.example.data.model.ClipboardCardProjection>,
     selectedIds: Set<Long>,
     revealedSensitiveIds: Set<Long>,
     isMaskingEnabled: Boolean,
     showPinnedFirst: Boolean,
+    searchQuery: String,
     onToggleSelect: (Long) -> Unit,
     onLongPress: (Long, Float) -> Unit,
     onCopy: (Long) -> Unit,
     onToggleRevealSensitive: (Long) -> Unit,
     onReorder: (List<Long>) -> Unit
 ) {
-    val (pinnedCards, normalCards) = cards.partition { it.pinned }
-    val displayedFromState = if (showPinnedFirst) pinnedCards + normalCards else cards
-    var displayedCards by remember { mutableStateOf(displayedFromState) }
-    var draggingId by remember { mutableStateOf<Long?>(null) }
-    var dragPointerViewportY by remember { mutableFloatStateOf(0f) }
-    var pointerOffsetInItem by remember { mutableFloatStateOf(0f) }
-    var dragTargetIndex by remember { mutableIntStateOf(-1) }
-    var dragTargetId by remember { mutableStateOf<Long?>(null) }
-    var dragStartOrder by remember { mutableStateOf<List<Long>>(emptyList()) }
-    var dragStartCards by remember { mutableStateOf<List<ClipboardCardProjection>>(emptyList()) }
-    val handleBounds = remember { mutableStateMapOf<Long, Rect>() }
-    val density = LocalDensity.current
-    val listState = rememberLazyListState()
-    var listBounds by remember { mutableStateOf<Rect?>(null) }
+    val isDark = MaterialTheme.colorScheme.background.red < 0.5f
+    val colors = VaultRecyclerColors(
+        surface = MaterialTheme.colorScheme.surface.toArgb(),
+        onSurface = MaterialTheme.colorScheme.onSurface.toArgb(),
+        onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant.toArgb(),
+        primary = MaterialTheme.colorScheme.primary.toArgb(),
+        primaryContainer = MaterialTheme.colorScheme.primaryContainer.toArgb(),
+        outlineVariant = MaterialTheme.colorScheme.outlineVariant.toArgb(),
+        pinned = if (isDark) android.graphics.Color.rgb(74, 222, 128) else android.graphics.Color.rgb(21, 128, 61),
+        sensitive = if (isDark) android.graphics.Color.rgb(251, 191, 36) else android.graphics.Color.rgb(217, 119, 6)
+    )
 
-    LaunchedEffect(cards, showPinnedFirst) {
-        if (draggingId == null) {
-            displayedCards = if (showPinnedFirst) {
-                cards.filter { it.pinned } + cards.filterNot { it.pinned }
-            } else {
-                cards
-            }
-        }
-    }
-
-    LaunchedEffect(draggingId) {
-        while (draggingId != null) {
-            val layoutInfo = listState.layoutInfo
-            val edge = with(density) { 56.dp.toPx() }
-            val topEdge = layoutInfo.viewportStartOffset + edge
-            val bottomEdge = layoutInfo.viewportEndOffset - edge
-            val scrollDelta = when {
-                dragPointerViewportY < topEdge ->
-                    -(((topEdge - dragPointerViewportY) / edge) * 18f).coerceIn(4f, 18f)
-                dragPointerViewportY > bottomEdge ->
-                    (((dragPointerViewportY - bottomEdge) / edge) * 18f).coerceIn(4f, 18f)
-                else -> 0f
-            }
-            if (scrollDelta != 0f) listState.scrollBy(scrollDelta)
-            kotlinx.coroutines.delay(16L)
-        }
-    }
-
-    fun resetDrag(restoreCards: Boolean) {
-        if (restoreCards && dragStartCards.isNotEmpty()) displayedCards = dragStartCards
-        draggingId = null
-        dragPointerViewportY = 0f
-        pointerOffsetInItem = 0f
-        dragTargetIndex = -1
-        dragTargetId = null
-        dragStartOrder = emptyList()
-        dragStartCards = emptyList()
-    }
-
-    Box(
+    AndroidView(
+        factory = { context -> VaultRecyclerView(context) },
+        update = { recyclerView ->
+            recyclerView.render(
+                cards = cards,
+                selectedIds = selectedIds,
+                revealedSensitiveIds = revealedSensitiveIds,
+                isMaskingEnabled = isMaskingEnabled,
+                showPinnedFirst = showPinnedFirst,
+                searchQuery = searchQuery,
+                colors = colors,
+                callbacks = VaultRecyclerCallbacks(
+                    onToggleSelect = onToggleSelect,
+                    onLongPress = onLongPress,
+                    onCopy = onCopy,
+                    onToggleRevealSensitive = onToggleRevealSensitive,
+                    onReorder = onReorder
+                )
+            )
+        },
         modifier = Modifier
             .fillMaxSize()
-            .onGloballyPositioned { coordinates ->
-                listBounds = coordinates.boundsInWindow()
-            }
-    ) {
-        LazyColumn(
-            state = listState,
-            contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 2.dp, bottom = 88.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier
-                .fillMaxSize()
-                .testTag("vault_card_list")
-        ) {
-            if (showPinnedFirst && pinnedCards.isNotEmpty()) {
-                item(key = "pinned_header") {
-                    Text(
-                        text = "PINNED",
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold
-                        ),
-                        modifier = Modifier.padding(start = 4.dp, top = 4.dp, bottom = 2.dp)
-                    )
-                }
-            }
-
-            items(displayedCards, key = { it.id }) { card ->
-                if (showPinnedFirst && normalCards.isNotEmpty() && card.id == normalCards.first().id) {
-                    Column(modifier = Modifier.padding(vertical = 4.dp)) {
-                        HorizontalDivider(
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                            modifier = Modifier.testTag("pinned_first_divider")
-                        )
-                        Text(
-                            text = "OTHER",
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = FontWeight.Bold
-                            ),
-                            modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 2.dp)
-                        )
-                    }
-                }
-
-                val isDragging = draggingId == card.id
-                ClipboardCardItem(
-                    card = card,
-                    isSelected = selectedIds.contains(card.id),
-                    isSensitiveRevealed = revealedSensitiveIds.contains(card.id),
-                    isMaskingEnabled = isMaskingEnabled,
-                    isDragging = isDragging,
-                    isDropTarget = draggingId != null && dragTargetId == card.id,
-                    onToggleSelect = { onToggleSelect(card.id) },
-                    onLongPress = {
-                        val anchorY = listBounds?.top?.plus(
-                            listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == card.id }?.let { info ->
-                                info.offset + info.size / 2f
-                            } ?: 0f
-                        ) ?: 0f
-                        onLongPress(card.id, anchorY)
-                    },
-                    onCopy = { onCopy(card.id) },
-                    onToggleRevealSensitive = { onToggleRevealSensitive(card.id) },
-                    onDragStart = { pointerPosition ->
-                        val itemInfo = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == card.id }
-                            ?: return@ClipboardCardItem
-                        val listTop = listBounds?.top ?: return@ClipboardCardItem
-                        val handle = handleBounds[card.id] ?: return@ClipboardCardItem
-                        val pointerViewportY = handle.top + pointerPosition.y - listTop
-                        draggingId = card.id
-                        dragPointerViewportY = pointerViewportY
-                        pointerOffsetInItem = pointerViewportY - itemInfo.offset
-                        dragTargetIndex = displayedCards.indexOfFirst { it.id == card.id }.coerceAtLeast(0)
-                        dragTargetId = null
-                        dragStartOrder = displayedCards.map { it.id }
-                        dragStartCards = displayedCards
-                    },
-                    onDragHandlePositioned = { bounds ->
-                        handleBounds[card.id] = bounds
-                    },
-                    onDrag = { change, dragAmount ->
-                        if (draggingId != card.id) return@ClipboardCardItem
-                        change.consume()
-                        dragPointerViewportY += dragAmount.y
-
-                        val activeIndex = displayedCards.indexOfFirst { it.id == card.id }
-                        if (activeIndex < 0) return@ClipboardCardItem
-                        val groupStart = if (showPinnedFirst) {
-                            displayedCards.indexOfFirst { it.pinned == card.pinned }.coerceAtLeast(0)
-                        } else 0
-                        val groupEnd = if (showPinnedFirst) {
-                            displayedCards.indexOfLast { it.pinned == card.pinned }.coerceAtLeast(groupStart)
-                        } else {
-                            (displayedCards.size - 1).coerceAtLeast(0)
-                        }
-
-                        val layoutInfo = listState.layoutInfo
-                        var targetIndex = dragTargetIndex.coerceIn(groupStart, groupEnd)
-                        val hysteresis = with(density) { 4.dp.toPx() }
-                        var changed = true
-                        while (changed) {
-                            changed = false
-                            if (targetIndex < groupEnd) {
-                                val nextInfo = layoutInfo.visibleItemsInfo.firstOrNull {
-                                    it.key == displayedCards[targetIndex + 1].id
-                                }
-                                if (nextInfo != null && dragPointerViewportY > nextInfo.offset + nextInfo.size / 2f + hysteresis) {
-                                    targetIndex++
-                                    changed = true
-                                }
-                            }
-                            if (targetIndex > groupStart) {
-                                val previousInfo = layoutInfo.visibleItemsInfo.firstOrNull {
-                                    it.key == displayedCards[targetIndex - 1].id
-                                }
-                                if (previousInfo != null && dragPointerViewportY < previousInfo.offset + previousInfo.size / 2f - hysteresis) {
-                                    targetIndex--
-                                    changed = true
-                                }
-                            }
-                        }
-                        if (targetIndex != dragTargetIndex) {
-                            val movingDown = targetIndex > activeIndex
-                            val reordered = displayedCards.toMutableList()
-                            val moving = reordered.removeAt(activeIndex)
-                            val insertAt = targetIndex.coerceIn(0, reordered.size)
-                            reordered.add(insertAt, moving)
-                            displayedCards = reordered
-                            dragTargetIndex = insertAt
-                            dragTargetId = if (movingDown) {
-                                reordered.getOrNull(insertAt - 1)?.id
-                            } else {
-                                reordered.getOrNull(insertAt + 1)?.id
-                            }
-                        }
-                    },
-                    onDragEnd = {
-                        if (draggingId == card.id) {
-                            val finalOrder = displayedCards.map { it.id }
-                            if (finalOrder != dragStartOrder) onReorder(finalOrder)
-                        }
-                        resetDrag(restoreCards = false)
-                    },
-                    onDragCancel = {
-                        resetDrag(restoreCards = true)
-                    },
-                    modifier = (if (!isDragging) Modifier.animateItem() else Modifier)
-                        .zIndex(if (isDragging) 2f else if (dragTargetId == card.id) 1f else 0f)
-                        .graphicsLayer {
-                            val currentOffset = listState.layoutInfo.visibleItemsInfo
-                                .firstOrNull { it.key == card.id }?.offset ?: 0
-                            translationY = if (isDragging) {
-                                dragPointerViewportY - pointerOffsetInItem - currentOffset
-                            } else 0f
-                            if (isDragging) {
-                                scaleX = 1.015f
-                                scaleY = 1.015f
-                                shadowElevation = 6.dp.toPx()
-                            } else {
-                                scaleX = 1f
-                                scaleY = 1f
-                                shadowElevation = 0f
-                            }
-                        }
-                )
-            }
-        }
-    }
+            .testTag("vault_card_list")
+    )
 }
 
 @Composable
@@ -412,7 +210,7 @@ private fun VaultEmptyState(
             .fillMaxSize()
             .padding(32.dp)
             .testTag("vault_empty_state"),
-        horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+        horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Icon(

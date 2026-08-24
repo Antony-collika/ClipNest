@@ -25,7 +25,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
@@ -33,24 +32,25 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ModalDrawerSheet
-import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.TriStateCheckbox
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,9 +58,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.material3.DrawerValue
-import androidx.compose.material3.rememberDrawerState
-import kotlinx.coroutines.launch
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -85,6 +82,7 @@ import com.example.ui.theme.ClipboardManagerTheme
 import com.example.ui.vault.VaultScreen
 import com.example.ui.vault.VaultViewModel
 import com.example.ui.vault.VaultViewModelFactory
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
@@ -103,7 +101,6 @@ class MainActivity : ComponentActivity() {
     private val vaultViewModel: VaultViewModel by viewModels {
         VaultViewModelFactory(repository, settingsDataStore, fileManager)
     }
-
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -186,12 +183,17 @@ fun MainAppContent(
         pageCount = { 2 }
     )
     val scope = rememberCoroutineScope()
-    val drawerState = rememberDrawerState(DrawerValue.Closed)
     val isSettings = currentRoute == Screen.Settings.route
     val isEditorTab = !isSettings && pagerState.currentPage == 1
     val selectedTab = pagerState.currentPage.coerceIn(0, 1)
     val selectedCards = vaultState.cards.filter { vaultState.selectedIds.contains(it.id) }
-    val allSelectedPinned = selectedCards.isNotEmpty() && selectedCards.all { it.pinned }
+    val visibleSelectedCount = selectedCards.size
+    val allSelected = vaultState.cards.isNotEmpty() && visibleSelectedCount == vaultState.cards.size
+    val selectionState = when {
+        allSelected -> ToggleableState.On
+        visibleSelectedCount > 0 -> ToggleableState.Indeterminate
+        else -> ToggleableState.Off
+    }
 
     fun openEditorFromVault() {
         vaultViewModel.copySelectedCardsThenOpenEditor(context) {
@@ -199,105 +201,101 @@ fun MainAppContent(
         }
     }
 
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
-            ModalDrawerSheet {
-                Text(
-                    text = "Clipboard Manager",
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 24.dp)
-                )
-                NavigationDrawerItem(
-                    label = { Text("Settings") },
-                    selected = isSettings,
-                    onClick = {
-                        scope.launch { drawerState.close() }
-                        navController.navigate(Screen.Settings.route) { launchSingleTop = true }
+    Scaffold(
+        topBar = {
+            Column {
+                MainTopBar(
+                    title = when {
+                        isSettings -> "Settings"
+                        selectedTab == 0 -> "Vault"
+                        else -> "Editor"
                     },
-                    modifier = Modifier.padding(horizontal = 12.dp).testTag("drawer_settings_item")
+                    isVault = !isSettings && selectedTab == 0,
+                    isEditor = !isSettings && selectedTab == 1,
+                    selectedCount = if (isSettings) 0 else vaultState.selectedIds.size,
+                    selectionState = selectionState,
+                    allSelectedPinned = !isSettings && selectedCards.isNotEmpty() && selectedCards.all { it.pinned },
+                    showPinnedFirst = vaultState.userSettings.showPinnedFirst,
+                    isSearchOpen = if (isEditorTab) editorSearchOpen else vaultState.isSearchOpen,
+                    searchQuery = if (isEditorTab) editorSearchQuery else vaultState.searchQuery,
+                    searchPlaceholder = if (isEditorTab) "Search editor..." else "Search vault...",
+                    editorSearchMatchCount = editorSearchMatchCount,
+                    editorActiveSearchMatch = editorActiveSearchMatch,
+                    onPreviousSearchMatch = editorViewModel::previousSearchMatch,
+                    onNextSearchMatch = editorViewModel::nextSearchMatch,
+                    onSearchOpen = if (isEditorTab) editorViewModel::openSearch else vaultViewModel::openSearch,
+                    onSearchClose = if (isEditorTab) editorViewModel::closeSearch else vaultViewModel::closeSearch,
+                    onSearchQueryChange = if (isEditorTab) editorViewModel::setSearchQuery else vaultViewModel::setSearchQuery,
+                    onToggleSelectAll = {
+                        if (allSelected) vaultViewModel.clearSelection() else vaultViewModel.selectAll()
+                    },
+                    onShareSelected = { vaultViewModel.shareSelected(context) },
+                    onSaveFile = vaultViewModel::openExportDialog,
+                    onOpenEditor = ::openEditorFromVault,
+                    onToggleShowPinnedFirst = vaultViewModel::toggleShowPinnedFirst,
+                    onPinSelected = vaultViewModel::togglePinSelected,
+                    onCopySelected = { vaultViewModel.copySelectedCards(context) },
+                    onDeleteSelected = vaultViewModel::requestDeleteSelected,
+                    onOpenSettings = {
+                        navController.navigate(Screen.Settings.route) { launchSingleTop = true }
+                    }
                 )
-            }
-        }
-    ) {
-        Scaffold(
-            topBar = {
-                Column {
-                                            MainTopBar(
-                            title = when {
-                                isSettings -> "Settings"
-                                selectedTab == 0 -> "Vault"
-                                else -> "Editor"
-                            },
-
-                        isVault = !isSettings && selectedTab == 0,
-                        isEditor = !isSettings && selectedTab == 1,
-                                                    selectedCount = if (isSettings) 0 else vaultState.selectedIds.size,
-                            allSelectedPinned = !isSettings && allSelectedPinned,
-                            allSelected = !isSettings && vaultState.cards.isNotEmpty() &&
-
-                            vaultState.selectedIds.size == vaultState.cards.size,
-                        showPinnedFirst = vaultState.userSettings.showPinnedFirst,
-                        isSearchOpen = if (isEditorTab) editorSearchOpen else vaultState.isSearchOpen,
-                        searchQuery = if (isEditorTab) editorSearchQuery else vaultState.searchQuery,
-                        searchPlaceholder = if (isEditorTab) "Search editor..." else "Search vault...",
-                        editorSearchMatchCount = editorSearchMatchCount,
-                        editorActiveSearchMatch = editorActiveSearchMatch,
-                        onPreviousSearchMatch = editorViewModel::previousSearchMatch,
-                        onNextSearchMatch = editorViewModel::nextSearchMatch,
-                        onMenuClick = { scope.launch { drawerState.open() } },
-                        onSearchOpen = if (isEditorTab) editorViewModel::openSearch else vaultViewModel::openSearch,
-                        onSearchClose = if (isEditorTab) editorViewModel::closeSearch else vaultViewModel::closeSearch,
-                        onSearchQueryChange = if (isEditorTab) editorViewModel::setSearchQuery else vaultViewModel::setSearchQuery,
-                        onToggleSelectAll = {
-                            if (vaultState.selectedIds.size == vaultState.cards.size && vaultState.cards.isNotEmpty()) {
-                                vaultViewModel.clearSelection()
-                            } else {
-                                vaultViewModel.selectAll()
-                            }
-                        },
-                        onShareSelected = { vaultViewModel.shareSelected(context) },
-                        onSaveFile = vaultViewModel::openExportDialog,
-                        onOpenEditor = ::openEditorFromVault,
-                        onToggleShowPinnedFirst = vaultViewModel::toggleShowPinnedFirst,
-                        onPinSelected = vaultViewModel::togglePinSelected,
-                        onCopySelected = { vaultViewModel.copySelectedCards(context) },
-                        onDeleteSelected = vaultViewModel::requestDeleteSelected
-                    )
-                }
-            },
-            modifier = Modifier.fillMaxSize()
-        ) { innerPadding ->
-            NavHost(
-                navController = navController,
-                startDestination = Screen.Vault.route,
-                modifier = Modifier.padding(innerPadding)
-            ) {
-                composable(Screen.Vault.route) {
-                    androidx.compose.foundation.pager.HorizontalPager(
-                        state = pagerState,
-                        beyondViewportPageCount = 1,
+                if (!isSettings) {
+                    TabRow(
+                        selectedTabIndex = selectedTab,
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        contentColor = MaterialTheme.colorScheme.primary,
                         modifier = Modifier
-                            .fillMaxSize()
-                            .testTag("main_content_pager")
-                    ) { page ->
-                        when (page) {
-                            0 -> VaultScreen(
-                                viewModel = vaultViewModel,
-                                onOpenEditor = ::openEditorFromVault,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                            1 -> EditorScreen(
-                                viewModel = editorViewModel,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        }
+                            .fillMaxWidth()
+                            .testTag("main_tab_row")
+                    ) {
+                        Tab(
+                            selected = selectedTab == 0,
+                            onClick = { scope.launch { pagerState.animateScrollToPage(0) } },
+                            text = { Text("Vault") },
+                            modifier = Modifier.testTag("main_tab_vault")
+                        )
+                        Tab(
+                            selected = selectedTab == 1,
+                            onClick = { scope.launch { pagerState.animateScrollToPage(1) } },
+                            text = { Text("Editor") },
+                            modifier = Modifier.testTag("main_tab_editor")
+                        )
                     }
                 }
-                composable(Screen.Settings.route) {
-                    val settingsViewModel: SettingsViewModel = viewModel(factory = settingsViewModelFactory)
-                    SettingsScreen(viewModel = settingsViewModel)
+            }
+        },
+        modifier = Modifier.fillMaxSize()
+    ) { innerPadding ->
+        NavHost(
+            navController = navController,
+            startDestination = Screen.Vault.route,
+            modifier = Modifier.padding(innerPadding)
+        ) {
+            composable(Screen.Vault.route) {
+                androidx.compose.foundation.pager.HorizontalPager(
+                    state = pagerState,
+                    beyondViewportPageCount = 1,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .testTag("main_content_pager")
+                ) { page ->
+                    when (page) {
+                        0 -> VaultScreen(
+                            viewModel = vaultViewModel,
+                            onOpenEditor = ::openEditorFromVault,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        1 -> EditorScreen(
+                            viewModel = editorViewModel,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
                 }
+            }
+            composable(Screen.Settings.route) {
+                val settingsViewModel: SettingsViewModel = viewModel(factory = settingsViewModelFactory)
+                SettingsScreen(viewModel = settingsViewModel)
             }
         }
     }
@@ -310,7 +308,7 @@ private fun MainTopBar(
     isVault: Boolean,
     isEditor: Boolean,
     selectedCount: Int,
-    allSelected: Boolean,
+    selectionState: ToggleableState,
     allSelectedPinned: Boolean,
     showPinnedFirst: Boolean,
     isSearchOpen: Boolean,
@@ -320,7 +318,6 @@ private fun MainTopBar(
     editorActiveSearchMatch: Int,
     onPreviousSearchMatch: () -> Unit,
     onNextSearchMatch: () -> Unit,
-    onMenuClick: () -> Unit,
     onSearchOpen: () -> Unit,
     onSearchClose: () -> Unit,
     onSearchQueryChange: (String) -> Unit,
@@ -331,7 +328,8 @@ private fun MainTopBar(
     onToggleShowPinnedFirst: () -> Unit,
     onPinSelected: () -> Unit,
     onCopySelected: () -> Unit,
-    onDeleteSelected: () -> Unit
+    onDeleteSelected: () -> Unit,
+    onOpenSettings: () -> Unit
 ) {
     var overflowExpanded by remember { mutableStateOf(false) }
 
@@ -347,13 +345,6 @@ private fun MainTopBar(
                 .padding(horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(
-                onClick = onMenuClick,
-                modifier = Modifier.testTag("main_navigation_drawer_button")
-            ) {
-                Icon(Icons.Default.Menu, contentDescription = "Settings")
-            }
-
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -408,6 +399,13 @@ private fun MainTopBar(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            TriStateCheckbox(
+                                state = selectionState,
+                                onClick = onToggleSelectAll,
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .testTag("vault_select_all_checkbox")
+                            )
                             Text(
                                 text = "Selected $selectedCount",
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
@@ -482,7 +480,7 @@ private fun MainTopBar(
                 ) {
                     if (isVault) {
                         DropdownMenuItem(
-                            text = { Text(if (allSelected) "Clear selection" else "Select all") },
+                            text = { Text(if (selectionState == ToggleableState.On) "Clear selection" else "Select all") },
                             onClick = {
                                 overflowExpanded = false
                                 onToggleSelectAll()
@@ -520,10 +518,7 @@ private fun MainTopBar(
                             text = { Text("Show pinned first") },
                             trailingIcon = {
                                 if (showPinnedFirst) {
-                                    Icon(
-                                        imageVector = Icons.Default.Check,
-                                        contentDescription = "Active"
-                                    )
+                                    Icon(Icons.Default.Check, contentDescription = "Active")
                                 }
                             },
                             onClick = {
@@ -532,12 +527,20 @@ private fun MainTopBar(
                             },
                             modifier = Modifier.testTag("main_menu_show_pinned_first")
                         )
+                        DropdownMenuItem(
+                            text = { Text("Settings") },
+                            onClick = {
+                                overflowExpanded = false
+                                onOpenSettings()
+                            },
+                            modifier = Modifier.testTag("main_menu_settings")
+                        )
                     } else {
                         DropdownMenuItem(
                             text = { Text("Settings") },
                             onClick = {
                                 overflowExpanded = false
-                                onMenuClick()
+                                onOpenSettings()
                             },
                             modifier = Modifier.testTag("main_menu_settings")
                         )
