@@ -8,7 +8,11 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.os.Handler
+import android.os.Looper
 import android.view.Gravity
+import android.view.HapticFeedbackConstants
+import android.view.ViewConfiguration
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
@@ -347,6 +351,13 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
         private val density = resources.displayMetrics.density
         private var baseColors: VaultRecyclerColors? = null
         private var selectedState = false
+        private var touchDown = false
+        private var longPressFired = false
+        private var downX = 0f
+        private var downY = 0f
+        private var pendingLongPress: Runnable? = null
+        private val longPressHandler = Handler(Looper.getMainLooper())
+        private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
 
         init {
             orientation = VERTICAL
@@ -500,10 +511,46 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
             copyButton.setOnClickListener { onCopy() }
             dragHandle.setTextColor(colors.onSurfaceVariant)
 
-            setOnClickListener { onToggleSelect() }
-            setOnLongClickListener {
-                onLongPress()
-                true
+            setOnClickListener {
+                if (!longPressFired) onToggleSelect()
+            }
+            setOnLongClickListener(null)
+            setOnTouchListener { _, event ->
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        pendingLongPress?.let(longPressHandler::removeCallbacks)
+                        touchDown = true
+                        longPressFired = false
+                        downX = event.rawX
+                        downY = event.rawY
+                        val callback = Runnable {
+                            if (touchDown && !longPressFired) {
+                                longPressFired = true
+                                performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                                onLongPress()
+                            }
+                        }
+                        pendingLongPress = callback
+                        longPressHandler.postDelayed(callback, LONG_PRESS_DELAY_MS)
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        if (kotlin.math.abs(event.rawX - downX) > touchSlop ||
+                            kotlin.math.abs(event.rawY - downY) > touchSlop
+                        ) {
+                            pendingLongPress?.let(longPressHandler::removeCallbacks)
+                        }
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        pendingLongPress?.let(longPressHandler::removeCallbacks)
+                        touchDown = false
+                        if (event.actionMasked == MotionEvent.ACTION_UP) {
+                            post { longPressFired = false }
+                        } else {
+                            longPressFired = false
+                        }
+                    }
+                }
+                false
             }
             dragHandle.setOnTouchListener { _, event ->
                 if (event.actionMasked == MotionEvent.ACTION_DOWN) {
@@ -553,5 +600,6 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
 
     private companion object {
         const val PAYLOAD_STATE = "vault_state"
+        const val LONG_PRESS_DELAY_MS = 300L
     }
 }

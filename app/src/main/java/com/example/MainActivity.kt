@@ -12,7 +12,6 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -40,7 +39,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -203,7 +201,6 @@ fun MainAppContent(
 
     Scaffold(
         topBar = {
-            Column {
                 MainTopBar(
                     title = when {
                         isSettings -> "Settings"
@@ -238,32 +235,11 @@ fun MainAppContent(
                     onDeleteSelected = vaultViewModel::requestDeleteSelected,
                     onOpenSettings = {
                         navController.navigate(Screen.Settings.route) { launchSingleTop = true }
+                    },
+                    onTabSelected = { page ->
+                        scope.launch { pagerState.animateScrollToPage(page) }
                     }
                 )
-                if (!isSettings) {
-                    TabRow(
-                        selectedTabIndex = selectedTab,
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        contentColor = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("main_tab_row")
-                    ) {
-                        Tab(
-                            selected = selectedTab == 0,
-                            onClick = { scope.launch { pagerState.animateScrollToPage(0) } },
-                            text = { Text("Vault") },
-                            modifier = Modifier.testTag("main_tab_vault")
-                        )
-                        Tab(
-                            selected = selectedTab == 1,
-                            onClick = { scope.launch { pagerState.animateScrollToPage(1) } },
-                            text = { Text("Editor") },
-                            modifier = Modifier.testTag("main_tab_editor")
-                        )
-                    }
-                }
-            }
         },
         modifier = Modifier.fillMaxSize()
     ) { innerPadding ->
@@ -329,7 +305,8 @@ private fun MainTopBar(
     onPinSelected: () -> Unit,
     onCopySelected: () -> Unit,
     onDeleteSelected: () -> Unit,
-    onOpenSettings: () -> Unit
+    onOpenSettings: () -> Unit,
+    onTabSelected: (Int) -> Unit
 ) {
     var overflowExpanded by remember { mutableStateOf(false) }
 
@@ -394,56 +371,85 @@ private fun MainTopBar(
                             }
                         }
                     }
-                    isVault && selectedCount > 0 -> {
+                    isVault || isEditor -> {
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            TriStateCheckbox(
-                                state = selectionState,
-                                onClick = onToggleSelectAll,
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .testTag("vault_select_all_checkbox")
-                            )
-                            Text(
-                                text = "Selected $selectedCount",
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                                maxLines = 1,
+                            Tab(
+                                selected = isVault,
+                                onClick = { onTabSelected(0) },
                                 modifier = Modifier
                                     .weight(1f)
-                                    .testTag("vault_selected_count_text")
+                                    .testTag("main_tab_vault")
+                            ) {
+                                if (isVault && selectedCount > 0) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        TriStateCheckbox(
+                                            state = selectionState,
+                                            onClick = onToggleSelectAll,
+                                            modifier = Modifier
+                                                .size(32.dp)
+                                                .testTag("vault_select_all_checkbox")
+                                        )
+                                        Text(
+                                            text = "Selected $selectedCount",
+                                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                                            maxLines = 1,
+                                            modifier = Modifier.testTag("vault_selected_count_text")
+                                        )
+                                    }
+                                } else {
+                                    Text("Vault", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
+                                }
+                            }
+                            Tab(
+                                selected = isEditor,
+                                onClick = { onTabSelected(1) },
+                                text = {
+                                    Text("Editor", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("main_tab_editor")
                             )
-                            IconButton(
-                                onClick = onPinSelected,
-                                modifier = Modifier.size(40.dp).testTag("vault_action_pin_direct")
-                            ) {
-                                Icon(
-                                    imageVector = if (allSelectedPinned) Icons.Outlined.PushPin else Icons.Default.PushPin,
-                                    contentDescription = if (allSelectedPinned) "Unpin selected" else "Pin selected"
-                                )
-                            }
-                            IconButton(
-                                onClick = onCopySelected,
-                                modifier = Modifier.size(40.dp).testTag("vault_action_copy")
-                            ) {
-                                Icon(Icons.Default.ContentCopy, contentDescription = "Copy selected")
-                            }
-                            IconButton(
-                                onClick = onDeleteSelected,
-                                modifier = Modifier.size(40.dp).testTag("vault_action_delete")
-                            ) {
-                                Icon(Icons.Default.Delete, contentDescription = "Delete selected")
-                            }
                         }
                     }
                     else -> {
                         Text(
                             text = title,
                             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
-                            modifier = Modifier.testTag("main_title")
+                            modifier = Modifier
+                                .padding(start = 16.dp)
+                                .testTag("main_title")
                         )
                     }
+                }
+            }
+
+            if (isVault && selectedCount > 0 && !isSearchOpen) {
+                IconButton(
+                    onClick = onPinSelected,
+                    modifier = Modifier.size(40.dp).testTag("vault_action_pin_direct")
+                ) {
+                    Icon(
+                        imageVector = if (allSelectedPinned) Icons.Outlined.PushPin else Icons.Default.PushPin,
+                        contentDescription = if (allSelectedPinned) "Unpin selected" else "Pin selected"
+                    )
+                }
+                IconButton(
+                    onClick = onCopySelected,
+                    modifier = Modifier.size(40.dp).testTag("vault_action_copy")
+                ) {
+                    Icon(Icons.Default.ContentCopy, contentDescription = "Copy selected")
+                }
+                IconButton(
+                    onClick = onDeleteSelected,
+                    modifier = Modifier.size(40.dp).testTag("vault_action_delete")
+                ) {
+                    Icon(Icons.Default.Delete, contentDescription = "Delete selected")
                 }
             }
 

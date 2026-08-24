@@ -27,12 +27,9 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -52,7 +49,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,7 +58,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.data.local.RetentionPolicy
 import com.example.data.local.ThemeMode
 import java.io.File
 import java.text.SimpleDateFormat
@@ -177,32 +172,6 @@ fun SettingsScreen(
                         )
                     }
 
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-
-                    // Mask sensitive previews
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Mask sensitive previews",
-                                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)
-                            )
-                            Text(
-                                text = "Hide text of sensitive cards behind a privacy mask until tapped",
-                                style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            )
-                        }
-                        Switch(
-                            checked = userSettings.isSensitivePreviewMasked,
-                            onCheckedChange = viewModel::setSensitivePreviewMasked,
-                            modifier = Modifier.testTag("settings_switch_mask_sensitive")
-                        )
-                    }
                 }
             }
 
@@ -297,72 +266,6 @@ fun SettingsScreen(
                                 text = "Add the 'Clipboard Manager' tile to your Android Quick Settings panel to quickly trigger foreground capture from anywhere.",
                                 style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                             )
-                        }
-                    }
-                }
-            }
-
-            // 5. Data Retention Section
-            SettingsSectionHeader(title = "Data Retention", icon = Icons.Default.Storage)
-
-            OutlinedCard(
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Auto-delete unpinned cards",
-                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)
-                    )
-                    Text(
-                        text = "Pinned cards are never auto-deleted regardless of retention policy.",
-                        style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
-
-                    var retentionMenuExpanded by remember { mutableStateOf(false) }
-
-                    Surface(
-                        onClick = { retentionMenuExpanded = true },
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("retention_policy_dropdown_trigger")
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(14.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = userSettings.retentionPolicy.label,
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
-                            )
-                            Text("Change ▼", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                        }
-
-                        DropdownMenu(
-                            expanded = retentionMenuExpanded,
-                            onDismissRequest = { retentionMenuExpanded = false }
-                        ) {
-                            RetentionPolicy.entries.forEach { policy ->
-                                DropdownMenuItem(
-                                    text = {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Text(policy.label)
-                                            if (userSettings.retentionPolicy == policy) {
-                                                Spacer(modifier = Modifier.width(8.dp))
-                                                Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                                            }
-                                        }
-                                    },
-                                    onClick = {
-                                        retentionMenuExpanded = false
-                                        viewModel.setRetentionPolicy(policy)
-                                    }
-                                )
-                            }
                         }
                     }
                 }
