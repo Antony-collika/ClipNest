@@ -18,8 +18,12 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.background
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
@@ -27,7 +31,6 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalDrawerSheet
@@ -50,6 +53,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -172,6 +176,14 @@ fun MainAppContent(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     val vaultState by vaultViewModel.uiState.collectAsStateWithLifecycle()
+    val editorViewModel: EditorViewModel? = if (currentRoute == Screen.Note.route) {
+        viewModel(factory = editorViewModelFactory)
+    } else {
+        null
+    }
+    val editorSearchOpen = editorViewModel?.isSearchOpen?.collectAsStateWithLifecycle()?.value ?: false
+    val editorSearchQuery = editorViewModel?.searchQuery?.collectAsStateWithLifecycle()?.value ?: ""
+    val isEditorTab = currentRoute == Screen.Note.route
 
     val isMainTab = currentRoute == Screen.Vault.route || currentRoute == Screen.Note.route
     val selectedTab = if (currentRoute == Screen.Note.route) 1 else 0
@@ -205,12 +217,13 @@ fun MainAppContent(
                 Column {
                     MainTopBar(
                         title = if (currentRoute == Screen.Settings.route) "Settings" else "Clipboard Manager",
-                        isSearchOpen = vaultState.isSearchOpen && currentRoute == Screen.Vault.route,
-                        searchQuery = vaultState.searchQuery,
+                        isSearchOpen = if (isEditorTab) editorSearchOpen else vaultState.isSearchOpen && currentRoute == Screen.Vault.route,
+                        searchQuery = if (isEditorTab) editorSearchQuery else vaultState.searchQuery,
+                        searchPlaceholder = if (isEditorTab) "Search editor..." else "Search vault...",
                         onMenuClick = { scope.launch { drawerState.open() } },
-                        onSearchOpen = vaultViewModel::openSearch,
-                        onSearchClose = vaultViewModel::closeSearch,
-                        onSearchQueryChange = vaultViewModel::setSearchQuery
+                        onSearchOpen = if (isEditorTab) editorViewModel!!::openSearch else vaultViewModel::openSearch,
+                        onSearchClose = if (isEditorTab) editorViewModel!!::closeSearch else vaultViewModel::closeSearch,
+                        onSearchQueryChange = if (isEditorTab) editorViewModel!!::setSearchQuery else vaultViewModel::setSearchQuery
                     )
                     if (isMainTab) {
                         MainTabRow(
@@ -248,8 +261,7 @@ fun MainAppContent(
                     )
                 }
                 composable(Screen.Note.route) {
-                    val editorViewModel: EditorViewModel = viewModel(factory = editorViewModelFactory)
-                    EditorScreen(viewModel = editorViewModel)
+                    EditorScreen(viewModel = editorViewModel ?: viewModel(factory = editorViewModelFactory))
                 }
                 composable(Screen.Settings.route) {
                     val settingsViewModel: SettingsViewModel = viewModel(factory = settingsViewModelFactory)
@@ -266,6 +278,7 @@ private fun MainTopBar(
     title: String,
     isSearchOpen: Boolean,
     searchQuery: String,
+    searchPlaceholder: String,
     onMenuClick: () -> Unit,
     onSearchOpen: () -> Unit,
     onSearchClose: () -> Unit,
@@ -302,7 +315,7 @@ private fun MainTopBar(
                     TextField(
                         value = searchQuery,
                         onValueChange = onSearchQueryChange,
-                        placeholder = { Text("Search vault...") },
+                        placeholder = { Text(searchPlaceholder) },
                         singleLine = true,
                         colors = TextFieldDefaults.colors(
                             focusedContainerColor = MaterialTheme.colorScheme.surface,
@@ -369,33 +382,60 @@ private fun MainTabRow(
     selectedTab: Int,
     onTabSelected: (Int) -> Unit
 ) {
-    TabRow(
-        selectedTabIndex = selectedTab,
-        containerColor = MaterialTheme.colorScheme.surface,
-        contentColor = MaterialTheme.colorScheme.primary,
-        indicator = { positions ->
-            TabRowDefaults.SecondaryIndicator(
-                Modifier.tabIndicatorOffset(positions[selectedTab]),
-                color = MaterialTheme.colorScheme.primary,
-                height = 3.dp
-            )
-        },
-        divider = {
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-        },
-        modifier = Modifier.testTag("main_top_tab_row")
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(42.dp)
+            .background(MaterialTheme.colorScheme.surface)
+            .selectableGroup()
+            .testTag("main_top_tab_row"),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Tab(
+        CompactMainTab(
+            label = "Kho",
             selected = selectedTab == 0,
             onClick = { onTabSelected(0) },
-            text = { Text("Kho", fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal) },
-            modifier = Modifier.testTag("main_tab_kho")
+            tag = "main_tab_kho"
         )
-        Tab(
+        CompactMainTab(
+            label = "Soạn thảo",
             selected = selectedTab == 1,
             onClick = { onTabSelected(1) },
-            text = { Text("Soạn thảo", fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal) },
-            modifier = Modifier.testTag("main_tab_soan_thao")
+            tag = "main_tab_soan_thao"
+        )
+    }
+}
+
+@Composable
+private fun RowScope.CompactMainTab(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    tag: String
+) {
+    Box(
+        modifier = Modifier
+            .weight(1f)
+            .fillMaxHeight()
+            .selectable(
+                selected = selected,
+                onClick = onClick,
+                role = Role.Tab
+            )
+            .testTag(tag),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(3.dp)
+                .background(if (selected) MaterialTheme.colorScheme.primary else androidx.compose.ui.graphics.Color.Transparent)
         )
     }
 }

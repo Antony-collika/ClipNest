@@ -10,6 +10,7 @@ import com.example.data.local.ExportFormat
 import com.example.data.local.FileManager
 import com.example.data.local.SettingsDataStore
 import com.example.data.local.UserSettings
+import com.example.data.model.ClipboardCard
 import com.example.data.model.ClipboardCardProjection
 import com.example.data.repository.CapturePayload
 import com.example.data.repository.ClipboardRepository
@@ -41,7 +42,9 @@ data class VaultUiState(
     val showShareDialog: Boolean = false,
     val shareContent: String = "",
     val showDeleteConfirmDialog: Boolean = false,
-    val showExportDialog: Boolean = false
+    val showExportDialog: Boolean = false,
+    val previewCard: ClipboardCard? = null,
+    val previewAnchorY: Float = 0f
 )
 
 sealed class VaultEvent {
@@ -83,6 +86,12 @@ class VaultViewModel(
     private val _showExportDialog = MutableStateFlow(false)
     val showExportDialog = _showExportDialog.asStateFlow()
 
+    private val _previewCard = MutableStateFlow<ClipboardCard?>(null)
+    val previewCard = _previewCard.asStateFlow()
+
+    private val _previewAnchorY = MutableStateFlow(0f)
+    val previewAnchorY = _previewAnchorY.asStateFlow()
+
     private val _eventFlow = MutableSharedFlow<VaultEvent>()
     val eventFlow: SharedFlow<VaultEvent> = _eventFlow.asSharedFlow()
 
@@ -112,8 +121,10 @@ class VaultViewModel(
         _showShareDialog,
         _shareContent,
         _showDeleteConfirmDialog,
-        _showExportDialog
-    ) { args: Array<Any> ->
+        _showExportDialog,
+        _previewCard,
+        _previewAnchorY
+    ) { args: Array<Any?> ->
         @Suppress("UNCHECKED_CAST")
         val rawCards = args[0] as List<ClipboardCardProjection>
         @Suppress("UNCHECKED_CAST")
@@ -128,6 +139,8 @@ class VaultViewModel(
         val shareText = args[8] as String
         val deleteDialog = args[9] as Boolean
         val exportDialog = args[10] as Boolean
+        val previewCard = args[11] as ClipboardCard?
+        val previewAnchorY = args[12] as Float
 
         val presentedCards = OrderHelper.applyPresentationOrder(
             items = rawCards,
@@ -145,7 +158,9 @@ class VaultViewModel(
             showShareDialog = shareDialog,
             shareContent = shareText,
             showDeleteConfirmDialog = deleteDialog,
-            showExportDialog = exportDialog
+            showExportDialog = exportDialog,
+            previewCard = previewCard,
+            previewAnchorY = previewAnchorY
         )
     }.stateIn(
         scope = viewModelScope,
@@ -301,6 +316,19 @@ class VaultViewModel(
         }
     }
 
+    fun openPreview(id: Long, anchorY: Float) {
+        viewModelScope.launch {
+            val card = repository.getCardById(id) ?: return@launch
+            _previewAnchorY.value = anchorY
+            _previewCard.value = card
+        }
+    }
+
+    fun closePreview() {
+        _previewCard.value = null
+        _previewAnchorY.value = 0f
+    }
+
     fun toggleRevealSensitive(id: Long) {
         val current = _revealedSensitiveIds.value.toMutableSet()
         if (current.contains(id)) {
@@ -309,6 +337,32 @@ class VaultViewModel(
             current.add(id)
         }
         _revealedSensitiveIds.value = current
+    }
+
+    fun captureCurrentClipboard(context: Context) {
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val text = runCatching {
+            clipboard.primaryClip
+                ?.takeIf { it.itemCount > 0 }
+                ?.getItemAt(0)
+                ?.coerceToText(context)
+                ?.toString()
+                ?.trim()
+        }.getOrNull()
+
+        if (text.isNullOrBlank()) {
+            viewModelScope.launch { _eventFlow.emit(VaultEvent.ShowToast("Clipboard is empty")) }
+            return
+        }
+
+        viewModelScope.launch {
+            val saved = repository.saveCards(
+                listOf(CapturePayload(content = text, sourceApp = "Manual Clipboard Button"))
+            )
+            _eventFlow.emit(
+                VaultEvent.ShowToast(if (saved.isNotEmpty()) "Clipboard saved" else "Clipboard is empty")
+            )
+        }
     }
 
     fun openInAppCapture() {
@@ -353,15 +407,15 @@ class VaultViewModel(
         }.takeIf { saveClipboard && it.isNotBlank() }
 
         val payloads = when {
-            shared != null && clipText != null && shared != clipText -> listOf(
+            clipText != null && shared != null && clipText != shared -> listOf(
                 CapturePayload(
-                    content = TextNormalizer.combine(shared, clipText),
-                    sourceApp = "Android Share + System Clipboard",
+                    content = TextNormalizer.combine(clipText, shared),
+                    sourceApp = "System Clipboard + Android Share",
                     contentType = com.example.data.model.ContentType.COMBINED
                 )
             )
-            shared != null -> listOf(CapturePayload(shared, "Android Share"))
             clipText != null -> listOf(CapturePayload(clipText, "System Clipboard"))
+            shared != null -> listOf(CapturePayload(shared, "Android Share"))
             else -> emptyList()
         }
 
@@ -374,26 +428,34 @@ class VaultViewModel(
         }
     }
 
-    fun reorderItems(fromId: Long, targetId: Long) {
-        if (fromId == targetId) return
+    fun reorderItems(orderedIds: List<Long>) {
         val currentVisible = uiState.value.cards
-        val fromCard = currentVisible.firstOrNull { it.id == fromId } ?: return
-        val targetCard = currentVisible.firstOrNull { it.id == targetId } ?: return
+        if (orderedIds.isEmpty()) return
 
-        val reorderGroup = if (uiState.value.userSettings.showPinnedFirst) {
-            if (fromCard.pinned != targetCard.pinned) return
-            currentVisible.filter { it.pinned == fromCard.pinned }
+        val orderedCards = orderedIds.mapNotNull { id -> currentVisible.firstOrNull { it.id == id } }
+        val groups = if (uiState.value.userSettings.showPinnedFirst) {
+            listOf(true, false).map { pinned -> currentVisible.filter { it.pinned == pinned } }
         } else {
-            currentVisible
+            listOf(currentVisible)
         }
 
-        val fromGroupIndex = reorderGroup.indexOfFirst { it.id == fromId }
-        val toGroupIndex = reorderGroup.indexOfFirst { it.id == targetId }
-        val updates = OrderHelper.calculateNewSortOrders(
-            reorderGroup,
-            fromGroupIndex,
-            toGroupIndex
-        )
+        val updates = groups.flatMap { currentGroup ->
+            if (currentGroup.isEmpty()) return@flatMap emptyList<Pair<Long, Long>>()
+            val currentIds = currentGroup.map { it.id }
+            val requestedGroup = if (uiState.value.userSettings.showPinnedFirst) {
+                orderedCards.filter { it.pinned == currentGroup.first().pinned }
+            } else {
+                orderedCards
+            }
+            if (requestedGroup.map { it.id } == currentIds) {
+                emptyList<Pair<Long, Long>>()
+            } else {
+                requestedGroup.mapIndexed { index, card ->
+                    card.id to ((requestedGroup.size - index) * OrderHelper.ORDER_STEP)
+                }
+            }
+        }
+
         if (updates.isNotEmpty()) {
             viewModelScope.launch {
                 repository.updateSortOrders(updates)

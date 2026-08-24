@@ -57,18 +57,11 @@ object CaptureNotificationManager {
             immutableFlags
         )
 
-        val captureAction = NotificationCompat.Action.Builder(
-            com.example.R.drawable.ic_content_copy_white_24dp,
-            "Save Clipboard",
-            capturePendingIntent
-        ).build()
-
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(com.example.R.drawable.ic_content_copy_white_24dp)
             .setContentTitle("Clipboard Manager")
             .setContentText("Tap to save the current clipboard")
             .setContentIntent(capturePendingIntent)
-            .addAction(captureAction)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setShowWhen(false)

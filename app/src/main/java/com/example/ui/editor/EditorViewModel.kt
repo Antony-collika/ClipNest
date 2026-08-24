@@ -6,6 +6,8 @@ import android.content.ContentResolver
 import android.content.Context
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
+import kotlin.math.max
+import kotlin.math.min
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -51,6 +53,12 @@ class EditorViewModel(
 
     private val _eventFlow = MutableSharedFlow<EditorEvent>()
     val eventFlow: SharedFlow<EditorEvent> = _eventFlow.asSharedFlow()
+
+    private val _isSearchOpen = MutableStateFlow(false)
+    val isSearchOpen: StateFlow<Boolean> = _isSearchOpen.asStateFlow()
+
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
     private val undoStack = ArrayDeque<TextFieldValue>()
     private val redoStack = ArrayDeque<TextFieldValue>()
@@ -108,6 +116,33 @@ class EditorViewModel(
         if (newValue.text != current.text) scheduleDebouncedAutoSave()
     }
 
+    fun openSearch() {
+        _isSearchOpen.value = true
+    }
+
+    fun closeSearch() {
+        _isSearchOpen.value = false
+        _searchQuery.value = ""
+        val current = _uiState.value.content
+        _uiState.value = _uiState.value.copy(content = current.copy(selection = TextRange(current.selection.end)))
+    }
+
+    fun setSearchQuery(query: String) {
+        _searchQuery.value = query
+        if (query.isBlank()) return
+        val text = _uiState.value.content.text
+        val matchIndex = text.indexOf(query, ignoreCase = true)
+        if (matchIndex >= 0) {
+            _uiState.value = _uiState.value.copy(
+                content = _uiState.value.content.copy(
+                    selection = TextRange(matchIndex, matchIndex + query.length)
+                )
+            )
+        } else {
+            emitToast("No matches")
+        }
+    }
+
     fun pasteFromClipboard(context: Context) {
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val clip = runCatching { clipboard.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString() }.getOrNull()
@@ -117,6 +152,38 @@ class EditorViewModel(
         }
         replaceSelection(clip)
         emitToast("Pasted")
+    }
+
+    fun copySelectedText(context: Context) {
+        val current = _uiState.value.content
+        if (current.selection.collapsed) {
+            emitToast("Select text to copy")
+            return
+        }
+        val selected = current.text.substring(current.selection.min, current.selection.max)
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Editor selection", selected))
+        emitToast("Copied")
+    }
+
+    fun moveCursorLeft() {
+        val current = _uiState.value.content
+        val position = if (current.selection.collapsed) {
+            max(0, current.selection.start - 1)
+        } else {
+            current.selection.min
+        }
+        _uiState.value = _uiState.value.copy(content = current.copy(selection = TextRange(position)))
+    }
+
+    fun moveCursorRight() {
+        val current = _uiState.value.content
+        val position = if (current.selection.collapsed) {
+            min(current.text.length, current.selection.end + 1)
+        } else {
+            current.selection.max
+        }
+        _uiState.value = _uiState.value.copy(content = current.copy(selection = TextRange(position)))
     }
 
     fun selectAll() {

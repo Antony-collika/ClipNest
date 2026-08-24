@@ -13,9 +13,13 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Redo
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.SelectAll
@@ -24,8 +28,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -33,10 +36,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -89,42 +94,44 @@ fun EditorScreen(
     ) {
         EditorToolbox(
             onPaste = { viewModel.pasteFromClipboard(context) },
+            onCopy = { viewModel.copySelectedText(context) },
             onSelectAll = viewModel::selectAll,
             onDelete = viewModel::deleteSelectedText,
             onUndo = viewModel::undo,
             onRedo = viewModel::redo,
+            onMoveCursorLeft = viewModel::moveCursorLeft,
+            onMoveCursorRight = viewModel::moveCursorRight,
             onSave = viewModel::onSaveClicked
         )
 
-        TextField(
+        BasicTextField(
             value = uiState.content,
             onValueChange = viewModel::onContentChange,
-            placeholder = {
-                androidx.compose.material3.Text(
-                    text = "Write or paste content here...",
-                    style = TextStyle(
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 15.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                    )
-                )
-            },
             textStyle = TextStyle(
                 fontFamily = FontFamily.Monospace,
-                fontSize = 15.sp,
-                lineHeight = 22.sp,
+                fontSize = 14.sp,
+                lineHeight = 17.sp,
                 color = MaterialTheme.colorScheme.onSurface
             ),
-            colors = TextFieldDefaults.colors(
-                focusedContainerColor = Color.Transparent,
-                unfocusedContainerColor = Color.Transparent,
-                focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent
-            ),
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 12.dp, vertical = 8.dp)
-                .testTag("editor_text_input")
+                .padding(horizontal = 8.dp, vertical = 4.dp)
+                .testTag("editor_text_input"),
+            decorationBox = { innerTextField ->
+                if (uiState.content.text.isEmpty()) {
+                    Text(
+                        text = "Write or paste content here...",
+                        style = TextStyle(
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 14.sp,
+                            lineHeight = 17.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        )
+                    )
+                }
+                innerTextField()
+            }
         )
     }
 
@@ -143,14 +150,17 @@ fun EditorScreen(
 @Composable
 private fun EditorToolbox(
     onPaste: () -> Unit,
+    onCopy: () -> Unit,
     onSelectAll: () -> Unit,
     onDelete: () -> Unit,
     onUndo: () -> Unit,
     onRedo: () -> Unit,
+    onMoveCursorLeft: () -> Unit,
+    onMoveCursorRight: () -> Unit,
     onSave: () -> Unit
 ) {
     Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
         modifier = Modifier
             .fillMaxWidth()
             .testTag("editor_toolbox")
@@ -159,14 +169,17 @@ private fun EditorToolbox(
             modifier = Modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 8.dp, vertical = 4.dp),
+                .padding(horizontal = 2.dp, vertical = 0.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             EditorToolButton("editor_action_paste", "Paste", Icons.Default.ContentPaste, onPaste)
+            EditorToolButton("editor_action_copy", "Copy selected text", Icons.Default.ContentCopy, onCopy)
             EditorToolButton("editor_action_select_all", "Select all", Icons.Default.SelectAll, onSelectAll)
             EditorToolButton("editor_action_delete", "Delete selected text", Icons.Default.Delete, onDelete)
             EditorToolButton("editor_action_undo", "Undo", Icons.Default.Undo, onUndo)
             EditorToolButton("editor_action_redo", "Redo", Icons.Default.Redo, onRedo)
+            EditorToolButton("editor_action_cursor_left", "Move cursor left", Icons.Default.KeyboardArrowLeft, onMoveCursorLeft)
+            EditorToolButton("editor_action_cursor_right", "Move cursor right", Icons.Default.KeyboardArrowRight, onMoveCursorRight)
             EditorToolButton("editor_action_save", "Save file", Icons.Default.Save, onSave)
         }
     }
@@ -182,14 +195,14 @@ private fun EditorToolButton(
     IconButton(
         onClick = onClick,
         modifier = Modifier
-            .size(48.dp)
+            .size(40.dp)
             .testTag(tag)
     ) {
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
             tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(20.dp)
         )
     }
 }

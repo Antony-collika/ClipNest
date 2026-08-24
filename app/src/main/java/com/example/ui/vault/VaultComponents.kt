@@ -5,6 +5,9 @@ import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -17,9 +20,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.shape.CircleShape
@@ -68,8 +74,12 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -79,13 +89,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerInputChange
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.ExportFormat
+import com.example.data.model.ClipboardCard
 import com.example.data.model.ClipboardCardProjection
 import com.example.data.model.ContentType
 import com.example.domain.RelativeTimeFormatter
@@ -93,6 +106,8 @@ import com.example.ui.theme.PinnedGreenDark
 import com.example.ui.theme.PinnedGreenLight
 import com.example.ui.theme.SensitiveAmberDark
 import com.example.ui.theme.SensitiveAmberLight
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -129,8 +144,8 @@ fun ClipboardCardItem(
             }
         ),
         border = BorderStroke(
-            width = 1.dp,
-            color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+            width = if (isSelected) 1.5.dp else 1.dp,
+            color = if (isSelected) MaterialTheme.colorScheme.primary
             else if (isDark) MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
             else Color(0xFFE6EAE5)
         ),
@@ -677,7 +692,7 @@ fun ShareCaptureDialog(
     val hasClipboard = clipboardText.isNotBlank() && clipboardText != sharedText
 
     var isSharedSelected by remember { mutableStateOf(hasShared) }
-    var isClipboardSelected by remember { mutableStateOf(hasClipboard && !hasShared) }
+    var isClipboardSelected by remember { mutableStateOf(hasClipboard) }
 
     val isAnySelected = (isSharedSelected && hasShared) || (isClipboardSelected && hasClipboard)
     val isDark = MaterialTheme.colorScheme.background.red < 0.5f
@@ -725,77 +740,7 @@ fun ShareCaptureDialog(
                     .padding(horizontal = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // Section 1: Nội dung chia sẻ
-                if (hasShared) {
-                    val isSelected = isSharedSelected
-                    val containerBg = if (isSelected) {
-                        if (isDark) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
-                        else Color(0xFFE8F5E9)
-                    } else {
-                        if (isDark) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-                        else Color(0xFFF4F6F4)
-                    }
-                    val borderColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
-
-                    Card(
-                        shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(containerColor = containerBg),
-                        border = BorderStroke(1.5.dp, borderColor),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { isSharedSelected = !isSharedSelected }
-                            .testTag("share_option_shared")
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Checkbox(
-                                checked = isSelected,
-                                onCheckedChange = { isSharedSelected = it },
-                                colors = CheckboxDefaults.colors(
-                                    checkedColor = MaterialTheme.colorScheme.primary
-                                )
-                            )
-
-                            Spacer(modifier = Modifier.width(6.dp))
-
-                            Icon(
-                                imageVector = if (sharedText.startsWith("http")) Icons.Default.Link else Icons.Default.Description,
-                                contentDescription = null,
-                                tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(22.dp)
-                            )
-
-                            Spacer(modifier = Modifier.width(10.dp))
-
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Nội dung chia sẻ",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 11.sp
-                                    )
-                                )
-                                Text(
-                                    text = sharedText,
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                                        fontSize = 13.5.sp
-                                    ),
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Section 2: Clipboard hiện tại trên thiết bị
+                // Section 1: Clipboard hiện tại trên thiết bị
                 if (hasClipboard) {
                     val isSelected = isClipboardSelected
                     val containerBg = if (isSelected) {
@@ -825,13 +770,9 @@ fun ShareCaptureDialog(
                             Checkbox(
                                 checked = isSelected,
                                 onCheckedChange = { isClipboardSelected = it },
-                                colors = CheckboxDefaults.colors(
-                                    checkedColor = MaterialTheme.colorScheme.primary
-                                )
+                                colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
                             )
-
                             Spacer(modifier = Modifier.width(6.dp))
-
                             Text(
                                 text = "❝",
                                 style = MaterialTheme.typography.titleLarge.copy(
@@ -840,9 +781,7 @@ fun ShareCaptureDialog(
                                 ),
                                 modifier = Modifier.padding(horizontal = 2.dp)
                             )
-
                             Spacer(modifier = Modifier.width(8.dp))
-
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = "Clipboard trên thiết bị",
@@ -854,6 +793,70 @@ fun ShareCaptureDialog(
                                 )
                                 Text(
                                     text = clipboardText,
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                        fontSize = 13.5.sp
+                                    ),
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Section 2: Nội dung chia sẻ / URL
+                if (hasShared) {
+                    val isSelected = isSharedSelected
+                    val containerBg = if (isSelected) {
+                        if (isDark) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+                        else Color(0xFFE8F5E9)
+                    } else {
+                        if (isDark) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                        else Color(0xFFF4F6F4)
+                    }
+                    val borderColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
+
+                    Card(
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = containerBg),
+                        border = BorderStroke(1.5.dp, borderColor),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { isSharedSelected = !isSharedSelected }
+                            .testTag("share_option_shared")
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = isSelected,
+                                onCheckedChange = { isSharedSelected = it },
+                                colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Icon(
+                                imageVector = if (sharedText.startsWith("http")) Icons.Default.Link else Icons.Default.Description,
+                                contentDescription = null,
+                                tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Nội dung chia sẻ",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp
+                                    )
+                                )
+                                Text(
+                                    text = sharedText,
                                     style = MaterialTheme.typography.bodyMedium.copy(
                                         color = MaterialTheme.colorScheme.onSurface,
                                         fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
@@ -1147,4 +1150,169 @@ fun DeleteConfirmDialog(
         },
         modifier = Modifier.testTag("delete_confirm_dialog")
     )
+}
+
+@Composable
+fun ClipboardPreviewPopup(
+    card: ClipboardCard,
+    anchorY: Float,
+    isMaskingEnabled: Boolean,
+    isSensitiveRevealed: Boolean,
+    onDismiss: () -> Unit,
+    onCopy: () -> Unit,
+    onToggleRevealSensitive: () -> Unit
+) {
+    val configuration = LocalConfiguration.current
+    val density = LocalDensity.current
+    val scope = rememberCoroutineScope()
+    var visible by remember { mutableStateOf(false) }
+    var dismissing by remember { mutableStateOf(false) }
+    val screenHeightPx = with(density) { configuration.screenHeightDp.dp.toPx() }
+    val previewHeight = 336.dp
+    val popupHeightPx = with(density) { (previewHeight + 116.dp).toPx() }
+    val marginPx = with(density) { 12.dp.toPx() }
+    val spaceBelow = screenHeightPx - anchorY
+    val canOpenBelow = spaceBelow >= popupHeightPx + marginPx
+    val canOpenAbove = anchorY >= popupHeightPx + marginPx
+    val opensBelow = if (anchorY <= 0f) {
+        true
+    } else if (canOpenBelow) {
+        true
+    } else if (canOpenAbove) {
+        false
+    } else {
+        spaceBelow >= anchorY
+    }
+    val rawVerticalOffset = if (opensBelow) {
+        anchorY + with(density) { 20.dp.toPx() }
+    } else {
+        anchorY - popupHeightPx - with(density) { 20.dp.toPx() }
+    }
+    val verticalOffset = rawVerticalOffset
+        .coerceIn(marginPx, (screenHeightPx - popupHeightPx - marginPx).coerceAtLeast(marginPx))
+        .toInt()
+    val popupWidth = minOf(360.dp, (configuration.screenWidthDp - 24).dp)
+    val isMasked = card.isSensitive && isMaskingEnabled && !isSensitiveRevealed
+
+    fun dismissAnimated() {
+        if (dismissing) return
+        dismissing = true
+        visible = false
+        scope.launch {
+            delay(150)
+            onDismiss()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        visible = true
+    }
+
+    Popup(
+        alignment = androidx.compose.ui.Alignment.TopCenter,
+        offset = androidx.compose.ui.unit.IntOffset(0, verticalOffset),
+        onDismissRequest = ::dismissAnimated,
+        properties = PopupProperties(focusable = true, dismissOnBackPress = true, dismissOnClickOutside = true)
+    ) {
+        AnimatedVisibility(
+            visible = visible,
+            enter = fadeIn(animationSpec = tween(160)) + scaleIn(initialScale = 0.96f, animationSpec = tween(160)),
+            exit = fadeOut(animationSpec = tween(140)) + scaleOut(targetScale = 0.96f, animationSpec = tween(140))
+        ) {
+            Card(
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                modifier = Modifier
+                    .width(popupWidth)
+                    .testTag("clipboard_preview_popup")
+            ) {
+                Column {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 16.dp, end = 8.dp, top = 10.dp, bottom = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Clipboard preview",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                            Text(
+                                text = card.sourceApp ?: card.contentType.name,
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            )
+                        }
+                        IconButton(onClick = ::dismissAnimated, modifier = Modifier.size(36.dp)) {
+                            Icon(Icons.Default.Clear, contentDescription = "Close preview")
+                        }
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(previewHeight)
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                    ) {
+                        if (isMasked) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = "••••••••••••••••",
+                                    style = MaterialTheme.typography.bodyLarge.copy(color = Color(0xFFB7791F))
+                                )
+                                TextButton(onClick = onToggleRevealSensitive) {
+                                    Text("Reveal sensitive content")
+                                }
+                            }
+                        } else {
+                            Text(
+                                text = card.content,
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    lineHeight = 19.sp
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = RelativeTimeFormatter.format(card.createdAtMillis),
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            ),
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (card.pinned) {
+                            Text(
+                                text = "Pinned",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = if (MaterialTheme.colorScheme.background.red < 0.5f) PinnedGreenDark else PinnedGreenLight,
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                modifier = Modifier.padding(end = 8.dp)
+                            )
+                        }
+                        IconButton(onClick = onCopy, modifier = Modifier.size(36.dp)) {
+                            Icon(Icons.Default.ContentCopy, contentDescription = "Copy content")
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
