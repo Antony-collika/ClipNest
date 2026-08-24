@@ -4,7 +4,9 @@ import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -35,6 +37,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
@@ -44,6 +51,10 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -178,8 +189,8 @@ private fun EditorToolbox(
             EditorToolButton("editor_action_delete", "Delete selected text", Icons.Default.Delete, onDelete)
             EditorToolButton("editor_action_undo", "Undo", Icons.Default.Undo, onUndo)
             EditorToolButton("editor_action_redo", "Redo", Icons.Default.Redo, onRedo)
-            EditorToolButton("editor_action_cursor_left", "Move cursor left", Icons.Default.KeyboardArrowLeft, onMoveCursorLeft)
-            EditorToolButton("editor_action_cursor_right", "Move cursor right", Icons.Default.KeyboardArrowRight, onMoveCursorRight)
+            EditorToolButton("editor_action_cursor_left", "Move cursor left", Icons.Default.KeyboardArrowLeft, onMoveCursorLeft, repeatOnHold = true)
+            EditorToolButton("editor_action_cursor_right", "Move cursor right", Icons.Default.KeyboardArrowRight, onMoveCursorRight, repeatOnHold = true)
             EditorToolButton("editor_action_save", "Save file", Icons.Default.Save, onSave)
         }
     }
@@ -190,17 +201,45 @@ private fun EditorToolButton(
     tag: String,
     contentDescription: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    repeatOnHold: Boolean = false
 ) {
-    IconButton(
-        onClick = onClick,
+    Box(
         modifier = Modifier
             .size(40.dp)
             .testTag(tag)
+            .semantics {
+                role = Role.Button
+                this.contentDescription = contentDescription
+            }
+            .pointerInput(repeatOnHold) {
+                detectTapGestures(
+                    onPress = {
+                        if (!repeatOnHold) {
+                            onClick()
+                            tryAwaitRelease()
+                        } else {
+                            coroutineScope {
+                                val repeatJob = launch {
+                                    onClick()
+                                    delay(220)
+                                    while (isActive) {
+                                        onClick()
+                                        delay(55)
+                                    }
+                                }
+                                tryAwaitRelease()
+                                repeatJob.cancel()
+                            }
+                        }
+                    }
+                )
+            },
+        contentAlignment = Alignment.Center
     ) {
         Icon(
             imageVector = icon,
-            contentDescription = contentDescription,
+            contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(20.dp)
         )

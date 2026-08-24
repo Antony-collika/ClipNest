@@ -117,6 +117,7 @@ fun ClipboardCardItem(
     isSensitiveRevealed: Boolean,
     isMaskingEnabled: Boolean,
     isDragging: Boolean,
+    isDropTarget: Boolean = false,
     onToggleSelect: () -> Unit,
     onLongPress: () -> Unit,
     onCopy: () -> Unit,
@@ -144,12 +145,21 @@ fun ClipboardCardItem(
             }
         ),
         border = BorderStroke(
-            width = if (isSelected) 1.5.dp else 1.dp,
-            color = if (isSelected) MaterialTheme.colorScheme.primary
-            else if (isDark) MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-            else Color(0xFFE6EAE5)
+            width = when {
+                isDragging -> 2.dp
+                isDropTarget -> 2.dp
+                isSelected -> 1.5.dp
+                else -> 1.dp
+            },
+            color = when {
+                isDragging -> MaterialTheme.colorScheme.primary
+                isDropTarget -> MaterialTheme.colorScheme.primary.copy(alpha = 0.75f)
+                isSelected -> MaterialTheme.colorScheme.primary
+                isDark -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                else -> Color(0xFFE6EAE5)
+            }
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isSelected) 2.dp else 0.5.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isDragging) 8.dp else 0.dp),
         modifier = modifier
             .fillMaxWidth()
             .testTag("card_item_${card.id}")
@@ -504,13 +514,8 @@ fun VaultSelectionBar(
     onCopySelected: () -> Unit,
     onDeleteSelected: () -> Unit,
     onPinSelected: () -> Unit,
-    onToggleShowPinnedFirst: () -> Unit,
-    onSaveFile: () -> Unit,
-    onOpenEditor: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var overflowExpanded by remember { mutableStateOf(false) }
-
     Surface(
         color = MaterialTheme.colorScheme.surface,
         modifier = modifier.fillMaxWidth()
@@ -585,88 +590,6 @@ fun VaultSelectionBar(
                     )
                 }
 
-                Box {
-                    IconButton(
-                        onClick = { overflowExpanded = true },
-                        modifier = Modifier.testTag("vault_selection_more_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.MoreVert,
-                            contentDescription = "More selection actions",
-                            tint = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-
-                    DropdownMenu(
-                        expanded = overflowExpanded,
-                        onDismissRequest = { overflowExpanded = false },
-                        modifier = Modifier.testTag("vault_selection_overflow_menu")
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text(if (allSelected) "Clear selection" else "Select all") },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = null
-                                )
-                            },
-                            onClick = {
-                                overflowExpanded = false
-                                onToggleSelectAll()
-                            },
-                            modifier = Modifier.testTag("vault_menu_select_all")
-                        )
-
-                        DropdownMenuItem(
-                            text = { Text("Share") },
-                            leadingIcon = {
-                                Icon(Icons.Default.Share, contentDescription = null)
-                            },
-                            onClick = {
-                                overflowExpanded = false
-                                onShareSelected()
-                            },
-                            modifier = Modifier.testTag("vault_menu_share_selection")
-                        )
-
-                        DropdownMenuItem(
-                            text = { Text("Save file") },
-                            onClick = {
-                                overflowExpanded = false
-                                onSaveFile()
-                            },
-                            modifier = Modifier.testTag("vault_menu_save_file_selection")
-                        )
-
-                        DropdownMenuItem(
-                            text = { Text("Open editor") },
-                            onClick = {
-                                overflowExpanded = false
-                                onOpenEditor()
-                            },
-                            modifier = Modifier.testTag("vault_menu_open_editor_selection")
-                        )
-
-                        DropdownMenuItem(
-                            text = { Text("Show pinned first") },
-                            trailingIcon = {
-                                if (showPinnedFirst) {
-                                    Icon(
-                                        imageVector = Icons.Default.Check,
-                                        contentDescription = "Active",
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                            },
-                            onClick = {
-                                overflowExpanded = false
-                                onToggleShowPinnedFirst()
-                            },
-                            modifier = Modifier.testTag("vault_menu_show_pinned_first")
-                        )
-                    }
-                }
             }
         }
     }
@@ -1234,18 +1157,11 @@ fun ClipboardPreviewPopup(
                             .padding(start = 16.dp, end = 8.dp, top = 10.dp, bottom = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Clipboard preview",
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                            )
-                            Text(
-                                text = card.sourceApp ?: card.contentType.name,
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            )
-                        }
+                        Text(
+                            text = "Clipboard preview",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            modifier = Modifier.weight(1f)
+                        )
                         IconButton(onClick = ::dismissAnimated, modifier = Modifier.size(36.dp)) {
                             Icon(Icons.Default.Clear, contentDescription = "Close preview")
                         }

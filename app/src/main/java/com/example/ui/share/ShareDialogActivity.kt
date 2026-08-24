@@ -108,8 +108,8 @@ class ShareDialogActivity : ComponentActivity() {
             shared != null && clipboard != null && shared != clipboard -> {
                 listOf(
                     CapturePayload(
-                        content = TextNormalizer.combine(shared, clipboard),
-                        sourceApp = "Android Share + System Clipboard",
+                        content = TextNormalizer.combine(clipboard, shared),
+                        sourceApp = "System Clipboard + Android Share",
                         contentType = ContentType.COMBINED
                     )
                 )
@@ -178,7 +178,7 @@ fun ShareDialogOverlay(
     val hasClipboard = clipboardText.isNotBlank() && clipboardText != sharedText
 
     var isSharedSelected by remember { mutableStateOf(hasShared) }
-    var isClipboardSelected by remember { mutableStateOf(hasClipboard && !hasShared) }
+    var isClipboardSelected by remember { mutableStateOf(hasClipboard) }
 
     // If both exist, user can select both or either one
     val isAnySelected = (isSharedSelected && hasShared) || (isClipboardSelected && hasClipboard)
@@ -238,78 +238,7 @@ fun ShareDialogOverlay(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Option 1: Nội dung chia sẻ
-                if (hasShared) {
-                    val isSelected = isSharedSelected
-                    val containerBg = if (isSelected) {
-                        if (isDark) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
-                        else Color(0xFFE8F5E9)
-                    } else {
-                        if (isDark) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-                        else Color(0xFFF4F6F4)
-                    }
-                    val borderColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
-
-                    Card(
-                        shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(containerColor = containerBg),
-                        border = BorderStroke(1.5.dp, borderColor),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { isSharedSelected = !isSharedSelected }
-                            .testTag("share_option_shared")
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Outlined.Circle,
-                                contentDescription = if (isSelected) "Đã chọn" else "Chưa chọn",
-                                tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                modifier = Modifier.size(22.dp)
-                            )
-
-                            Spacer(modifier = Modifier.width(10.dp))
-
-                            Icon(
-                                imageVector = if (sharedText.startsWith("http")) Icons.Default.Link else Icons.Default.Description,
-                                contentDescription = null,
-                                tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(22.dp)
-                            )
-
-                            Spacer(modifier = Modifier.width(10.dp))
-
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Nội dung chia sẻ",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 11.sp
-                                    )
-                                )
-                                Text(
-                                    text = sharedText,
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                                        fontSize = 13.5.sp
-                                    ),
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-                }
-
-                // Option 2: Clipboard hiện tại trên thiết bị
+                // Option 1: Clipboard hiện tại trên thiết bị
                 if (hasClipboard) {
                     val isSelected = isClipboardSelected
                     val containerBg = if (isSelected) {
@@ -367,6 +296,77 @@ fun ShareDialogOverlay(
                                 )
                                 Text(
                                     text = clipboardText,
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                        fontSize = 13.5.sp
+                                    ),
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                }
+
+                // Option 2: Nội dung chia sẻ / URL
+                if (hasShared) {
+                    val isSelected = isSharedSelected
+                    val containerBg = if (isSelected) {
+                        if (isDark) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+                        else Color(0xFFE8F5E9)
+                    } else {
+                        if (isDark) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                        else Color(0xFFF4F6F4)
+                    }
+                    val borderColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
+
+                    Card(
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = containerBg),
+                        border = BorderStroke(1.5.dp, borderColor),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { isSharedSelected = !isSharedSelected }
+                            .testTag("share_option_shared")
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Outlined.Circle,
+                                contentDescription = if (isSelected) "Đã chọn" else "Chưa chọn",
+                                tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                modifier = Modifier.size(22.dp)
+                            )
+
+                            Spacer(modifier = Modifier.width(10.dp))
+
+                            Icon(
+                                imageVector = if (sharedText.startsWith("http")) Icons.Default.Link else Icons.Default.Description,
+                                contentDescription = null,
+                                tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(22.dp)
+                            )
+
+                            Spacer(modifier = Modifier.width(10.dp))
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Nội dung chia sẻ",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp
+                                    )
+                                )
+                                Text(
+                                    text = sharedText,
                                     style = MaterialTheme.typography.bodyMedium.copy(
                                         color = MaterialTheme.colorScheme.onSurface,
                                         fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,

@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -95,11 +96,16 @@ class VaultViewModel(
     private val _eventFlow = MutableSharedFlow<VaultEvent>()
     val eventFlow: SharedFlow<VaultEvent> = _eventFlow.asSharedFlow()
 
-    val userSettings: StateFlow<UserSettings> = settingsDataStore.userSettingsFlow.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = UserSettings()
-    )
+    private val _settingsLoaded = MutableStateFlow(false)
+    val settingsLoaded: StateFlow<Boolean> = _settingsLoaded.asStateFlow()
+
+    val userSettings: StateFlow<UserSettings> = settingsDataStore.userSettingsFlow
+        .onEach { _settingsLoaded.value = true }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = UserSettings()
+        )
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val rawCardsFlow = _searchQuery.flatMapLatest { query ->

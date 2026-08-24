@@ -34,6 +34,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.graphicsLayer
@@ -58,6 +59,7 @@ fun VaultScreen(
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val settingsLoaded by viewModel.settingsLoaded.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
         viewModel.eventFlow.collect { event ->
@@ -97,8 +99,8 @@ fun VaultScreen(
         ) {
             AnimatedVisibility(
                 visible = selectedCount > 0,
-                enter = fadeIn(animationSpec = tween(180)) + expandVertically(animationSpec = tween(180)),
-                exit = fadeOut(animationSpec = tween(140)) + shrinkVertically(animationSpec = tween(140))
+                enter = fadeIn(animationSpec = tween(160)) + expandVertically(expandFrom = Alignment.Top, animationSpec = tween(160)),
+                exit = fadeOut(animationSpec = tween(120)) + shrinkVertically(shrinkTowards = Alignment.Top, animationSpec = tween(120))
             ) {
                 VaultSelectionBar(
                     selectedCount = selectedCount,
@@ -111,10 +113,7 @@ fun VaultScreen(
                     onShareSelected = { viewModel.shareSelected(context) },
                     onCopySelected = { viewModel.copySelectedCards(context) },
                     onDeleteSelected = viewModel::requestDeleteSelected,
-                    onPinSelected = viewModel::togglePinSelected,
-                    onToggleShowPinnedFirst = viewModel::toggleShowPinnedFirst,
-                    onSaveFile = viewModel::openExportDialog,
-                    onOpenEditor = onOpenEditor
+                    onPinSelected = viewModel::togglePinSelected
                 )
             }
 
@@ -140,7 +139,7 @@ fun VaultScreen(
         }
     }
 
-    if (!uiState.userSettings.firstRunEducationShown) {
+    if (settingsLoaded && !uiState.userSettings.firstRunEducationShown) {
         FirstRunEducationDialog(onDismiss = viewModel::markFirstRunEducationShown)
     }
     if (uiState.showInAppCaptureSheet) {
@@ -203,11 +202,12 @@ private fun VaultCardList(
     var displayedCards by remember { mutableStateOf(initialDisplayedCards) }
     var draggingId by remember { mutableStateOf<Long?>(null) }
     var dragOffset by remember { mutableFloatStateOf(0f) }
-    var lastTargetId by remember { mutableStateOf<Long?>(null) }
+    var dragTargetId by remember { mutableStateOf<Long?>(null) }
     var dragStartOrder by remember { mutableStateOf<List<Long>>(emptyList()) }
     val cardBounds = remember { mutableStateMapOf<Long, Rect>() }
     val listState = rememberLazyListState()
     val cardsById = remember(cards) { cards.associateBy { it.id } }
+    val itemSpacingPx = with(androidx.compose.ui.platform.LocalDensity.current) { 8.dp.toPx() }
 
     LaunchedEffect(cards) {
         if (draggingId == null) {
@@ -219,25 +219,10 @@ private fun VaultCardList(
         }
     }
 
-    fun reorderDisplayedCards(fromId: Long, targetId: Long, draggedCenter: Float, targetCenter: Float) {
-        val fromIndex = displayedCards.indexOfFirst { it.id == fromId }
-        val targetIndex = displayedCards.indexOfFirst { it.id == targetId }
-        if (fromIndex < 0 || targetIndex < 0 || fromIndex == targetIndex) return
-
-        val insertionIndex = if (draggedCenter > targetCenter) targetIndex + 1 else targetIndex
-        val normalizedIndex = if (fromIndex < insertionIndex) insertionIndex - 1 else insertionIndex
-        val mutable = displayedCards.toMutableList()
-        val moved = mutable.removeAt(fromIndex)
-        mutable.add(normalizedIndex.coerceIn(0, mutable.size), moved)
-        displayedCards = mutable
-        lastTargetId = targetId
-        dragOffset = 0f
-    }
-
     LazyColumn(
         state = listState,
-        contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 8.dp, bottom = 88.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 2.dp, bottom = 88.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier
             .fillMaxSize()
             .testTag("vault_card_list")
@@ -280,6 +265,7 @@ private fun VaultCardList(
                 isSensitiveRevealed = revealedSensitiveIds.contains(card.id),
                 isMaskingEnabled = isMaskingEnabled,
                 isDragging = isDragging,
+                isDropTarget = draggingId != null && dragTargetId == card.id && draggingId != card.id,
                 onToggleSelect = { onToggleSelect(card.id) },
                 onLongPress = {
                     onLongPress(card.id, cardBounds[card.id]?.center?.y ?: 0f)
@@ -289,7 +275,7 @@ private fun VaultCardList(
                 onDragStart = {
                     draggingId = card.id
                     dragOffset = 0f
-                    lastTargetId = null
+                    dragTargetId = null
                     dragStartOrder = displayedCards.map { it.id }
                 },
                 onDrag = { change, dragAmount ->
@@ -299,45 +285,47 @@ private fun VaultCardList(
                     val draggedInfo = listState.layoutInfo.visibleItemsInfo
                         .firstOrNull { it.key == card.id }
                     if (draggedInfo != null) {
-                        val draggedCenter = draggedInfo.offset + draggedInfo.size / 2f + dragOffset
-                        val targetInfo = listState.layoutInfo.visibleItemsInfo
-                            .asSequence()
-                            .mapNotNull { item ->
-                                val targetId = item.key as? Long ?: return@mapNotNull null
-                                if (targetId == card.id) return@mapNotNull null
-                                if (showPinnedFirst && cardsById[targetId]?.pinned != card.pinned) return@mapNotNull null
-                                val center = item.offset + item.size / 2f
-                                Triple(item, targetId, center.toFloat())
+                        val direction = if (dragOffset > 0f) 1 else if (dragOffset < 0f) -1 else 0
+                        val currentIndex = displayedCards.indexOfFirst { it.id == card.id }
+                        val neighborIndex = currentIndex + direction
+                        val neighbor = displayedCards.getOrNull(neighborIndex)
+                        val neighborInfo = neighbor?.let { target ->
+                            listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == target.id }
+                        }
+                        if (direction != 0 && neighbor != null && neighborInfo != null &&
+                            (!showPinnedFirst || neighbor.pinned == card.pinned)
+                        ) {
+                            val draggedCenter = draggedInfo.offset + draggedInfo.size / 2f + dragOffset
+                            val neighborCenter = neighborInfo.offset + neighborInfo.size / 2f
+                            val crossed = if (direction > 0) draggedCenter > neighborCenter else draggedCenter < neighborCenter
+                            if (crossed) {
+                                val mutable = displayedCards.toMutableList()
+                                val moved = mutable.removeAt(currentIndex)
+                                mutable.add(neighborIndex.coerceIn(0, mutable.size), moved)
+                                displayedCards = mutable
+                                dragTargetId = neighbor.id
+                                dragOffset -= direction * (neighborInfo.size + itemSpacingPx)
                             }
-                            .minByOrNull { (_, _, center) -> abs(draggedCenter - center) }
-
-                        if (targetInfo != null && targetInfo.second != lastTargetId) {
-                            reorderDisplayedCards(
-                                fromId = card.id,
-                                targetId = targetInfo.second,
-                                draggedCenter = draggedCenter,
-                                targetCenter = targetInfo.third
-                            )
                         }
                     }
                 },
                 onDragEnd = {
-                    if (draggingId == card.id && dragStartOrder != displayedCards.map { it.id }) {
+                    if (draggingId == card.id && displayedCards.map { it.id } != dragStartOrder) {
                         onReorder(displayedCards.map { it.id })
                     }
                     draggingId = null
                     dragOffset = 0f
-                    lastTargetId = null
+                    dragTargetId = null
                     dragStartOrder = emptyList()
                 },
                 onDragCancel = {
                     draggingId = null
                     dragOffset = 0f
-                    lastTargetId = null
+                    dragTargetId = null
                     dragStartOrder = emptyList()
                 },
                 modifier = Modifier
-                    .animateItemPlacement(animationSpec = tween(180))
+                    .then(if (!isDragging) Modifier.animateItemPlacement(animationSpec = tween(150)) else Modifier)
                     .zIndex(if (isDragging) 1f else 0f)
                     .graphicsLayer {
                         if (isDragging) {

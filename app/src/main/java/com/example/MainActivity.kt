@@ -24,7 +24,9 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.background
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
@@ -55,9 +57,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import kotlin.math.abs
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.rememberDrawerState
 import kotlinx.coroutines.launch
@@ -175,14 +180,12 @@ fun MainAppContent(
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+    val context = LocalContext.current
     val vaultState by vaultViewModel.uiState.collectAsStateWithLifecycle()
-    val editorViewModel: EditorViewModel? = if (currentRoute == Screen.Note.route) {
-        viewModel(factory = editorViewModelFactory)
-    } else {
-        null
-    }
-    val editorSearchOpen = editorViewModel?.isSearchOpen?.collectAsStateWithLifecycle()?.value ?: false
-    val editorSearchQuery = editorViewModel?.searchQuery?.collectAsStateWithLifecycle()?.value ?: ""
+    // Keep the editor VM warm while Vault is visible; its file I/O remains on Dispatchers.IO.
+    val editorViewModel: EditorViewModel = viewModel(factory = editorViewModelFactory)
+    val editorSearchOpen = editorViewModel.isSearchOpen.collectAsStateWithLifecycle().value
+    val editorSearchQuery = editorViewModel.searchQuery.collectAsStateWithLifecycle().value
     val isEditorTab = currentRoute == Screen.Note.route
 
     val isMainTab = currentRoute == Screen.Vault.route || currentRoute == Screen.Note.route
@@ -190,6 +193,23 @@ fun MainAppContent(
 
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+
+    fun navigateToMainTab(tab: Int) {
+        val targetRoute = if (tab == 0) Screen.Vault.route else Screen.Note.route
+        if (targetRoute == currentRoute) return
+        if (targetRoute == Screen.Vault.route) {
+            if (!navController.popBackStack(Screen.Vault.route, inclusive = false)) {
+                navController.navigate(Screen.Vault.route) {
+                    launchSingleTop = true
+                }
+            }
+        } else {
+            navController.navigate(Screen.Note.route) {
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
+    }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -217,27 +237,33 @@ fun MainAppContent(
                 Column {
                     MainTopBar(
                         title = if (currentRoute == Screen.Settings.route) "Settings" else "Clipboard Manager",
+                        isVault = currentRoute == Screen.Vault.route,
+                        selectedCount = vaultState.selectedIds.size,
+                        allSelected = vaultState.cards.isNotEmpty() && vaultState.selectedIds.size == vaultState.cards.size,
+                        showPinnedFirst = vaultState.userSettings.showPinnedFirst,
                         isSearchOpen = if (isEditorTab) editorSearchOpen else vaultState.isSearchOpen && currentRoute == Screen.Vault.route,
                         searchQuery = if (isEditorTab) editorSearchQuery else vaultState.searchQuery,
                         searchPlaceholder = if (isEditorTab) "Search editor..." else "Search vault...",
                         onMenuClick = { scope.launch { drawerState.open() } },
-                        onSearchOpen = if (isEditorTab) editorViewModel!!::openSearch else vaultViewModel::openSearch,
-                        onSearchClose = if (isEditorTab) editorViewModel!!::closeSearch else vaultViewModel::closeSearch,
-                        onSearchQueryChange = if (isEditorTab) editorViewModel!!::setSearchQuery else vaultViewModel::setSearchQuery
+                        onSearchOpen = if (isEditorTab) editorViewModel::openSearch else vaultViewModel::openSearch,
+                        onSearchClose = if (isEditorTab) editorViewModel::closeSearch else vaultViewModel::closeSearch,
+                        onSearchQueryChange = if (isEditorTab) editorViewModel::setSearchQuery else vaultViewModel::setSearchQuery,
+                        onToggleSelectAll = {
+                            if (vaultState.selectedIds.size == vaultState.cards.size && vaultState.cards.isNotEmpty()) {
+                                vaultViewModel.clearSelection()
+                            } else {
+                                vaultViewModel.selectAll()
+                            }
+                        },
+                        onShareSelected = { vaultViewModel.shareSelected(context) },
+                        onSaveFile = vaultViewModel::openExportDialog,
+                        onOpenEditor = { navigateToMainTab(1) },
+                        onToggleShowPinnedFirst = vaultViewModel::toggleShowPinnedFirst
                     )
                     if (isMainTab) {
                         MainTabRow(
                             selectedTab = selectedTab,
-                            onTabSelected = { tab ->
-                                val route = if (tab == 0) Screen.Vault.route else Screen.Note.route
-                                navController.navigate(route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            }
+                            onTabSelected = ::navigateToMainTab
                         )
                     }
                 }
@@ -247,21 +273,40 @@ fun MainAppContent(
             NavHost(
                 navController = navController,
                 startDestination = Screen.Vault.route,
-                modifier = Modifier.padding(innerPadding)
+                modifier = Modifier
+                    .padding(innerPadding)
+                    .pointerInput(selectedTab, isMainTab) {
+                        if (!isMainTab) return@pointerInput
+                        var totalHorizontalDrag = 0f
+                        detectHorizontalDragGestures(
+                            onHorizontalDrag = { change, dragAmount ->
+                                totalHorizontalDrag += dragAmount
+                                if (abs(totalHorizontalDrag) >= 88f) {
+                                    val targetTab = if (totalHorizontalDrag < 0f) {
+                                        (selectedTab + 1).coerceAtMost(1)
+                                    } else {
+                                        (selectedTab - 1).coerceAtLeast(0)
+                                    }
+                                    if (targetTab != selectedTab) {
+                                        change.consume()
+                                        navigateToMainTab(targetTab)
+                                    }
+                                    totalHorizontalDrag = 0f
+                                }
+                            },
+                            onDragEnd = { totalHorizontalDrag = 0f },
+                            onDragCancel = { totalHorizontalDrag = 0f }
+                        )
+                    }
             ) {
                 composable(Screen.Vault.route) {
                     VaultScreen(
                         viewModel = vaultViewModel,
-                        onOpenEditor = {
-                            navController.navigate(Screen.Note.route) {
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        }
+                        onOpenEditor = { navigateToMainTab(1) }
                     )
                 }
                 composable(Screen.Note.route) {
-                    EditorScreen(viewModel = editorViewModel ?: viewModel(factory = editorViewModelFactory))
+                    EditorScreen(viewModel = editorViewModel)
                 }
                 composable(Screen.Settings.route) {
                     val settingsViewModel: SettingsViewModel = viewModel(factory = settingsViewModelFactory)
@@ -276,13 +321,22 @@ fun MainAppContent(
 @Composable
 private fun MainTopBar(
     title: String,
+    isVault: Boolean,
+    selectedCount: Int,
+    allSelected: Boolean,
+    showPinnedFirst: Boolean,
     isSearchOpen: Boolean,
     searchQuery: String,
     searchPlaceholder: String,
     onMenuClick: () -> Unit,
     onSearchOpen: () -> Unit,
     onSearchClose: () -> Unit,
-    onSearchQueryChange: (String) -> Unit
+    onSearchQueryChange: (String) -> Unit,
+    onToggleSelectAll: () -> Unit,
+    onShareSelected: () -> Unit,
+    onSaveFile: () -> Unit,
+    onOpenEditor: () -> Unit,
+    onToggleShowPinnedFirst: () -> Unit
 ) {
     var overflowExpanded by remember { mutableStateOf(false) }
 
@@ -364,13 +418,68 @@ private fun MainTopBar(
                     onDismissRequest = { overflowExpanded = false },
                     modifier = Modifier.testTag("main_overflow_menu")
                 ) {
-                    DropdownMenuItem(
-                        text = { Text("Settings") },
-                        onClick = {
-                            overflowExpanded = false
-                            onMenuClick()
-                        }
-                    )
+                    if (isVault) {
+                        DropdownMenuItem(
+                            text = { Text(if (allSelected) "Clear selection" else "Select all") },
+                            onClick = {
+                                overflowExpanded = false
+                                onToggleSelectAll()
+                            },
+                            modifier = Modifier.testTag("main_menu_select_all")
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Share") },
+                            enabled = selectedCount > 0,
+                            onClick = {
+                                overflowExpanded = false
+                                onShareSelected()
+                            },
+                            modifier = Modifier.testTag("main_menu_share")
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Save file") },
+                            enabled = selectedCount > 0,
+                            onClick = {
+                                overflowExpanded = false
+                                onSaveFile()
+                            },
+                            modifier = Modifier.testTag("main_menu_save_file")
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Open editor") },
+                            enabled = selectedCount > 0,
+                            onClick = {
+                                overflowExpanded = false
+                                onOpenEditor()
+                            },
+                            modifier = Modifier.testTag("main_menu_open_editor")
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Show pinned first") },
+                            trailingIcon = {
+                                if (showPinnedFirst) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = "Active"
+                                    )
+                                }
+                            },
+                            onClick = {
+                                overflowExpanded = false
+                                onToggleShowPinnedFirst()
+                            },
+                            modifier = Modifier.testTag("main_menu_show_pinned_first")
+                        )
+                    } else {
+                        DropdownMenuItem(
+                            text = { Text("Settings") },
+                            onClick = {
+                                overflowExpanded = false
+                                onMenuClick()
+                            },
+                            modifier = Modifier.testTag("main_menu_settings")
+                        )
+                    }
                 }
             }
         }
@@ -385,7 +494,7 @@ private fun MainTabRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(42.dp)
+            .height(36.dp)
             .background(MaterialTheme.colorScheme.surface)
             .selectableGroup()
             .testTag("main_top_tab_row"),
