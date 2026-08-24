@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentPaste
@@ -21,6 +22,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -28,6 +33,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import kotlin.math.abs
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.model.ClipboardCardProjection
 import com.example.ui.common.FirstRunEducationDialog
@@ -35,6 +41,7 @@ import com.example.ui.common.FirstRunEducationDialog
 @Composable
 fun VaultScreen(
     viewModel: VaultViewModel,
+    onOpenEditor: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -76,21 +83,24 @@ fun VaultScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            VaultSelectionBar(
-                selectedCount = selectedCount,
-                allSelected = allSelected,
-                allSelectedPinned = allSelectedPinned,
-                showPinnedFirst = uiState.userSettings.showPinnedFirst,
-                onToggleSelectAll = {
-                    if (allSelected) viewModel.clearSelection() else viewModel.selectAll()
-                },
-                onShareSelected = { viewModel.shareSelected(context) },
-                onCopySelected = { viewModel.copySelectedCards(context) },
-                onDeleteSelected = viewModel::requestDeleteSelected,
-                onPinSelected = viewModel::togglePinSelected,
-                onToggleShowPinnedFirst = viewModel::toggleShowPinnedFirst,
-                onSaveFile = viewModel::openExportDialog
-            )
+            if (selectedCount > 0) {
+                VaultSelectionBar(
+                    selectedCount = selectedCount,
+                    allSelected = allSelected,
+                    allSelectedPinned = allSelectedPinned,
+                    showPinnedFirst = uiState.userSettings.showPinnedFirst,
+                    onToggleSelectAll = {
+                        if (allSelected) viewModel.clearSelection() else viewModel.selectAll()
+                    },
+                    onShareSelected = { viewModel.shareSelected(context) },
+                    onCopySelected = { viewModel.copySelectedCards(context) },
+                    onDeleteSelected = viewModel::requestDeleteSelected,
+                    onPinSelected = viewModel::togglePinSelected,
+                    onToggleShowPinnedFirst = viewModel::toggleShowPinnedFirst,
+                    onSaveFile = viewModel::openExportDialog,
+                    onOpenEditor = onOpenEditor
+                )
+            }
 
             if (uiState.cards.isEmpty()) {
                 VaultEmptyState(
@@ -158,17 +168,22 @@ private fun VaultCardList(
     onLongPress: (Long) -> Unit,
     onCopy: (Long) -> Unit,
     onToggleRevealSensitive: (Long) -> Unit,
-    onReorder: (fromIndex: Int, toIndex: Int) -> Unit
+    onReorder: (fromId: Long, targetId: Long) -> Unit
 ) {
     val (pinnedCards, normalCards) = cards.partition { it.pinned }
+    val displayedCards = if (showPinnedFirst) pinnedCards + normalCards else cards
+    val cardsById = remember(cards) { cards.associateBy { it.id } }
+    val listState = rememberLazyListState()
+    var draggingId by remember { mutableStateOf<Long?>(null) }
+
     LazyColumn(
+        state = listState,
         contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 8.dp, bottom = 88.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier
             .fillMaxSize()
             .testTag("vault_card_list")
     ) {
-        val displayedCards = if (showPinnedFirst) pinnedCards + normalCards else cards
         itemsIndexed(displayedCards, key = { _, card -> card.id }) { index, card ->
             val group = if (showPinnedFirst && card.pinned) pinnedCards else if (showPinnedFirst) normalCards else displayedCards
             val groupIndex = group.indexOfFirst { it.id == card.id }
@@ -202,24 +217,59 @@ private fun VaultCardList(
                 }
             }
 
+            var dragOffset by remember(card.id) { mutableFloatStateOf(0f) }
+            var lastTargetId by remember(card.id) { mutableStateOf<Long?>(null) }
+
             ClipboardCardItem(
                 card = card,
                 isSelected = selectedIds.contains(card.id),
                 isSensitiveRevealed = revealedSensitiveIds.contains(card.id),
                 isMaskingEnabled = isMaskingEnabled,
-                canMoveUp = canMoveUp,
-                canMoveDown = canMoveDown,
+                isDragging = draggingId == card.id,
                 onToggleSelect = { onToggleSelect(card.id) },
                 onLongPress = { onLongPress(card.id) },
                 onCopy = { onCopy(card.id) },
                 onToggleRevealSensitive = { onToggleRevealSensitive(card.id) },
-                onMoveUp = {
-                    val from = if (showPinnedFirst) index else index
-                    onReorder(from, from - 1)
+                onDragStart = {
+                    draggingId = card.id
+                    dragOffset = 0f
+                    lastTargetId = null
                 },
-                onMoveDown = {
-                    val from = if (showPinnedFirst) index else index
-                    onReorder(from, from + 1)
+                onDrag = { change, dragAmount ->
+                    change.consume()
+                    dragOffset += dragAmount.y
+                    val draggedInfo = listState.layoutInfo.visibleItemsInfo
+                        .firstOrNull { it.key == card.id }
+                    if (draggedInfo != null) {
+                        val draggedCenter = draggedInfo.offset + draggedInfo.size / 2f + dragOffset
+                        val targetInfo = listState.layoutInfo.visibleItemsInfo
+                            .asSequence()
+                            .filter { item ->
+                                val targetId = item.key as? Long
+                                targetId != null && targetId != card.id &&
+                                    (!showPinnedFirst || cardsById[targetId]?.pinned == card.pinned) &&
+                                    draggedCenter in item.offset.toFloat()..(item.offset + item.size).toFloat()
+                            }
+                            .minByOrNull { item ->
+                                abs(draggedCenter - (item.offset + item.size / 2f))
+                            }
+                        val targetId = targetInfo?.key as? Long
+                        if (targetId != null && targetId != lastTargetId) {
+                            lastTargetId = targetId
+                            dragOffset = 0f
+                            onReorder(card.id, targetId)
+                        }
+                    }
+                },
+                onDragEnd = {
+                    draggingId = null
+                    dragOffset = 0f
+                    lastTargetId = null
+                },
+                onDragCancel = {
+                    draggingId = null
+                    dragOffset = 0f
+                    lastTargetId = null
                 }
             )
         }

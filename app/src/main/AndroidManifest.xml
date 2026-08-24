@@ -46,16 +46,17 @@
         <!-- Translucent 0ms Capture Activity for Quick Tile and Notification click -->
         <activity
             android:name=".service.TransparentCaptureActivity"
-            android:exported="true"
-            android:theme="@style/Theme.TransparentDialog"
+            android:exported="false"
+            android:theme="@style/Theme.TransparentCapture"
             android:excludeFromRecents="true"
-            android:noHistory="true" />
+            android:noHistory="true"
+            android:taskAffinity="" />
 
         <!-- Quick Settings Tile -->
         <service
             android:name=".service.ClipboardTileService"
             android:exported="true"
-            android:icon="@android:drawable/ic_menu_save"
+            android:icon="@drawable/ic_content_copy_white_24dp"
             android:label="@string/app_name"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>
@@ -63,10 +64,6 @@
             </intent-filter>
         </service>
 
-        <!-- Notification RemoteInput Receiver -->
-        <receiver
-            android:name=".service.QuickCaptureReceiver"
-            android:exported="false" />
     </application>
 
 </manifest>

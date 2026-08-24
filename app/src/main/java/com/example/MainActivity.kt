@@ -242,7 +242,15 @@ fun MainAppContent(
                 modifier = Modifier.padding(innerPadding)
             ) {
                 composable(Screen.Vault.route) {
-                    VaultScreen(viewModel = vaultViewModel)
+                    VaultScreen(
+                        viewModel = vaultViewModel,
+                        onOpenEditor = {
+                            navController.navigate(Screen.Note.route) {
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+                    )
                 }
                 composable(Screen.Note.route) {
                     EditorScreen(viewModel = editorViewModel)

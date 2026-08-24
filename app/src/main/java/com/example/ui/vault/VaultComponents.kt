@@ -25,8 +25,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.ContentCopy
@@ -78,7 +76,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -101,14 +101,15 @@ fun ClipboardCardItem(
     isSelected: Boolean,
     isSensitiveRevealed: Boolean,
     isMaskingEnabled: Boolean,
-    canMoveUp: Boolean,
-    canMoveDown: Boolean,
+    isDragging: Boolean,
     onToggleSelect: () -> Unit,
     onLongPress: () -> Unit,
     onCopy: () -> Unit,
     onToggleRevealSensitive: () -> Unit,
-    onMoveUp: () -> Unit,
-    onMoveDown: () -> Unit,
+    onDragStart: () -> Unit,
+    onDrag: (PointerInputChange, Offset) -> Unit,
+    onDragEnd: () -> Unit,
+    onDragCancel: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val isSensitive = card.isSensitive
@@ -296,31 +297,17 @@ fun ClipboardCardItem(
                 )
             }
 
-            var dragAccumulator by remember(card.id) { mutableStateOf(0f) }
-            val density = androidx.compose.ui.platform.LocalDensity.current
-            val dragThreshold = with(density) { 24.dp.toPx() }
             DragDots(
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (isDragging) 1f else 0.85f),
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(48.dp)
                     .testTag("drag_handle_${card.id}")
                     .pointerInput(card.id) {
                         detectDragGestures(
-                            onDragStart = { dragAccumulator = 0f },
-                            onDragCancel = { dragAccumulator = 0f },
-                            onDragEnd = { dragAccumulator = 0f },
-                            onDrag = { change, dragAmount ->
-                                change.consume()
-                                dragAccumulator += dragAmount.y
-                                while (dragAccumulator >= dragThreshold) {
-                                    if (canMoveDown) onMoveDown()
-                                    dragAccumulator -= dragThreshold
-                                }
-                                while (dragAccumulator <= -dragThreshold) {
-                                    if (canMoveUp) onMoveUp()
-                                    dragAccumulator += dragThreshold
-                                }
-                            }
+                            onDragStart = { onDragStart() },
+                            onDragCancel = { onDragCancel() },
+                            onDragEnd = { onDragEnd() },
+                            onDrag = onDrag
                         )
                     }
             )
@@ -504,6 +491,7 @@ fun VaultSelectionBar(
     onPinSelected: () -> Unit,
     onToggleShowPinnedFirst: () -> Unit,
     onSaveFile: () -> Unit,
+    onOpenEditor: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var overflowExpanded by remember { mutableStateOf(false) }
@@ -539,19 +527,19 @@ fun VaultSelectionBar(
                 )
             }
 
-            // Action Icons on Right: Share, Copy, Delete, More (⋮)
+            // Action Icons on Right: Pin, Copy, Delete, More (⋮)
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(
-                    onClick = onShareSelected,
+                    onClick = onPinSelected,
                     enabled = selectedCount > 0,
-                    modifier = Modifier.testTag("vault_action_share")
+                    modifier = Modifier.testTag("vault_action_pin_direct")
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Share,
-                        contentDescription = "Share selected",
-                        tint = if (selectedCount > 0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                        imageVector = if (allSelectedPinned) Icons.Outlined.PushPin else Icons.Default.PushPin,
+                        contentDescription = if (allSelectedPinned) "Unpin selected" else "Pin selected",
+                        tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -564,7 +552,7 @@ fun VaultSelectionBar(
                     Icon(
                         imageVector = Icons.Default.ContentCopy,
                         contentDescription = "Copy selected",
-                        tint = if (selectedCount > 0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                        tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -577,7 +565,7 @@ fun VaultSelectionBar(
                     Icon(
                         imageVector = Icons.Default.Delete,
                         contentDescription = "Delete selected",
-                        tint = if (selectedCount > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                        tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -600,25 +588,53 @@ fun VaultSelectionBar(
                         onDismissRequest = { overflowExpanded = false },
                         modifier = Modifier.testTag("vault_selection_overflow_menu")
                     ) {
-                        if (selectedCount > 0) {
-                            DropdownMenuItem(
-                                text = { Text(if (allSelectedPinned) "Bỏ ghim đã chọn" else "Ghim đã chọn") },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = if (allSelectedPinned) Icons.Outlined.PushPin else Icons.Default.PushPin,
-                                        contentDescription = null
-                                    )
-                                },
-                                onClick = {
-                                    overflowExpanded = false
-                                    onPinSelected()
-                                },
-                                modifier = Modifier.testTag("vault_action_pin")
-                            )
-                        }
+                        DropdownMenuItem(
+                            text = { Text(if (allSelected) "Clear selection" else "Select all") },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = null
+                                )
+                            },
+                            onClick = {
+                                overflowExpanded = false
+                                onToggleSelectAll()
+                            },
+                            modifier = Modifier.testTag("vault_menu_select_all")
+                        )
 
                         DropdownMenuItem(
-                            text = { Text("Ghim lên đầu") },
+                            text = { Text("Share") },
+                            leadingIcon = {
+                                Icon(Icons.Default.Share, contentDescription = null)
+                            },
+                            onClick = {
+                                overflowExpanded = false
+                                onShareSelected()
+                            },
+                            modifier = Modifier.testTag("vault_menu_share_selection")
+                        )
+
+                        DropdownMenuItem(
+                            text = { Text("Save file") },
+                            onClick = {
+                                overflowExpanded = false
+                                onSaveFile()
+                            },
+                            modifier = Modifier.testTag("vault_menu_save_file_selection")
+                        )
+
+                        DropdownMenuItem(
+                            text = { Text("Open editor") },
+                            onClick = {
+                                overflowExpanded = false
+                                onOpenEditor()
+                            },
+                            modifier = Modifier.testTag("vault_menu_open_editor_selection")
+                        )
+
+                        DropdownMenuItem(
+                            text = { Text("Show pinned first") },
                             trailingIcon = {
                                 if (showPinnedFirst) {
                                     Icon(
@@ -633,15 +649,6 @@ fun VaultSelectionBar(
                                 onToggleShowPinnedFirst()
                             },
                             modifier = Modifier.testTag("vault_menu_show_pinned_first")
-                        )
-
-                        DropdownMenuItem(
-                            text = { Text("Lưu file") },
-                            onClick = {
-                                overflowExpanded = false
-                                onSaveFile()
-                            },
-                            modifier = Modifier.testTag("vault_menu_save_file_selection")
                         )
                     }
                 }

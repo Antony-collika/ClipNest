@@ -374,20 +374,21 @@ class VaultViewModel(
         }
     }
 
-    fun reorderItems(fromIndex: Int, toIndex: Int) {
+    fun reorderItems(fromId: Long, targetId: Long) {
+        if (fromId == targetId) return
         val currentVisible = uiState.value.cards
-        val fromCard = currentVisible.getOrNull(fromIndex) ?: return
-        val toCard = currentVisible.getOrNull(toIndex) ?: return
+        val fromCard = currentVisible.firstOrNull { it.id == fromId } ?: return
+        val targetCard = currentVisible.firstOrNull { it.id == targetId } ?: return
 
         val reorderGroup = if (uiState.value.userSettings.showPinnedFirst) {
-            if (fromCard.pinned != toCard.pinned) return
+            if (fromCard.pinned != targetCard.pinned) return
             currentVisible.filter { it.pinned == fromCard.pinned }
         } else {
             currentVisible
         }
 
-        val fromGroupIndex = reorderGroup.indexOfFirst { it.id == fromCard.id }
-        val toGroupIndex = reorderGroup.indexOfFirst { it.id == toCard.id }
+        val fromGroupIndex = reorderGroup.indexOfFirst { it.id == fromId }
+        val toGroupIndex = reorderGroup.indexOfFirst { it.id == targetId }
         val updates = OrderHelper.calculateNewSortOrders(
             reorderGroup,
             fromGroupIndex,

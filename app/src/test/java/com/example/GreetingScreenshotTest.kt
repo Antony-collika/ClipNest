@@ -45,14 +45,15 @@ class GreetingScreenshotTest {
           isSelected = false,
           isSensitiveRevealed = false,
           isMaskingEnabled = true,
-          canMoveUp = false,
-          canMoveDown = true,
+          isDragging = false,
           onToggleSelect = {},
           onLongPress = {},
           onCopy = {},
           onToggleRevealSensitive = {},
-          onMoveUp = {},
-          onMoveDown = {}
+          onDragStart = {},
+          onDrag = { _, _ -> },
+          onDragEnd = {},
+          onDragCancel = {}
         )
       }
     }

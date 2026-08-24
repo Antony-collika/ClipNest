@@ -3,6 +3,7 @@ package com.example.service
 import android.content.ClipboardManager
 import android.content.Context
 import android.os.Bundle
+import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
@@ -15,13 +16,31 @@ import kotlinx.coroutines.withContext
 
 class TransparentCaptureActivity : ComponentActivity() {
 
+    private var captured = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         overridePendingTransition(0, 0)
+        setContentView(FrameLayout(this))
+    }
 
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus && !captured) {
+            captured = true
+            captureClipboard()
+        }
+    }
+
+    private fun captureClipboard() {
         val clipManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val clipText = try {
-            clipManager.primaryClip?.getItemAt(0)?.coerceToText(this)?.toString()
+            clipManager.primaryClip
+                ?.takeIf { it.itemCount > 0 }
+                ?.getItemAt(0)
+                ?.coerceToText(this)
+                ?.toString()
+                ?.trim()
         } catch (_: Exception) {
             null
         }

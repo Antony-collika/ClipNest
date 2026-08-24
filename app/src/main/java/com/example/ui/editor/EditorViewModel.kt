@@ -12,6 +12,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.local.ExportFormat
 import com.example.data.local.FileManager
 import com.example.data.local.SettingsDataStore
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -23,6 +24,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private data class PendingSave(val fileName: String, val format: ExportFormat)
 
@@ -53,6 +55,7 @@ class EditorViewModel(
     private val undoStack = ArrayDeque<TextFieldValue>()
     private val redoStack = ArrayDeque<TextFieldValue>()
     private var applyingHistory = false
+    private var editorLoaded = false
     private var pendingSave: PendingSave? = null
     private var autoSaveJob: Job? = null
 
@@ -72,18 +75,26 @@ class EditorViewModel(
     }
 
     private fun loadEditor() {
-        val text = fileManager.readEditor()
-        val value = TextFieldValue(text = text, selection = TextRange(text.length))
-        undoStack.clear()
-        redoStack.clear()
-        _uiState.value = _uiState.value.copy(
-            content = value,
-            isDirty = false,
-            lastSavedTimestamp = System.currentTimeMillis()
-        )
+        viewModelScope.launch(Dispatchers.IO) {
+            val text = fileManager.readEditor()
+            withContext(Dispatchers.Main.immediate) {
+                if (!editorLoaded) {
+                    val value = TextFieldValue(text = text, selection = TextRange(text.length))
+                    undoStack.clear()
+                    redoStack.clear()
+                    _uiState.value = _uiState.value.copy(
+                        content = value,
+                        isDirty = false,
+                        lastSavedTimestamp = System.currentTimeMillis()
+                    )
+                }
+                editorLoaded = true
+            }
+        }
     }
 
     fun onContentChange(newValue: TextFieldValue) {
+        editorLoaded = true
         val current = _uiState.value.content
         if (newValue.text != current.text && !applyingHistory) {
             undoStack.addLast(current)
@@ -163,11 +174,18 @@ class EditorViewModel(
     }
 
     fun saveCurrentDocumentSilently() {
-        fileManager.writeEditor(_uiState.value.content.text)
-        _uiState.value = _uiState.value.copy(
-            isDirty = false,
-            lastSavedTimestamp = System.currentTimeMillis()
-        )
+        val contentSnapshot = _uiState.value.content.text
+        viewModelScope.launch(Dispatchers.IO) {
+            fileManager.writeEditor(contentSnapshot)
+            withContext(Dispatchers.Main.immediate) {
+                if (_uiState.value.content.text == contentSnapshot) {
+                    _uiState.value = _uiState.value.copy(
+                        isDirty = false,
+                        lastSavedTimestamp = System.currentTimeMillis()
+                    )
+                }
+            }
+        }
     }
 
     fun onSaveClicked() {
@@ -210,20 +228,25 @@ class EditorViewModel(
         fileName: String,
         format: ExportFormat
     ) {
-        val saved = runCatching {
-            fileManager.saveNewFileToTree(
-                contentResolver = contentResolver,
-                treeUri = folderUri,
-                baseName = fileName,
-                format = format,
-                content = _uiState.value.content.text
-            )
-        }.getOrNull()
-        if (saved == null) {
-            emitToast("Could not save file")
-        } else {
-            _uiState.value = _uiState.value.copy(showSaveNewFileDialog = false)
-            emitToast("Saved ${fileName}${format.extension}")
+        val contentSnapshot = _uiState.value.content.text
+        viewModelScope.launch(Dispatchers.IO) {
+            val saved = runCatching {
+                fileManager.saveNewFileToTree(
+                    contentResolver = contentResolver,
+                    treeUri = folderUri,
+                    baseName = fileName,
+                    format = format,
+                    content = contentSnapshot
+                )
+            }.getOrNull()
+            withContext(Dispatchers.Main.immediate) {
+                if (saved == null) {
+                    emitToast("Could not save file")
+                } else {
+                    _uiState.value = _uiState.value.copy(showSaveNewFileDialog = false)
+                    emitToast("Saved ${fileName}${format.extension}")
+                }
+            }
         }
     }
 
