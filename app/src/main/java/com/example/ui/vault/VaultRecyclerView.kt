@@ -1,5 +1,7 @@
 package com.example.ui.vault
 
+import android.animation.ArgbEvaluator
+import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.ColorStateList
@@ -16,6 +18,7 @@ import android.view.ViewConfiguration
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.DecelerateInterpolator
 import android.widget.CheckBox
 import android.widget.ImageButton
 import android.widget.LinearLayout
@@ -346,7 +349,7 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
         private val timestamp: TextView
         private val pinnedLabel: TextView
         private val copyButton: ImageButton
-        private val dragHandle: TextView
+        private val dragHandle: DragHandleView
         private val cardContent: LinearLayout
         private val density = resources.displayMetrics.density
         private var baseColors: VaultRecyclerColors? = null
@@ -356,6 +359,8 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
         private var downX = 0f
         private var downY = 0f
         private var pendingLongPress: Runnable? = null
+        private var pressAnimator: ValueAnimator? = null
+        private var pressProgress = 0f
         private val longPressHandler = Handler(Looper.getMainLooper())
         private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
 
@@ -363,6 +368,7 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
             orientation = VERTICAL
             layoutParams = RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             setPadding(dp(6), dp(6), dp(8), dp(6))
+            minimumHeight = dp(72)
             isClickable = true
             isFocusable = true
 
@@ -384,6 +390,7 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
 
             cardContent = LinearLayout(context).apply {
                 orientation = VERTICAL
+                minimumHeight = dp(58)
                 layoutParams = LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
                     setMargins(dp(4), dp(3), dp(4), dp(3))
                 }
@@ -452,13 +459,8 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
             }
             contentRow.addView(copyButton)
 
-            dragHandle = TextView(context).apply {
+            dragHandle = DragHandleView(context).apply {
                 layoutParams = LayoutParams(dp(48), dp(48))
-                gravity = Gravity.CENTER
-                text = "::"
-                textSize = 18f
-                letterSpacing = 0.08f
-                setTypeface(Typeface.DEFAULT, Typeface.BOLD)
                 contentDescription = "Drag handle"
                 isClickable = true
                 isFocusable = false
@@ -482,8 +484,11 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
         ) {
             baseColors = colors
             selectedState = selected
+            pressAnimator?.cancel()
+            pressProgress = 0f
             setBackgroundDrawable(backgroundFor(colors, selected, false))
             setPadding(dp(6), if (showGroupBoundary) dp(12) else dp(6), dp(8), dp(6))
+            minimumHeight = dp(if (showGroupBoundary) 78 else 72)
             checkbox.buttonTintList = ColorStateList(
                 arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
                 intArrayOf(colors.primary, colors.onSurfaceVariant)
@@ -509,7 +514,7 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
             pinnedLabel.setTextColor(colors.pinned)
             copyButton.imageTintList = ColorStateList.valueOf(colors.onSurfaceVariant)
             copyButton.setOnClickListener { onCopy() }
-            dragHandle.setTextColor(colors.onSurfaceVariant)
+            dragHandle.setDotColor(colors.onSurfaceVariant)
 
             setOnClickListener {
                 if (!longPressFired) onToggleSelect()
@@ -523,9 +528,11 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
                         longPressFired = false
                         downX = event.rawX
                         downY = event.rawY
+                        startPressFeedback()
                         val callback = Runnable {
                             if (touchDown && !longPressFired) {
                                 longPressFired = true
+                                stopPressFeedback()
                                 performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                                 onLongPress()
                             }
@@ -538,11 +545,13 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
                             kotlin.math.abs(event.rawY - downY) > touchSlop
                         ) {
                             pendingLongPress?.let(longPressHandler::removeCallbacks)
+                            stopPressFeedback()
                         }
                     }
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                         pendingLongPress?.let(longPressHandler::removeCallbacks)
                         touchDown = false
+                        stopPressFeedback()
                         if (event.actionMasked == MotionEvent.ACTION_UP) {
                             post { longPressFired = false }
                         } else {
@@ -560,11 +569,62 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
             }
         }
 
+        private fun startPressFeedback() {
+            pressAnimator?.cancel()
+            pressAnimator = ValueAnimator.ofFloat(pressProgress, 1f).apply {
+                duration = LONG_PRESS_DELAY_MS
+                interpolator = DecelerateInterpolator()
+                addUpdateListener { animator ->
+                    pressProgress = animator.animatedValue as Float
+                    updatePressBackground()
+                }
+                start()
+            }
+        }
+
+        private fun stopPressFeedback() {
+            pressAnimator?.cancel()
+            pressAnimator = ValueAnimator.ofFloat(pressProgress, 0f).apply {
+                duration = 90L
+                interpolator = DecelerateInterpolator()
+                addUpdateListener { animator ->
+                    pressProgress = animator.animatedValue as Float
+                    updatePressBackground()
+                }
+                start()
+            }
+        }
+
+        private fun updatePressBackground() {
+            val colors = baseColors ?: return
+            if (pressProgress <= 0.001f) {
+                setBackgroundDrawable(backgroundFor(colors, selectedState, false))
+                return
+            }
+            val base = backgroundColor(colors, selectedState)
+            val target = blendColors(base, colors.primaryContainer, 0.22f)
+            val current = ArgbEvaluator().evaluate(pressProgress, base, target) as Int
+            GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dp(16).toFloat()
+                setColor(current)
+                setStroke(dp(1 + kotlin.math.round(pressProgress).toInt()), colors.primary)
+            }.also(::setBackgroundDrawable)
+        }
+
         fun setDragging(isDragging: Boolean, colors: VaultRecyclerColors) {
             setBackgroundDrawable(backgroundFor(colors, isSelected = selectedState, isDragging = isDragging))
             elevation = if (isDragging) dp(6).toFloat() else 0f
             scaleX = if (isDragging) 1.015f else 1f
             scaleY = if (isDragging) 1.015f else 1f
+        }
+
+        private fun backgroundColor(colors: VaultRecyclerColors, isSelected: Boolean): Int {
+            return if (isSelected) withAlpha(colors.primaryContainer, 90) else colors.surface
+        }
+
+        private fun blendColors(from: Int, to: Int, amount: Float): Int {
+            return ArgbEvaluator().evaluate(amount.coerceIn(0f, 1f), from, to) as Int
         }
 
         private fun backgroundFor(
@@ -578,8 +638,7 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
             background.setColor(
                 when {
                     isDragging -> colors.primaryContainer
-                    isSelected -> withAlpha(colors.primaryContainer, 90)
-                    else -> colors.surface
+                    else -> backgroundColor(colors, isSelected)
                 }
             )
             when {
@@ -587,6 +646,41 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
                 isSelected -> background.setStroke(dp(2), colors.primary)
             }
             return background
+        }
+
+        private class DragHandleView(context: Context) : View(context) {
+            private val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+            private val density = resources.displayMetrics.density
+            private var dotColor = Color.DKGRAY
+
+            init {
+                setWillNotDraw(false)
+            }
+
+            fun setDotColor(color: Int) {
+                dotColor = color
+                invalidate()
+            }
+
+            override fun onDraw(canvas: Canvas) {
+                super.onDraw(canvas)
+                dotPaint.color = dotColor
+                val centerX = width / 2f
+                val columnOffset = 4f * density
+                val rowOffset = 6f * density
+                val centerY = height / 2f
+                val radius = 1.8f * density
+                for (column in -1..1 step 2) {
+                    for (row in -1..1) {
+                        canvas.drawCircle(
+                            centerX + column * columnOffset,
+                            centerY + row * rowOffset,
+                            radius,
+                            dotPaint
+                        )
+                    }
+                }
+            }
         }
 
         private fun withAlpha(color: Int, alpha: Int): Int {
@@ -600,6 +694,6 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
 
     private companion object {
         const val PAYLOAD_STATE = "vault_state"
-        const val LONG_PRESS_DELAY_MS = 300L
+        const val LONG_PRESS_DELAY_MS = 280L
     }
 }

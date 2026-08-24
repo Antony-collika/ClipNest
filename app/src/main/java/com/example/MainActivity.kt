@@ -11,6 +11,10 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -42,20 +46,26 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TriStateCheckbox
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -309,6 +319,15 @@ private fun MainTopBar(
     onTabSelected: (Int) -> Unit
 ) {
     var overflowExpanded by remember { mutableStateOf(false) }
+    val searchFocusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    LaunchedEffect(isSearchOpen) {
+        if (isSearchOpen) {
+            searchFocusRequester.requestFocus()
+            keyboardController?.show()
+        }
+    }
 
     Surface(
         color = MaterialTheme.colorScheme.surface,
@@ -319,7 +338,7 @@ private fun MainTopBar(
                 .fillMaxWidth()
                 .statusBarsPadding()
                 .height(52.dp)
-                .padding(horizontal = 4.dp),
+                .padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
@@ -347,6 +366,7 @@ private fun MainTopBar(
                                 ),
                                 modifier = Modifier
                                     .weight(1f)
+                                    .focusRequester(searchFocusRequester)
                                     .testTag("main_search_input")
                             )
                             if (isEditor) {
@@ -373,9 +393,9 @@ private fun MainTopBar(
                     }
                     isVault || isEditor -> {
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(start = 8.dp),
+                                                            modifier = Modifier
+                                    .fillMaxWidth(),
+
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Tab(
@@ -387,12 +407,10 @@ private fun MainTopBar(
                             ) {
                                 if (isVault && selectedCount > 0) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        TriStateCheckbox(
+                                        VaultSelectionCheckbox(
                                             state = selectionState,
                                             onClick = onToggleSelectAll,
-                                            modifier = Modifier
-                                                .size(32.dp)
-                                                .testTag("vault_select_all_checkbox")
+                                            modifier = Modifier.testTag("vault_select_all_checkbox")
                                         )
                                         Text(
                                             text = "Selected $selectedCount",
@@ -405,16 +423,18 @@ private fun MainTopBar(
                                     Text("Vault", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
                                 }
                             }
-                            Tab(
-                                selected = isEditor,
-                                onClick = { onTabSelected(1) },
-                                text = {
-                                    Text("Editor", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
-                                },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .testTag("main_tab_editor")
-                            )
+                            if (!isVault || selectedCount == 0) {
+                                Tab(
+                                    selected = isEditor,
+                                    onClick = { onTabSelected(1) },
+                                    text = {
+                                        Text("Editor", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("main_tab_editor")
+                                )
+                            }
                         }
                     }
                     else -> {
@@ -429,53 +449,58 @@ private fun MainTopBar(
                 }
             }
 
-            if (isVault && selectedCount > 0 && !isSearchOpen) {
-                IconButton(
-                    onClick = onPinSelected,
-                    modifier = Modifier.size(40.dp).testTag("vault_action_pin_direct")
-                ) {
-                    Icon(
-                        imageVector = if (allSelectedPinned) Icons.Outlined.PushPin else Icons.Default.PushPin,
-                        contentDescription = if (allSelectedPinned) "Unpin selected" else "Pin selected"
-                    )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(0.dp)
+            ) {
+                if (isVault && selectedCount > 0 && !isSearchOpen) {
+                    IconButton(
+                        onClick = onPinSelected,
+                        modifier = Modifier.size(36.dp).testTag("vault_action_pin_direct")
+                    ) {
+                        Icon(
+                            imageVector = if (allSelectedPinned) Icons.Outlined.PushPin else Icons.Default.PushPin,
+                            contentDescription = if (allSelectedPinned) "Unpin selected" else "Pin selected",
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    IconButton(
+                        onClick = onCopySelected,
+                        modifier = Modifier.size(36.dp).testTag("vault_action_copy")
+                    ) {
+                        Icon(Icons.Default.ContentCopy, contentDescription = "Copy selected", modifier = Modifier.size(22.dp))
+                    }
+                    IconButton(
+                        onClick = onDeleteSelected,
+                        modifier = Modifier.size(36.dp).testTag("vault_action_delete")
+                    ) {
+                        Icon(Icons.Default.Delete, contentDescription = "Delete selected", modifier = Modifier.size(22.dp))
+                    }
                 }
-                IconButton(
-                    onClick = onCopySelected,
-                    modifier = Modifier.size(40.dp).testTag("vault_action_copy")
-                ) {
-                    Icon(Icons.Default.ContentCopy, contentDescription = "Copy selected")
-                }
-                IconButton(
-                    onClick = onDeleteSelected,
-                    modifier = Modifier.size(40.dp).testTag("vault_action_delete")
-                ) {
-                    Icon(Icons.Default.Delete, contentDescription = "Delete selected")
-                }
-            }
 
-            if (isSearchOpen) {
-                IconButton(
-                    onClick = onSearchClose,
-                    modifier = Modifier.testTag("main_close_search_button")
-                ) {
-                    Text("×", style = MaterialTheme.typography.headlineSmall)
+                if (isSearchOpen) {
+                    IconButton(
+                        onClick = onSearchClose,
+                        modifier = Modifier.size(36.dp).testTag("main_close_search_button")
+                    ) {
+                        Text("×", style = MaterialTheme.typography.headlineSmall)
+                    }
+                } else {
+                    IconButton(
+                        onClick = onSearchOpen,
+                        modifier = Modifier.size(36.dp).testTag("main_search_button")
+                    ) {
+                        Icon(Icons.Default.Search, contentDescription = "Search", modifier = Modifier.size(22.dp))
+                    }
                 }
-            } else {
-                IconButton(
-                    onClick = onSearchOpen,
-                    modifier = Modifier.testTag("main_search_button")
-                ) {
-                    Icon(Icons.Default.Search, contentDescription = "Search")
-                }
-            }
 
-            Box {
-                IconButton(
-                    onClick = { overflowExpanded = true },
-                    modifier = Modifier.testTag("main_overflow_button")
-                ) {
-                    Icon(Icons.Default.MoreVert, contentDescription = "More options")
-                }
+                Box {
+                    IconButton(
+                        onClick = { overflowExpanded = true },
+                        modifier = Modifier.size(36.dp).testTag("main_overflow_button")
+                    ) {
+                        Icon(Icons.Default.MoreVert, contentDescription = "More options", modifier = Modifier.size(22.dp))
+                    }
                 DropdownMenu(
                     expanded = overflowExpanded,
                     onDismissRequest = { overflowExpanded = false },
@@ -483,7 +508,7 @@ private fun MainTopBar(
                     tonalElevation = 2.dp,
                     shadowElevation = 2.dp,
                     modifier = Modifier.testTag("main_overflow_menu")
-                ) {
+                    ) {
                     if (isVault) {
                         DropdownMenuItem(
                             text = { Text(if (selectionState == ToggleableState.On) "Clear selection" else "Select all") },
@@ -553,6 +578,45 @@ private fun MainTopBar(
                     }
                 }
             }
+        }
+    }
+}
+}
+
+
+@Composable
+private fun VaultSelectionCheckbox(
+    state: ToggleableState,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val shape = RoundedCornerShape(2.dp)
+    val primary = MaterialTheme.colorScheme.primary
+    val outline = MaterialTheme.colorScheme.onSurfaceVariant
+    val surface = MaterialTheme.colorScheme.surface
+    Box(
+        modifier = modifier
+            .size(32.dp)
+            .clip(shape)
+            .background(if (state == ToggleableState.Off) androidx.compose.ui.graphics.Color.Transparent else primary)
+            .border(2.dp, if (state == ToggleableState.Off) outline else primary, shape)
+            .clickable(role = Role.Checkbox, onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        when (state) {
+            ToggleableState.On -> Icon(
+                imageVector = Icons.Default.Check,
+                contentDescription = "Clear selection",
+                tint = surface,
+                modifier = Modifier.size(22.dp)
+            )
+            ToggleableState.Indeterminate -> Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.55f)
+                    .height(3.dp)
+                    .background(surface, RoundedCornerShape(2.dp))
+            )
+            ToggleableState.Off -> Unit
         }
     }
 }
