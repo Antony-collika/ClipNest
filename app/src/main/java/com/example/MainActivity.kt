@@ -25,7 +25,6 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.background
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Menu
@@ -60,12 +59,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import kotlin.math.abs
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.rememberDrawerState
 import kotlinx.coroutines.launch
@@ -73,7 +70,6 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -185,34 +181,25 @@ fun MainAppContent(
     val currentRoute = navBackStackEntry?.destination?.route
     val context = LocalContext.current
     val vaultState by vaultViewModel.uiState.collectAsStateWithLifecycle()
-    // Keep the editor VM warm while Vault is visible; its file I/O remains on Dispatchers.IO.
     val editorViewModel: EditorViewModel = viewModel(factory = editorViewModelFactory)
     val editorSearchOpen = editorViewModel.isSearchOpen.collectAsStateWithLifecycle().value
     val editorSearchQuery = editorViewModel.searchQuery.collectAsStateWithLifecycle().value
     val editorSearchMatchCount = editorViewModel.searchMatchCount.collectAsStateWithLifecycle().value
     val editorActiveSearchMatch = editorViewModel.activeSearchMatch.collectAsStateWithLifecycle().value
-    val isEditorTab = currentRoute == Screen.Note.route
-
-    val isMainTab = currentRoute == Screen.Vault.route || currentRoute == Screen.Note.route
-    val selectedTab = if (currentRoute == Screen.Note.route) 1 else 0
-
-    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val pagerState = androidx.compose.foundation.pager.rememberPagerState(
+        initialPage = 0,
+        pageCount = { 2 }
+    )
     val scope = rememberCoroutineScope()
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val isSettings = currentRoute == Screen.Settings.route
+    val isEditorTab = !isSettings && pagerState.currentPage == 1
+    val isMainTab = !isSettings
+    val selectedTab = pagerState.currentPage.coerceIn(0, 1)
 
-    fun navigateToMainTab(tab: Int) {
-        val targetRoute = if (tab == 0) Screen.Vault.route else Screen.Note.route
-        if (targetRoute == currentRoute) return
-        if (targetRoute == Screen.Vault.route) {
-            if (!navController.popBackStack(Screen.Vault.route, inclusive = false)) {
-                navController.navigate(Screen.Vault.route) {
-                    launchSingleTop = true
-                }
-            }
-        } else {
-            navController.navigate(Screen.Note.route) {
-                launchSingleTop = true
-                restoreState = true
-            }
+    fun openEditorFromVault() {
+        vaultViewModel.copySelectedCardsThenOpenEditor(context) {
+            scope.launch { pagerState.animateScrollToPage(1) }
         }
     }
 
@@ -227,7 +214,7 @@ fun MainAppContent(
                 )
                 NavigationDrawerItem(
                     label = { Text("Settings") },
-                    selected = currentRoute == Screen.Settings.route,
+                    selected = isSettings,
                     onClick = {
                         scope.launch { drawerState.close() }
                         navController.navigate(Screen.Settings.route) { launchSingleTop = true }
@@ -241,13 +228,14 @@ fun MainAppContent(
             topBar = {
                 Column {
                     MainTopBar(
-                        title = if (currentRoute == Screen.Settings.route) "Settings" else "Clipboard Manager",
-                        isVault = currentRoute == Screen.Vault.route,
-                        isEditor = currentRoute == Screen.Note.route,
-                        selectedCount = vaultState.selectedIds.size,
-                        allSelected = vaultState.cards.isNotEmpty() && vaultState.selectedIds.size == vaultState.cards.size,
+                        title = if (isSettings) "Settings" else "Clipboard Manager",
+                        isVault = !isSettings && selectedTab == 0,
+                        isEditor = !isSettings && selectedTab == 1,
+                        selectedCount = if (isSettings) 0 else vaultState.selectedIds.size,
+                        allSelected = !isSettings && vaultState.cards.isNotEmpty() &&
+                            vaultState.selectedIds.size == vaultState.cards.size,
                         showPinnedFirst = vaultState.userSettings.showPinnedFirst,
-                        isSearchOpen = if (isEditorTab) editorSearchOpen else vaultState.isSearchOpen && currentRoute == Screen.Vault.route,
+                        isSearchOpen = if (isEditorTab) editorSearchOpen else vaultState.isSearchOpen,
                         searchQuery = if (isEditorTab) editorSearchQuery else vaultState.searchQuery,
                         searchPlaceholder = if (isEditorTab) "Search editor..." else "Search vault...",
                         editorSearchMatchCount = editorSearchMatchCount,
@@ -267,17 +255,15 @@ fun MainAppContent(
                         },
                         onShareSelected = { vaultViewModel.shareSelected(context) },
                         onSaveFile = vaultViewModel::openExportDialog,
-                        onOpenEditor = {
-                            vaultViewModel.copySelectedCardsThenOpenEditor(context) {
-                                navigateToMainTab(1)
-                            }
-                        },
+                        onOpenEditor = ::openEditorFromVault,
                         onToggleShowPinnedFirst = vaultViewModel::toggleShowPinnedFirst
                     )
                     if (isMainTab) {
                         MainTabRow(
                             selectedTab = selectedTab,
-                            onTabSelected = ::navigateToMainTab
+                            onTabSelected = { target ->
+                                scope.launch { pagerState.animateScrollToPage(target) }
+                            }
                         )
                     }
                 }
@@ -287,44 +273,28 @@ fun MainAppContent(
             NavHost(
                 navController = navController,
                 startDestination = Screen.Vault.route,
-                modifier = Modifier
-                    .padding(innerPadding)
-                    .pointerInput(selectedTab, isMainTab) {
-                        if (!isMainTab) return@pointerInput
-                        var totalHorizontalDrag = 0f
-                        detectHorizontalDragGestures(
-                            onHorizontalDrag = { change, dragAmount ->
-                                totalHorizontalDrag += dragAmount
-                                if (abs(totalHorizontalDrag) >= 88f) {
-                                    val targetTab = if (totalHorizontalDrag < 0f) {
-                                        (selectedTab + 1).coerceAtMost(1)
-                                    } else {
-                                        (selectedTab - 1).coerceAtLeast(0)
-                                    }
-                                    if (targetTab != selectedTab) {
-                                        change.consume()
-                                        navigateToMainTab(targetTab)
-                                    }
-                                    totalHorizontalDrag = 0f
-                                }
-                            },
-                            onDragEnd = { totalHorizontalDrag = 0f },
-                            onDragCancel = { totalHorizontalDrag = 0f }
-                        )
-                    }
+                modifier = Modifier.padding(innerPadding)
             ) {
                 composable(Screen.Vault.route) {
-                    VaultScreen(
-                        viewModel = vaultViewModel,
-                        onOpenEditor = {
-                            vaultViewModel.copySelectedCardsThenOpenEditor(context) {
-                                navigateToMainTab(1)
-                            }
+                    androidx.compose.foundation.pager.HorizontalPager(
+                        state = pagerState,
+                        beyondViewportPageCount = 1,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .testTag("main_content_pager")
+                    ) { page ->
+                        when (page) {
+                            0 -> VaultScreen(
+                                viewModel = vaultViewModel,
+                                onOpenEditor = ::openEditorFromVault,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                            1 -> EditorScreen(
+                                viewModel = editorViewModel,
+                                modifier = Modifier.fillMaxSize()
+                            )
                         }
-                    )
-                }
-                composable(Screen.Note.route) {
-                    EditorScreen(viewModel = editorViewModel)
+                    }
                 }
                 composable(Screen.Settings.route) {
                     val settingsViewModel: SettingsViewModel = viewModel(factory = settingsViewModelFactory)

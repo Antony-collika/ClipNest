@@ -19,6 +19,9 @@ object TextNormalizer {
         return normalizedLineEndings
     }
 
+    private fun normalizeForComposition(rawText: CharSequence?): String? =
+        normalize(rawText)?.trim()?.takeIf { it.isNotEmpty() }
+
     fun generatePreview(text: String, maxLines: Int = 3, maxChars: Int = 180): String {
         val lines = text.lines()
         val takeLines = lines.take(maxLines).joinToString("\n")
@@ -44,13 +47,34 @@ object TextNormalizer {
         return ContentType.TEXT
     }
 
-    fun combine(sharedText: String, clipboardText: String): String {
-        val normShared = normalize(sharedText) ?: ""
-        val normClip = normalize(clipboardText) ?: ""
+    /**
+     * Combines the copied content and the shared payload without blank spacer lines.
+     * The first argument is always placed first; the second is marked as its source.
+     */
+    fun combine(firstText: String, sourceText: String): String {
+        val first = normalizeForComposition(firstText)
+        val source = normalizeForComposition(sourceText)
         return when {
-            normShared.isNotEmpty() && normClip.isNotEmpty() -> "$normShared\n\n---\n\n$normClip"
-            normShared.isNotEmpty() -> normShared
-            else -> normClip
+            first != null && source != null -> "$first\n---\nsource: $source"
+            first != null -> first
+            source != null -> source
+            else -> ""
         }
+    }
+
+    /**
+     * Formats cards in their already-visible order. Headers are used only when requested,
+     * which keeps ordinary multi-copy/share compact while making Open editor sections clear.
+     */
+    fun formatSelectedCards(contents: List<String>, includeHeaders: Boolean = false): String {
+        val normalized = contents.mapNotNull(::normalizeForComposition)
+        if (normalized.isEmpty()) return ""
+        return normalized.mapIndexed { index, content ->
+            if (includeHeaders && normalized.size > 1) {
+                "#Content ${index + 1}\n$content"
+            } else {
+                content
+            }
+        }.joinToString("\n---\n")
     }
 }

@@ -9,16 +9,15 @@ import androidx.compose.animation.core.tween
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -49,7 +48,6 @@ import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -57,7 +55,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.model.ClipboardCardProjection
-import kotlin.math.roundToInt
 
 @Composable
 fun VaultScreen(
@@ -214,18 +211,17 @@ private fun VaultCardList(
     val displayedFromState = if (showPinnedFirst) pinnedCards + normalCards else cards
     var displayedCards by remember { mutableStateOf(displayedFromState) }
     var draggingId by remember { mutableStateOf<Long?>(null) }
-    var dragTotalDelta by remember { mutableFloatStateOf(0f) }
-    var pointerDownOffsetInCard by remember { mutableFloatStateOf(0f) }
     var dragPointerAbsoluteY by remember { mutableFloatStateOf(0f) }
-    var dragDropIndex by remember { mutableIntStateOf(-1) }
+    var pointerOffsetInCard by remember { mutableFloatStateOf(0f) }
+    var dragTargetIndex by remember { mutableIntStateOf(-1) }
     var dragTargetId by remember { mutableStateOf<Long?>(null) }
     var dragStartOrder by remember { mutableStateOf<List<Long>>(emptyList()) }
-    var dragStartBounds by remember { mutableStateOf<Rect?>(null) }
-    var listBounds by remember { mutableStateOf<Rect?>(null) }
+    var dragStartCards by remember { mutableStateOf<List<ClipboardCardProjection>>(emptyList()) }
     val cardBounds = remember { mutableStateMapOf<Long, Rect>() }
     val handleBounds = remember { mutableStateMapOf<Long, Rect>() }
     val density = LocalDensity.current
     val listState = rememberLazyListState()
+    var listBounds by remember { mutableStateOf<Rect?>(null) }
 
     LaunchedEffect(cards, showPinnedFirst) {
         if (draggingId == null) {
@@ -235,6 +231,37 @@ private fun VaultCardList(
                 cards
             }
         }
+    }
+
+    LaunchedEffect(draggingId) {
+        while (draggingId != null) {
+            val bounds = listBounds
+            if (bounds != null) {
+                val edge = with(density) { 56.dp.toPx() }
+                val topEdge = bounds.top + edge
+                val bottomEdge = bounds.bottom - edge
+                val scrollDelta = when {
+                    dragPointerAbsoluteY < topEdge ->
+                        -(((topEdge - dragPointerAbsoluteY) / edge) * 18f).coerceIn(4f, 18f)
+                    dragPointerAbsoluteY > bottomEdge ->
+                        (((dragPointerAbsoluteY - bottomEdge) / edge) * 18f).coerceIn(4f, 18f)
+                    else -> 0f
+                }
+                if (scrollDelta != 0f) listState.scrollBy(scrollDelta)
+            }
+            kotlinx.coroutines.delay(16L)
+        }
+    }
+
+    fun resetDrag(restoreCards: Boolean) {
+        if (restoreCards && dragStartCards.isNotEmpty()) displayedCards = dragStartCards
+        draggingId = null
+        dragPointerAbsoluteY = 0f
+        pointerOffsetInCard = 0f
+        dragTargetIndex = -1
+        dragTargetId = null
+        dragStartOrder = emptyList()
+        dragStartCards = emptyList()
     }
 
     Box(
@@ -284,149 +311,120 @@ private fun VaultCardList(
                 }
 
                 val isDragging = draggingId == card.id
-                if (isDragging) {
-                    val measuredHeight = cardBounds[card.id]?.height ?: with(density) { 72.dp.toPx() }
-                    Spacer(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(with(density) { measuredHeight.coerceAtLeast(1f).toDp() })
-                            .testTag("drag_placeholder_${card.id}")
-                    )
-                } else {
-                    ClipboardCardItem(
-                        card = card,
-                        isSelected = selectedIds.contains(card.id),
-                        isSensitiveRevealed = revealedSensitiveIds.contains(card.id),
-                        isMaskingEnabled = isMaskingEnabled,
-                        isDragging = false,
-                        isDropTarget = draggingId != null && dragTargetId == card.id,
-                        onToggleSelect = { onToggleSelect(card.id) },
-                        onLongPress = {
-                            onLongPress(card.id, cardBounds[card.id]?.center?.y ?: 0f)
-                        },
-                        onCopy = { onCopy(card.id) },
-                        onToggleRevealSensitive = { onToggleRevealSensitive(card.id) },
-                        onDragStart = { pointerPosition ->
-                            val itemBounds = cardBounds[card.id] ?: return@ClipboardCardItem
-                            val handle = handleBounds[card.id]
-                            val pointerAbsoluteY = handle?.top?.plus(pointerPosition.y)
-                                ?: itemBounds.center.y
-                            draggingId = card.id
-                            dragTotalDelta = 0f
-                            pointerDownOffsetInCard = pointerAbsoluteY - itemBounds.top
-                            dragPointerAbsoluteY = pointerAbsoluteY
-                            dragStartBounds = itemBounds
-                            dragDropIndex = displayedCards
-                                .filter { !showPinnedFirst || it.pinned == card.pinned }
-                                .indexOfFirst { it.id == card.id }
-                                .coerceAtLeast(0)
-                            dragTargetId = null
-                            dragStartOrder = displayedCards.map { it.id }
-                        },
-                        onDragHandlePositioned = { bounds ->
-                            handleBounds[card.id] = bounds
-                        },
-                        onDrag = { change, dragAmount ->
-                            if (draggingId != card.id) return@ClipboardCardItem
-                            change.consume()
-                            dragTotalDelta += dragAmount.y
-                            dragPointerAbsoluteY += dragAmount.y
+                ClipboardCardItem(
+                    card = card,
+                    isSelected = selectedIds.contains(card.id),
+                    isSensitiveRevealed = revealedSensitiveIds.contains(card.id),
+                    isMaskingEnabled = isMaskingEnabled,
+                    isDragging = isDragging,
+                    isDropTarget = draggingId != null && dragTargetId == card.id,
+                    onToggleSelect = { onToggleSelect(card.id) },
+                    onLongPress = {
+                        onLongPress(card.id, cardBounds[card.id]?.center?.y ?: 0f)
+                    },
+                    onCopy = { onCopy(card.id) },
+                    onToggleRevealSensitive = { onToggleRevealSensitive(card.id) },
+                    onDragStart = { pointerPosition ->
+                        val itemBounds = cardBounds[card.id] ?: return@ClipboardCardItem
+                        val handle = handleBounds[card.id] ?: return@ClipboardCardItem
+                        val pointerAbsoluteY = handle.top + pointerPosition.y
+                        draggingId = card.id
+                        dragPointerAbsoluteY = pointerAbsoluteY
+                        pointerOffsetInCard = pointerAbsoluteY - itemBounds.top
+                        dragTargetIndex = displayedCards.indexOfFirst { it.id == card.id }.coerceAtLeast(0)
+                        dragTargetId = null
+                        dragStartOrder = displayedCards.map { it.id }
+                        dragStartCards = displayedCards
+                    },
+                    onDragHandlePositioned = { bounds ->
+                        handleBounds[card.id] = bounds
+                    },
+                    onDrag = { change, dragAmount ->
+                        if (draggingId != card.id) return@ClipboardCardItem
+                        change.consume()
+                        dragPointerAbsoluteY += dragAmount.y
 
-                            val startBounds = dragStartBounds ?: return@ClipboardCardItem
-                            val draggedCenter = startBounds.top + dragTotalDelta + startBounds.height / 2f
-                            val sameGroupCards = displayedCards.filter {
-                                it.id != card.id && (!showPinnedFirst || it.pinned == card.pinned)
-                            }
-                            val insertionIndex = sameGroupCards.count { target ->
-                                cardBounds[target.id]?.center?.y?.let { draggedCenter > it } == true
-                            }
-                            dragDropIndex = insertionIndex
-                            dragTargetId = sameGroupCards
-                                .getOrNull(insertionIndex)
-                                ?.id
-                                ?: sameGroupCards.lastOrNull()?.id
-                        },
-                        onDragEnd = {
-                            if (draggingId == card.id && dragDropIndex >= 0) {
-                                val groupCards = displayedCards.filter {
-                                    !showPinnedFirst || it.pinned == card.pinned
-                                }
-                                val remaining = groupCards.filterNot { it.id == card.id }.toMutableList()
-                                val insertAt = dragDropIndex.coerceIn(0, remaining.size)
-                                remaining.add(insertAt, card)
-                                val reorderedIds = displayedCards.map { item ->
-                                    if (!showPinnedFirst || item.pinned == card.pinned) {
-                                        remaining.removeFirstOrNull()?.id ?: item.id
-                                    } else {
-                                        item.id
-                                    }
-                                }
-                                if (reorderedIds != dragStartOrder) {
-                                    onReorder(reorderedIds)
+                        val activeIndex = displayedCards.indexOfFirst { it.id == card.id }
+                        if (activeIndex < 0) return@ClipboardCardItem
+                        val groupStart = if (showPinnedFirst) {
+                            displayedCards.indexOfFirst { it.pinned == card.pinned }.coerceAtLeast(0)
+                        } else {
+                            0
+                        }
+                        val groupEnd = if (showPinnedFirst) {
+                            displayedCards.indexOfLast { it.pinned == card.pinned }.coerceAtLeast(groupStart)
+                        } else {
+                            (displayedCards.size - 1).coerceAtLeast(0)
+                        }
+                        var targetIndex = dragTargetIndex.coerceIn(groupStart, groupEnd)
+                        val hysteresis = with(density) { 4.dp.toPx() }
+                        var changed = true
+                        while (changed) {
+                            changed = false
+                            if (targetIndex < groupEnd) {
+                                val nextCenter = cardBounds[displayedCards[targetIndex + 1].id]?.center?.y
+                                if (nextCenter != null && dragPointerAbsoluteY > nextCenter + hysteresis) {
+                                    targetIndex++
+                                    changed = true
                                 }
                             }
-                            draggingId = null
-                            dragTotalDelta = 0f
-                            pointerDownOffsetInCard = 0f
-                            dragPointerAbsoluteY = 0f
-                            dragDropIndex = -1
-                            dragTargetId = null
-                            dragStartOrder = emptyList()
-                            dragStartBounds = null
-                        },
-                        onDragCancel = {
-                            draggingId = null
-                            dragTotalDelta = 0f
-                            pointerDownOffsetInCard = 0f
-                            dragPointerAbsoluteY = 0f
-                            dragDropIndex = -1
-                            dragTargetId = null
-                            dragStartOrder = emptyList()
-                            dragStartBounds = null
-                        },
-                        modifier = Modifier
-                            .zIndex(if (dragTargetId == card.id) 1f else 0f)
-                            .onGloballyPositioned { coordinates ->
-                                cardBounds[card.id] = coordinates.boundsInWindow()
+                            if (targetIndex > groupStart) {
+                                val previousCenter = cardBounds[displayedCards[targetIndex - 1].id]?.center?.y
+                                if (previousCenter != null && dragPointerAbsoluteY < previousCenter - hysteresis) {
+                                    targetIndex--
+                                    changed = true
+                                }
                             }
-                    )
-                }
+                        }
+                        if (targetIndex != dragTargetIndex) {
+                            val movingDown = targetIndex > activeIndex
+                            val reordered = displayedCards.toMutableList()
+                            val moving = reordered.removeAt(activeIndex)
+                            val insertAt = targetIndex.coerceIn(0, reordered.size)
+                            reordered.add(insertAt, moving)
+                            displayedCards = reordered
+                            dragTargetIndex = insertAt
+                            dragTargetId = if (movingDown) {
+                                reordered.getOrNull(insertAt - 1)?.id
+                            } else {
+                                reordered.getOrNull(insertAt + 1)?.id
+                            }
+                        }
+                    },
+                    onDragEnd = {
+                        if (draggingId == card.id) {
+                            val finalOrder = displayedCards.map { it.id }
+                            if (finalOrder != dragStartOrder) onReorder(finalOrder)
+                        }
+                        resetDrag(restoreCards = false)
+                    },
+                    onDragCancel = {
+                        resetDrag(restoreCards = true)
+                    },
+                    modifier = (if (!isDragging) Modifier.animateItem() else Modifier)
+                        .zIndex(if (isDragging) 2f else if (dragTargetId == card.id) 1f else 0f)
+                        .onGloballyPositioned { coordinates ->
+                            cardBounds[card.id] = coordinates.boundsInWindow()
+                        }
+                        .graphicsLayer {
+                            translationY = if (isDragging) {
+                                val currentTop = cardBounds[card.id]?.top ?: 0f
+                                dragPointerAbsoluteY - currentTop - pointerOffsetInCard
+                            } else {
+                                0f
+                            }
+                            if (isDragging) {
+                                scaleX = 1.015f
+                                scaleY = 1.015f
+                                shadowElevation = 6.dp.toPx()
+                            } else {
+                                scaleX = 1f
+                                scaleY = 1f
+                                shadowElevation = 0f
+                            }
+                        }
+                )
             }
-        }
-
-        val draggedCard = displayedCards.firstOrNull { it.id == draggingId }
-        val startBounds = dragStartBounds
-        val containerBounds = listBounds
-        if (draggedCard != null && startBounds != null && containerBounds != null) {
-            val proxyTop = (dragPointerAbsoluteY - pointerDownOffsetInCard - containerBounds.top)
-                .coerceIn(0f, (containerBounds.height - startBounds.height).coerceAtLeast(0f))
-            ClipboardCardItem(
-                card = draggedCard,
-                isSelected = selectedIds.contains(draggedCard.id),
-                isSensitiveRevealed = revealedSensitiveIds.contains(draggedCard.id),
-                isMaskingEnabled = isMaskingEnabled,
-                isDragging = true,
-                isDropTarget = false,
-                onToggleSelect = {},
-                onLongPress = {},
-                onCopy = {},
-                onToggleRevealSensitive = {},
-                onDragStart = { _ -> },
-                onDragHandlePositioned = { _ -> },
-                onDrag = { _, _ -> },
-                onDragEnd = {},
-                onDragCancel = {},
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp)
-                    .offset { IntOffset(0, proxyTop.roundToInt()) }
-                    .zIndex(10f)
-                    .graphicsLayer {
-                        scaleX = 1.02f
-                        scaleY = 1.02f
-                        shadowElevation = 8.dp.toPx()
-                    }
-            )
         }
     }
 }

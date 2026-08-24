@@ -37,20 +37,35 @@ class TextNormalizerTest {
     }
 
     @Test
-    fun combine_mergesSharedAndClipboardDeterministically() {
-        val combined = TextNormalizer.combine("Shared Text", "Clipboard Text")
-        assertEquals("Shared Text\n\n---\n\nClipboard Text", combined)
+    fun combine_placesFirstTextBeforeSourceWithoutBlankLines() {
+        val combined = TextNormalizer.combine("Copied clipboard", "https://example.com")
 
+        assertEquals("Copied clipboard\n---\nsource: https://example.com", combined)
+        assertEquals(-1, combined.indexOf("\\\\n"))
+        assertEquals(-1, combined.indexOf("\\n"))
+        assertEquals(-1, combined.indexOf("\n\n"))
         assertEquals("Shared Only", TextNormalizer.combine("Shared Only", ""))
         assertEquals("Clip Only", TextNormalizer.combine("", "Clip Only"))
     }
 
     @Test
-    fun combine_usesRealNewlinesAndCanPlaceClipboardBeforeShared() {
-        val combined = TextNormalizer.combine("Copied clipboard", "https://example.com")
+    fun formatSelectedCards_addsHeadersOnlyForOpenEditorMultiCardFlow() {
+        val contents = listOf("Content 1", "Content 2", "Content 3")
 
-        assertEquals("Copied clipboard\n\n---\n\nhttps://example.com", combined)
-        assertEquals(-1, combined.indexOf("\\\\n"))
-        assertEquals(-1, combined.indexOf("\\n"))
+        assertEquals("Content 1\n---\nContent 2\n---\nContent 3", TextNormalizer.formatSelectedCards(contents))
+        assertEquals(
+            "#Content 1\nContent 1\n---\n#Content 2\nContent 2\n---\n#Content 3\nContent 3",
+            TextNormalizer.formatSelectedCards(contents, includeHeaders = true)
+        )
+    }
+
+    @Test
+    fun formatSelectedCards_normalizesEdgesAndPreservesInternalNewlines() {
+        val formatted = TextNormalizer.formatSelectedCards(
+            listOf("  First\r\nline  \n", "\nSecond\n")
+        )
+
+        assertEquals("First\nline\n---\nSecond", formatted)
+        assertEquals(-1, formatted.indexOf("\\n"))
     }
 }

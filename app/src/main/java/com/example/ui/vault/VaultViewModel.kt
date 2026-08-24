@@ -284,7 +284,7 @@ class VaultViewModel(
         viewModelScope.launch {
             val fullCards = repository.getCardsByIds(orderedSelectedIds)
             if (fullCards.isNotEmpty()) {
-                val shareText = fullCards.joinToString("\n\n---\n\n") { it.content }
+                val shareText = TextNormalizer.formatSelectedCards(fullCards.map { it.content })
                 val sendIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
                     putExtra(android.content.Intent.EXTRA_TEXT, shareText)
                     type = "text/plain"
@@ -306,7 +306,7 @@ class VaultViewModel(
         viewModelScope.launch {
             val fullCards = repository.getCardsByIds(orderedSelectedIds)
             if (fullCards.isNotEmpty()) {
-                val combinedText = fullCards.joinToString("\n\n---\n\n") { it.content }
+                val combinedText = TextNormalizer.formatSelectedCards(fullCards.map { it.content })
                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 val clip = ClipData.newPlainText("Vault Cards", combinedText)
                 clipboard.setPrimaryClip(clip)
@@ -562,7 +562,10 @@ class VaultViewModel(
         viewModelScope.launch {
             val fullCards = repository.getCardsByIds(orderedSelectedIds)
             if (fullCards.isNotEmpty()) {
-                val combinedText = fullCards.joinToString("\n\n---\n\n") { it.content }
+                val combinedText = TextNormalizer.formatSelectedCards(
+                    fullCards.map { it.content },
+                    includeHeaders = true
+                )
                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 clipboard.setPrimaryClip(ClipData.newPlainText("Vault Cards", combinedText))
             }
