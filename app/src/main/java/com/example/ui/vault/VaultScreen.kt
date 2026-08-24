@@ -34,6 +34,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
@@ -60,6 +61,15 @@ fun VaultScreen(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val settingsLoaded by viewModel.settingsLoaded.collectAsStateWithLifecycle()
+    var educationReady by remember { mutableStateOf(false) }
+
+    LaunchedEffect(settingsLoaded, uiState.userSettings.firstRunEducationShown) {
+        educationReady = false
+        if (settingsLoaded) {
+            delay(160)
+            educationReady = true
+        }
+    }
 
     LaunchedEffect(Unit) {
         viewModel.eventFlow.collect { event ->
@@ -139,7 +149,7 @@ fun VaultScreen(
         }
     }
 
-    if (settingsLoaded && !uiState.userSettings.firstRunEducationShown) {
+    if (educationReady && !uiState.userSettings.firstRunEducationShown) {
         FirstRunEducationDialog(onDismiss = viewModel::markFirstRunEducationShown)
     }
     if (uiState.showInAppCaptureSheet) {

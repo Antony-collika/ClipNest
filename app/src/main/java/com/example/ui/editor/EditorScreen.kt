@@ -9,6 +9,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
@@ -114,6 +115,7 @@ fun EditorScreen(
             onMoveCursorRight = viewModel::moveCursorRight,
             onSave = viewModel::onSaveClicked
         )
+        Spacer(modifier = Modifier.size(4.dp))
 
         BasicTextField(
             value = uiState.content,

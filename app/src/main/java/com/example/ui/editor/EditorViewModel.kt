@@ -60,6 +60,14 @@ class EditorViewModel(
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
+    private val _searchMatchCount = MutableStateFlow(0)
+    val searchMatchCount: StateFlow<Int> = _searchMatchCount.asStateFlow()
+
+    private val _activeSearchMatch = MutableStateFlow(0)
+    val activeSearchMatch: StateFlow<Int> = _activeSearchMatch.asStateFlow()
+
+    private var searchMatchStarts: List<Int> = emptyList()
+
     private val undoStack = ArrayDeque<TextFieldValue>()
     private val redoStack = ArrayDeque<TextFieldValue>()
     private var applyingHistory = false
@@ -123,24 +131,70 @@ class EditorViewModel(
     fun closeSearch() {
         _isSearchOpen.value = false
         _searchQuery.value = ""
+        searchMatchStarts = emptyList()
+        _searchMatchCount.value = 0
+        _activeSearchMatch.value = 0
         val current = _uiState.value.content
         _uiState.value = _uiState.value.copy(content = current.copy(selection = TextRange(current.selection.end)))
     }
 
     fun setSearchQuery(query: String) {
         _searchQuery.value = query
-        if (query.isBlank()) return
-        val text = _uiState.value.content.text
-        val matchIndex = text.indexOf(query, ignoreCase = true)
-        if (matchIndex >= 0) {
-            _uiState.value = _uiState.value.copy(
-                content = _uiState.value.content.copy(
-                    selection = TextRange(matchIndex, matchIndex + query.length)
-                )
-            )
-        } else {
-            emitToast("No matches")
+        updateSearchResults(query)
+    }
+
+    fun nextSearchMatch() {
+        if (searchMatchStarts.isEmpty()) return
+        val next = (_activeSearchMatch.value + 1) % searchMatchStarts.size
+        selectSearchMatch(next)
+    }
+
+    fun previousSearchMatch() {
+        if (searchMatchStarts.isEmpty()) return
+        val previous = (_activeSearchMatch.value - 1 + searchMatchStarts.size) % searchMatchStarts.size
+        selectSearchMatch(previous)
+    }
+
+    private fun updateSearchResults(query: String) {
+        if (query.isBlank()) {
+            searchMatchStarts = emptyList()
+            _searchMatchCount.value = 0
+            _activeSearchMatch.value = 0
+            return
         }
+
+        val text = _uiState.value.content.text
+        val matches = mutableListOf<Int>()
+        var searchFrom = 0
+        while (searchFrom <= text.length - query.length) {
+            val match = text.indexOf(query, startIndex = searchFrom, ignoreCase = true)
+            if (match < 0) break
+            matches += match
+            searchFrom = match + query.length.coerceAtLeast(1)
+        }
+
+        searchMatchStarts = matches
+        _searchMatchCount.value = matches.size
+        if (matches.isEmpty()) {
+            _activeSearchMatch.value = 0
+            emitToast("No matches")
+            return
+        }
+
+        val currentCaret = _uiState.value.content.selection.start
+        val firstAtOrAfterCaret = matches.indexOfFirst { it >= currentCaret }
+        val active = if (firstAtOrAfterCaret >= 0) firstAtOrAfterCaret else 0
+        selectSearchMatch(active)
+    }
+
+    private fun selectSearchMatch(index: Int) {
+        val start = searchMatchStarts.getOrNull(index) ?: return
+        _activeSearchMatch.value = index
+        val queryLength = _searchQuery.value.length
+        val current = _uiState.value.content
+        _uiState.value = _uiState.value.copy(
+            content = current.copy(selection = TextRange(start, start + queryLength))
+        )
     }
 
     fun pasteFromClipboard(context: Context) {

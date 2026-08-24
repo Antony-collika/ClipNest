@@ -523,7 +523,8 @@ fun VaultSelectionBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 2.dp),
+                .height(48.dp)
+                .padding(horizontal = 8.dp, vertical = 0.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {

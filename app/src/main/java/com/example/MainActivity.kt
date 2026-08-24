@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.background
 import androidx.compose.foundation.selection.selectable
@@ -28,6 +29,8 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.DropdownMenu
@@ -186,6 +189,8 @@ fun MainAppContent(
     val editorViewModel: EditorViewModel = viewModel(factory = editorViewModelFactory)
     val editorSearchOpen = editorViewModel.isSearchOpen.collectAsStateWithLifecycle().value
     val editorSearchQuery = editorViewModel.searchQuery.collectAsStateWithLifecycle().value
+    val editorSearchMatchCount = editorViewModel.searchMatchCount.collectAsStateWithLifecycle().value
+    val editorActiveSearchMatch = editorViewModel.activeSearchMatch.collectAsStateWithLifecycle().value
     val isEditorTab = currentRoute == Screen.Note.route
 
     val isMainTab = currentRoute == Screen.Vault.route || currentRoute == Screen.Note.route
@@ -238,12 +243,17 @@ fun MainAppContent(
                     MainTopBar(
                         title = if (currentRoute == Screen.Settings.route) "Settings" else "Clipboard Manager",
                         isVault = currentRoute == Screen.Vault.route,
+                        isEditor = currentRoute == Screen.Note.route,
                         selectedCount = vaultState.selectedIds.size,
                         allSelected = vaultState.cards.isNotEmpty() && vaultState.selectedIds.size == vaultState.cards.size,
                         showPinnedFirst = vaultState.userSettings.showPinnedFirst,
                         isSearchOpen = if (isEditorTab) editorSearchOpen else vaultState.isSearchOpen && currentRoute == Screen.Vault.route,
                         searchQuery = if (isEditorTab) editorSearchQuery else vaultState.searchQuery,
                         searchPlaceholder = if (isEditorTab) "Search editor..." else "Search vault...",
+                        editorSearchMatchCount = editorSearchMatchCount,
+                        editorActiveSearchMatch = editorActiveSearchMatch,
+                        onPreviousSearchMatch = editorViewModel::previousSearchMatch,
+                        onNextSearchMatch = editorViewModel::nextSearchMatch,
                         onMenuClick = { scope.launch { drawerState.open() } },
                         onSearchOpen = if (isEditorTab) editorViewModel::openSearch else vaultViewModel::openSearch,
                         onSearchClose = if (isEditorTab) editorViewModel::closeSearch else vaultViewModel::closeSearch,
@@ -322,12 +332,17 @@ fun MainAppContent(
 private fun MainTopBar(
     title: String,
     isVault: Boolean,
+    isEditor: Boolean,
     selectedCount: Int,
     allSelected: Boolean,
     showPinnedFirst: Boolean,
     isSearchOpen: Boolean,
     searchQuery: String,
     searchPlaceholder: String,
+    editorSearchMatchCount: Int,
+    editorActiveSearchMatch: Int,
+    onPreviousSearchMatch: () -> Unit,
+    onNextSearchMatch: () -> Unit,
     onMenuClick: () -> Unit,
     onSearchOpen: () -> Unit,
     onSearchClose: () -> Unit,
@@ -366,21 +381,46 @@ private fun MainTopBar(
                 contentAlignment = Alignment.CenterStart
             ) {
                 if (isSearchOpen) {
-                    TextField(
-                        value = searchQuery,
-                        onValueChange = onSearchQueryChange,
-                        placeholder = { Text(searchPlaceholder) },
-                        singleLine = true,
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = MaterialTheme.colorScheme.surface,
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                            focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                            unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("main_search_input")
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextField(
+                            value = searchQuery,
+                            onValueChange = onSearchQueryChange,
+                            placeholder = { Text(searchPlaceholder) },
+                            singleLine = true,
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                                unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent
+                            ),
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("main_search_input")
+                        )
+                        if (isEditor) {
+                            Text(
+                                text = if (editorSearchMatchCount == 0) "0/0" else "${editorActiveSearchMatch + 1}/$editorSearchMatchCount",
+                                style = MaterialTheme.typography.labelMedium,
+                                maxLines = 1,
+                                modifier = Modifier.testTag("editor_search_match_count")
+                            )
+                            IconButton(
+                                onClick = onPreviousSearchMatch,
+                                modifier = Modifier.size(36.dp).testTag("editor_search_previous")
+                            ) {
+                                Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Previous match")
+                            }
+                            IconButton(
+                                onClick = onNextSearchMatch,
+                                modifier = Modifier.size(36.dp).testTag("editor_search_next")
+                            ) {
+                                Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Next match")
+                            }
+                        }
+                    }
                 } else {
                     Text(
                         text = title,
