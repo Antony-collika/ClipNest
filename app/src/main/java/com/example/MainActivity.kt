@@ -18,20 +18,20 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.background
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.DropdownMenuItem
@@ -43,10 +43,6 @@ import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
-import androidx.compose.material3.TabRowDefaults
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -57,7 +53,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -194,8 +189,9 @@ fun MainAppContent(
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val isSettings = currentRoute == Screen.Settings.route
     val isEditorTab = !isSettings && pagerState.currentPage == 1
-    val isMainTab = !isSettings
     val selectedTab = pagerState.currentPage.coerceIn(0, 1)
+    val selectedCards = vaultState.cards.filter { vaultState.selectedIds.contains(it.id) }
+    val allSelectedPinned = selectedCards.isNotEmpty() && selectedCards.all { it.pinned }
 
     fun openEditorFromVault() {
         vaultViewModel.copySelectedCardsThenOpenEditor(context) {
@@ -227,12 +223,19 @@ fun MainAppContent(
         Scaffold(
             topBar = {
                 Column {
-                    MainTopBar(
-                        title = if (isSettings) "Settings" else "Clipboard Manager",
+                                            MainTopBar(
+                            title = when {
+                                isSettings -> "Settings"
+                                selectedTab == 0 -> "Vault"
+                                else -> "Editor"
+                            },
+
                         isVault = !isSettings && selectedTab == 0,
                         isEditor = !isSettings && selectedTab == 1,
-                        selectedCount = if (isSettings) 0 else vaultState.selectedIds.size,
-                        allSelected = !isSettings && vaultState.cards.isNotEmpty() &&
+                                                    selectedCount = if (isSettings) 0 else vaultState.selectedIds.size,
+                            allSelectedPinned = !isSettings && allSelectedPinned,
+                            allSelected = !isSettings && vaultState.cards.isNotEmpty() &&
+
                             vaultState.selectedIds.size == vaultState.cards.size,
                         showPinnedFirst = vaultState.userSettings.showPinnedFirst,
                         isSearchOpen = if (isEditorTab) editorSearchOpen else vaultState.isSearchOpen,
@@ -256,16 +259,11 @@ fun MainAppContent(
                         onShareSelected = { vaultViewModel.shareSelected(context) },
                         onSaveFile = vaultViewModel::openExportDialog,
                         onOpenEditor = ::openEditorFromVault,
-                        onToggleShowPinnedFirst = vaultViewModel::toggleShowPinnedFirst
+                        onToggleShowPinnedFirst = vaultViewModel::toggleShowPinnedFirst,
+                        onPinSelected = vaultViewModel::togglePinSelected,
+                        onCopySelected = { vaultViewModel.copySelectedCards(context) },
+                        onDeleteSelected = vaultViewModel::requestDeleteSelected
                     )
-                    if (isMainTab) {
-                        MainTabRow(
-                            selectedTab = selectedTab,
-                            onTabSelected = { target ->
-                                scope.launch { pagerState.animateScrollToPage(target) }
-                            }
-                        )
-                    }
                 }
             },
             modifier = Modifier.fillMaxSize()
@@ -313,6 +311,7 @@ private fun MainTopBar(
     isEditor: Boolean,
     selectedCount: Int,
     allSelected: Boolean,
+    allSelectedPinned: Boolean,
     showPinnedFirst: Boolean,
     isSearchOpen: Boolean,
     searchQuery: String,
@@ -329,7 +328,10 @@ private fun MainTopBar(
     onShareSelected: () -> Unit,
     onSaveFile: () -> Unit,
     onOpenEditor: () -> Unit,
-    onToggleShowPinnedFirst: () -> Unit
+    onToggleShowPinnedFirst: () -> Unit,
+    onPinSelected: () -> Unit,
+    onCopySelected: () -> Unit,
+    onDeleteSelected: () -> Unit
 ) {
     var overflowExpanded by remember { mutableStateOf(false) }
 
@@ -358,53 +360,92 @@ private fun MainTopBar(
                     .fillMaxHeight(),
                 contentAlignment = Alignment.CenterStart
             ) {
-                if (isSearchOpen) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        TextField(
-                            value = searchQuery,
-                            onValueChange = onSearchQueryChange,
-                            placeholder = { Text(searchPlaceholder) },
-                            singleLine = true,
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                                focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                                unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent
-                            ),
-                            modifier = Modifier
-                                .weight(1f)
-                                .testTag("main_search_input")
-                        )
-                        if (isEditor) {
-                            Text(
-                                text = if (editorSearchMatchCount == 0) "0/0" else "${editorActiveSearchMatch + 1}/$editorSearchMatchCount",
-                                style = MaterialTheme.typography.labelMedium,
-                                maxLines = 1,
-                                modifier = Modifier.testTag("editor_search_match_count")
+                when {
+                    isSearchOpen -> {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TextField(
+                                value = searchQuery,
+                                onValueChange = onSearchQueryChange,
+                                placeholder = { Text(searchPlaceholder) },
+                                singleLine = true,
+                                colors = TextFieldDefaults.colors(
+                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                                    unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent
+                                ),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("main_search_input")
                             )
-                            IconButton(
-                                onClick = onPreviousSearchMatch,
-                                modifier = Modifier.size(36.dp).testTag("editor_search_previous")
-                            ) {
-                                Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Previous match")
-                            }
-                            IconButton(
-                                onClick = onNextSearchMatch,
-                                modifier = Modifier.size(36.dp).testTag("editor_search_next")
-                            ) {
-                                Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Next match")
+                            if (isEditor) {
+                                Text(
+                                    text = if (editorSearchMatchCount == 0) "0/0" else "${editorActiveSearchMatch + 1}/$editorSearchMatchCount",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    maxLines = 1,
+                                    modifier = Modifier.testTag("editor_search_match_count")
+                                )
+                                IconButton(
+                                    onClick = onPreviousSearchMatch,
+                                    modifier = Modifier.size(36.dp).testTag("editor_search_previous")
+                                ) {
+                                    Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Previous match")
+                                }
+                                IconButton(
+                                    onClick = onNextSearchMatch,
+                                    modifier = Modifier.size(36.dp).testTag("editor_search_next")
+                                ) {
+                                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Next match")
+                                }
                             }
                         }
                     }
-                } else {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
-                        modifier = Modifier.testTag("main_title")
-                    )
+                    isVault && selectedCount > 0 -> {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Selected $selectedCount",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                                maxLines = 1,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("vault_selected_count_text")
+                            )
+                            IconButton(
+                                onClick = onPinSelected,
+                                modifier = Modifier.size(40.dp).testTag("vault_action_pin_direct")
+                            ) {
+                                Icon(
+                                    imageVector = if (allSelectedPinned) Icons.Outlined.PushPin else Icons.Default.PushPin,
+                                    contentDescription = if (allSelectedPinned) "Unpin selected" else "Pin selected"
+                                )
+                            }
+                            IconButton(
+                                onClick = onCopySelected,
+                                modifier = Modifier.size(40.dp).testTag("vault_action_copy")
+                            ) {
+                                Icon(Icons.Default.ContentCopy, contentDescription = "Copy selected")
+                            }
+                            IconButton(
+                                onClick = onDeleteSelected,
+                                modifier = Modifier.size(40.dp).testTag("vault_action_delete")
+                            ) {
+                                Icon(Icons.Default.Delete, contentDescription = "Delete selected")
+                            }
+                        }
+                    }
+                    else -> {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+                            modifier = Modifier.testTag("main_title")
+                        )
+                    }
                 }
             }
 
@@ -504,68 +545,5 @@ private fun MainTopBar(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun MainTabRow(
-    selectedTab: Int,
-    onTabSelected: (Int) -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(36.dp)
-            .background(MaterialTheme.colorScheme.surface)
-            .selectableGroup()
-            .testTag("main_top_tab_row"),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        CompactMainTab(
-            label = "Kho",
-            selected = selectedTab == 0,
-            onClick = { onTabSelected(0) },
-            tag = "main_tab_kho"
-        )
-        CompactMainTab(
-            label = "Soạn thảo",
-            selected = selectedTab == 1,
-            onClick = { onTabSelected(1) },
-            tag = "main_tab_soan_thao"
-        )
-    }
-}
-
-@Composable
-private fun RowScope.CompactMainTab(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    tag: String
-) {
-    Box(
-        modifier = Modifier
-            .weight(1f)
-            .fillMaxHeight()
-            .selectable(
-                selected = selected,
-                onClick = onClick,
-                role = Role.Tab
-            )
-            .testTag(tag),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = label,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .height(3.dp)
-                .background(if (selected) MaterialTheme.colorScheme.primary else androidx.compose.ui.graphics.Color.Transparent)
-        )
     }
 }

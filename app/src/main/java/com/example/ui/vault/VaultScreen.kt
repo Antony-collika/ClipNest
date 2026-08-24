@@ -1,11 +1,5 @@
 package com.example.ui.vault
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.core.tween
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -82,11 +76,6 @@ fun VaultScreen(
         }
     }
 
-    val selectedCount = uiState.selectedIds.size
-    val selectedCards = uiState.cards.filter { uiState.selectedIds.contains(it.id) }
-    val allSelectedPinned = selectedCards.isNotEmpty() && selectedCards.all { it.pinned }
-    val allSelected = uiState.cards.isNotEmpty() && selectedCount == uiState.cards.size
-
     Scaffold(
         floatingActionButton = {
             FloatingActionButton(
@@ -103,31 +92,11 @@ fun VaultScreen(
         },
         modifier = modifier.fillMaxSize()
     ) { innerPadding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            AnimatedVisibility(
-                visible = selectedCount > 0,
-                enter = fadeIn(animationSpec = tween(160)) + expandVertically(expandFrom = Alignment.Top, animationSpec = tween(160)),
-                exit = fadeOut(animationSpec = tween(120)) + shrinkVertically(shrinkTowards = Alignment.Top, animationSpec = tween(120))
-            ) {
-                VaultSelectionBar(
-                    selectedCount = selectedCount,
-                    allSelected = allSelected,
-                    allSelectedPinned = allSelectedPinned,
-                    showPinnedFirst = uiState.userSettings.showPinnedFirst,
-                    onToggleSelectAll = {
-                        if (allSelected) viewModel.clearSelection() else viewModel.selectAll()
-                    },
-                    onShareSelected = { viewModel.shareSelected(context) },
-                    onCopySelected = { viewModel.copySelectedCards(context) },
-                    onDeleteSelected = viewModel::requestDeleteSelected,
-                    onPinSelected = viewModel::togglePinSelected
-                )
-            }
-
             if (uiState.cards.isEmpty()) {
                 VaultEmptyState(
                     isSearch = uiState.searchQuery.isNotBlank(),
@@ -211,13 +180,12 @@ private fun VaultCardList(
     val displayedFromState = if (showPinnedFirst) pinnedCards + normalCards else cards
     var displayedCards by remember { mutableStateOf(displayedFromState) }
     var draggingId by remember { mutableStateOf<Long?>(null) }
-    var dragPointerAbsoluteY by remember { mutableFloatStateOf(0f) }
-    var pointerOffsetInCard by remember { mutableFloatStateOf(0f) }
+    var dragPointerViewportY by remember { mutableFloatStateOf(0f) }
+    var pointerOffsetInItem by remember { mutableFloatStateOf(0f) }
     var dragTargetIndex by remember { mutableIntStateOf(-1) }
     var dragTargetId by remember { mutableStateOf<Long?>(null) }
     var dragStartOrder by remember { mutableStateOf<List<Long>>(emptyList()) }
     var dragStartCards by remember { mutableStateOf<List<ClipboardCardProjection>>(emptyList()) }
-    val cardBounds = remember { mutableStateMapOf<Long, Rect>() }
     val handleBounds = remember { mutableStateMapOf<Long, Rect>() }
     val density = LocalDensity.current
     val listState = rememberLazyListState()
@@ -235,20 +203,18 @@ private fun VaultCardList(
 
     LaunchedEffect(draggingId) {
         while (draggingId != null) {
-            val bounds = listBounds
-            if (bounds != null) {
-                val edge = with(density) { 56.dp.toPx() }
-                val topEdge = bounds.top + edge
-                val bottomEdge = bounds.bottom - edge
-                val scrollDelta = when {
-                    dragPointerAbsoluteY < topEdge ->
-                        -(((topEdge - dragPointerAbsoluteY) / edge) * 18f).coerceIn(4f, 18f)
-                    dragPointerAbsoluteY > bottomEdge ->
-                        (((dragPointerAbsoluteY - bottomEdge) / edge) * 18f).coerceIn(4f, 18f)
-                    else -> 0f
-                }
-                if (scrollDelta != 0f) listState.scrollBy(scrollDelta)
+            val layoutInfo = listState.layoutInfo
+            val edge = with(density) { 56.dp.toPx() }
+            val topEdge = layoutInfo.viewportStartOffset + edge
+            val bottomEdge = layoutInfo.viewportEndOffset - edge
+            val scrollDelta = when {
+                dragPointerViewportY < topEdge ->
+                    -(((topEdge - dragPointerViewportY) / edge) * 18f).coerceIn(4f, 18f)
+                dragPointerViewportY > bottomEdge ->
+                    (((dragPointerViewportY - bottomEdge) / edge) * 18f).coerceIn(4f, 18f)
+                else -> 0f
             }
+            if (scrollDelta != 0f) listState.scrollBy(scrollDelta)
             kotlinx.coroutines.delay(16L)
         }
     }
@@ -256,8 +222,8 @@ private fun VaultCardList(
     fun resetDrag(restoreCards: Boolean) {
         if (restoreCards && dragStartCards.isNotEmpty()) displayedCards = dragStartCards
         draggingId = null
-        dragPointerAbsoluteY = 0f
-        pointerOffsetInCard = 0f
+        dragPointerViewportY = 0f
+        pointerOffsetInItem = 0f
         dragTargetIndex = -1
         dragTargetId = null
         dragStartOrder = emptyList()
@@ -320,17 +286,24 @@ private fun VaultCardList(
                     isDropTarget = draggingId != null && dragTargetId == card.id,
                     onToggleSelect = { onToggleSelect(card.id) },
                     onLongPress = {
-                        onLongPress(card.id, cardBounds[card.id]?.center?.y ?: 0f)
+                        val anchorY = listBounds?.top?.plus(
+                            listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == card.id }?.let { info ->
+                                info.offset + info.size / 2f
+                            } ?: 0f
+                        ) ?: 0f
+                        onLongPress(card.id, anchorY)
                     },
                     onCopy = { onCopy(card.id) },
                     onToggleRevealSensitive = { onToggleRevealSensitive(card.id) },
                     onDragStart = { pointerPosition ->
-                        val itemBounds = cardBounds[card.id] ?: return@ClipboardCardItem
+                        val itemInfo = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == card.id }
+                            ?: return@ClipboardCardItem
+                        val listTop = listBounds?.top ?: return@ClipboardCardItem
                         val handle = handleBounds[card.id] ?: return@ClipboardCardItem
-                        val pointerAbsoluteY = handle.top + pointerPosition.y
+                        val pointerViewportY = handle.top + pointerPosition.y - listTop
                         draggingId = card.id
-                        dragPointerAbsoluteY = pointerAbsoluteY
-                        pointerOffsetInCard = pointerAbsoluteY - itemBounds.top
+                        dragPointerViewportY = pointerViewportY
+                        pointerOffsetInItem = pointerViewportY - itemInfo.offset
                         dragTargetIndex = displayedCards.indexOfFirst { it.id == card.id }.coerceAtLeast(0)
                         dragTargetId = null
                         dragStartOrder = displayedCards.map { it.id }
@@ -342,35 +315,39 @@ private fun VaultCardList(
                     onDrag = { change, dragAmount ->
                         if (draggingId != card.id) return@ClipboardCardItem
                         change.consume()
-                        dragPointerAbsoluteY += dragAmount.y
+                        dragPointerViewportY += dragAmount.y
 
                         val activeIndex = displayedCards.indexOfFirst { it.id == card.id }
                         if (activeIndex < 0) return@ClipboardCardItem
                         val groupStart = if (showPinnedFirst) {
                             displayedCards.indexOfFirst { it.pinned == card.pinned }.coerceAtLeast(0)
-                        } else {
-                            0
-                        }
+                        } else 0
                         val groupEnd = if (showPinnedFirst) {
                             displayedCards.indexOfLast { it.pinned == card.pinned }.coerceAtLeast(groupStart)
                         } else {
                             (displayedCards.size - 1).coerceAtLeast(0)
                         }
+
+                        val layoutInfo = listState.layoutInfo
                         var targetIndex = dragTargetIndex.coerceIn(groupStart, groupEnd)
                         val hysteresis = with(density) { 4.dp.toPx() }
                         var changed = true
                         while (changed) {
                             changed = false
                             if (targetIndex < groupEnd) {
-                                val nextCenter = cardBounds[displayedCards[targetIndex + 1].id]?.center?.y
-                                if (nextCenter != null && dragPointerAbsoluteY > nextCenter + hysteresis) {
+                                val nextInfo = layoutInfo.visibleItemsInfo.firstOrNull {
+                                    it.key == displayedCards[targetIndex + 1].id
+                                }
+                                if (nextInfo != null && dragPointerViewportY > nextInfo.offset + nextInfo.size / 2f + hysteresis) {
                                     targetIndex++
                                     changed = true
                                 }
                             }
                             if (targetIndex > groupStart) {
-                                val previousCenter = cardBounds[displayedCards[targetIndex - 1].id]?.center?.y
-                                if (previousCenter != null && dragPointerAbsoluteY < previousCenter - hysteresis) {
+                                val previousInfo = layoutInfo.visibleItemsInfo.firstOrNull {
+                                    it.key == displayedCards[targetIndex - 1].id
+                                }
+                                if (previousInfo != null && dragPointerViewportY < previousInfo.offset + previousInfo.size / 2f - hysteresis) {
                                     targetIndex--
                                     changed = true
                                 }
@@ -403,16 +380,12 @@ private fun VaultCardList(
                     },
                     modifier = (if (!isDragging) Modifier.animateItem() else Modifier)
                         .zIndex(if (isDragging) 2f else if (dragTargetId == card.id) 1f else 0f)
-                        .onGloballyPositioned { coordinates ->
-                            cardBounds[card.id] = coordinates.boundsInWindow()
-                        }
                         .graphicsLayer {
+                            val currentOffset = listState.layoutInfo.visibleItemsInfo
+                                .firstOrNull { it.key == card.id }?.offset ?: 0
                             translationY = if (isDragging) {
-                                val currentTop = cardBounds[card.id]?.top ?: 0f
-                                dragPointerAbsoluteY - currentTop - pointerOffsetInCard
-                            } else {
-                                0f
-                            }
+                                dragPointerViewportY - pointerOffsetInItem - currentOffset
+                            } else 0f
                             if (isDragging) {
                                 scaleX = 1.015f
                                 scaleY = 1.015f

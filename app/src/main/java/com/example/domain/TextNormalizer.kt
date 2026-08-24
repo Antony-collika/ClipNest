@@ -63,18 +63,18 @@ object TextNormalizer {
     }
 
     /**
-     * Formats cards in their already-visible order. Headers are used only when requested,
-     * which keeps ordinary multi-copy/share compact while making Open editor sections clear.
+     * Formats cards in their already-visible order as Markdown sections.
+     * Headers are opt-in so Share keeps its compact content format while Copy/Open editor can request Markdown sections.
      */
     fun formatSelectedCards(contents: List<String>, includeHeaders: Boolean = false): String {
         val normalized = contents.mapNotNull(::normalizeForComposition)
         if (normalized.isEmpty()) return ""
         return normalized.mapIndexed { index, content ->
             if (includeHeaders && normalized.size > 1) {
-                "#Content ${index + 1}\n$content"
+                "## Clipboard #${index + 1}\n\n$content"
             } else {
                 content
             }
-        }.joinToString("\n---\n")
+        }.joinToString("\n\n---\n\n")
     }
 }

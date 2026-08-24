@@ -52,20 +52,24 @@ class TextNormalizerTest {
     fun formatSelectedCards_addsHeadersOnlyForOpenEditorMultiCardFlow() {
         val contents = listOf("Content 1", "Content 2", "Content 3")
 
-        assertEquals("Content 1\n---\nContent 2\n---\nContent 3", TextNormalizer.formatSelectedCards(contents))
         assertEquals(
-            "#Content 1\nContent 1\n---\n#Content 2\nContent 2\n---\n#Content 3\nContent 3",
+            "## Clipboard #1\n\nContent 1\n\n---\n\n## Clipboard #2\n\nContent 2\n\n---\n\n## Clipboard #3\n\nContent 3",
             TextNormalizer.formatSelectedCards(contents, includeHeaders = true)
+        )
+        assertEquals(
+            "Content 1\n\n---\n\nContent 2\n\n---\n\nContent 3",
+            TextNormalizer.formatSelectedCards(contents, includeHeaders = false)
         )
     }
 
     @Test
     fun formatSelectedCards_normalizesEdgesAndPreservesInternalNewlines() {
         val formatted = TextNormalizer.formatSelectedCards(
-            listOf("  First\r\nline  \n", "\nSecond\n")
+            listOf("  First\r\nline  \n", "\nSecond\n"),
+            includeHeaders = false
         )
 
-        assertEquals("First\nline\n---\nSecond", formatted)
+        assertEquals("First\nline\n\n---\n\nSecond", formatted)
         assertEquals(-1, formatted.indexOf("\\n"))
     }
 }

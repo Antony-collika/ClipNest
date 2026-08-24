@@ -306,7 +306,10 @@ class VaultViewModel(
         viewModelScope.launch {
             val fullCards = repository.getCardsByIds(orderedSelectedIds)
             if (fullCards.isNotEmpty()) {
-                val combinedText = TextNormalizer.formatSelectedCards(fullCards.map { it.content })
+                val combinedText = TextNormalizer.formatSelectedCards(
+                    fullCards.map { it.content },
+                    includeHeaders = true
+                )
                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 val clip = ClipData.newPlainText("Vault Cards", combinedText)
                 clipboard.setPrimaryClip(clip)
