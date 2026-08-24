@@ -33,7 +33,6 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Lock
@@ -146,7 +145,7 @@ fun ClipboardCardItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 8.dp, end = 12.dp, top = 10.dp, bottom = 10.dp),
+                .padding(start = 6.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Checkbox on the left
@@ -208,10 +207,10 @@ fun ClipboardCardItem(
                         style = MaterialTheme.typography.bodyMedium.copy(
                             color = MaterialTheme.colorScheme.onSurface,
                             fontWeight = FontWeight.Medium,
-                            lineHeight = 20.sp,
-                            fontSize = 14.5.sp
+                            lineHeight = 17.sp,
+                            fontSize = 13.5.sp
                         ),
-                        maxLines = 3,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.testTag("card_preview_${card.id}")
                     )
@@ -247,7 +246,7 @@ fun ClipboardCardItem(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(2.dp))
 
                 // Timestamp on left, Pinned on right
                 Row(
@@ -261,7 +260,7 @@ fun ClipboardCardItem(
                         style = MaterialTheme.typography.labelMedium.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                             fontWeight = FontWeight.Normal,
-                            fontSize = 12.sp
+                            fontSize = 11.sp
                         ),
                         modifier = Modifier.testTag("card_timestamp_${card.id}")
                     )
@@ -272,7 +271,7 @@ fun ClipboardCardItem(
                             style = MaterialTheme.typography.labelMedium.copy(
                                 color = pinnedColor,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp
+                                fontSize = 11.sp
                             ),
                             modifier = Modifier.testTag("card_pinned_badge_${card.id}")
                         )
@@ -299,13 +298,11 @@ fun ClipboardCardItem(
 
             var dragAccumulator by remember(card.id) { mutableStateOf(0f) }
             val density = androidx.compose.ui.platform.LocalDensity.current
-            val dragThreshold = with(density) { 52.dp.toPx() }
-            Icon(
-                imageVector = Icons.Default.DragHandle,
-                contentDescription = "Drag to reorder",
+            val dragThreshold = with(density) { 24.dp.toPx() }
+            DragDots(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(40.dp)
                     .testTag("drag_handle_${card.id}")
                     .pointerInput(card.id) {
                         detectDragGestures(
@@ -327,6 +324,33 @@ fun ClipboardCardItem(
                         )
                     }
             )
+        }
+    }
+}
+
+@Composable
+private fun DragDots(
+    tint: Color,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.padding(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        repeat(2) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(3.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                repeat(3) {
+                    Box(
+                        modifier = Modifier
+                            .size(3.dp)
+                            .background(tint, CircleShape)
+                    )
+                }
+            }
         }
     }
 }
@@ -491,7 +515,7 @@ fun VaultSelectionBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 6.dp),
+                .padding(horizontal = 8.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -854,7 +878,7 @@ fun ShareCaptureDialog(
                         text = "Chạm để chọn 1 hoặc cả hai nội dung muốn lưu vào kho.",
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 12.sp
+                            fontSize = 11.sp
                         )
                     )
                 }

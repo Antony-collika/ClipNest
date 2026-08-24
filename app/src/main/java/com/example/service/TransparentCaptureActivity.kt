@@ -1,21 +1,19 @@
 package com.example.service
 
-import android.app.Activity
 import android.content.ClipboardManager
 import android.content.Context
 import android.os.Bundle
 import android.widget.Toast
+import androidx.activity.ComponentActivity
+import androidx.lifecycle.lifecycleScope
 import com.example.data.local.AppDatabase
-import com.example.data.model.ClipboardCard
-import com.example.domain.OrderHelper
-import com.example.domain.TextNormalizer
-import kotlinx.coroutines.CoroutineScope
+import com.example.data.repository.CapturePayload
+import com.example.data.repository.ClipboardRepositoryImpl
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.math.max
 
-class TransparentCaptureActivity : Activity() {
+class TransparentCaptureActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -23,56 +21,50 @@ class TransparentCaptureActivity : Activity() {
 
         val clipManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val clipText = try {
-            clipManager.primaryClip?.getItemAt(0)?.text?.toString()
-        } catch (e: Exception) {
+            clipManager.primaryClip?.getItemAt(0)?.coerceToText(this)?.toString()
+        } catch (_: Exception) {
             null
         }
 
-        val normalized = TextNormalizer.normalize(clipText)
-
-        if (!normalized.isNullOrBlank()) {
-            val preview = TextNormalizer.generatePreview(normalized)
-            val contentType = TextNormalizer.detectContentType(normalized)
-
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val db = AppDatabase.getInstance(applicationContext)
-                    val maxOrder = db.clipboardDao().getMaxSortOrder()
-                    val now = System.currentTimeMillis()
-                    val nextOrder = max(maxOrder + OrderHelper.ORDER_STEP, now)
-
-                    val card = ClipboardCard(
-                        id = now + (0..999).random(),
-                        content = normalized,
-                        preview = preview,
-                        createdAtMillis = now,
-                        sortOrder = nextOrder,
-                        sourceApp = "Quick Notification",
-                        contentType = contentType,
-                        pinned = false,
-                        isSensitive = false
-                    )
-                    db.clipboardDao().insertCard(card)
-
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(applicationContext, "Đã lưu vào clipboard!", Toast.LENGTH_SHORT).show()
-                        CaptureNotificationManager.showSavedSuccessNotification(applicationContext)
-                        finish()
-                        overridePendingTransition(0, 0)
-                    }
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                    withContext(Dispatchers.Main) {
-                        finish()
-                        overridePendingTransition(0, 0)
-                    }
-                }
-            }
-        } else {
-            Toast.makeText(this, "Clipboard hiện đang trống", Toast.LENGTH_SHORT).show()
-            finish()
-            overridePendingTransition(0, 0)
+        if (clipText.isNullOrBlank()) {
+            Toast.makeText(this, "Clipboard is empty", Toast.LENGTH_SHORT).show()
+            finishWithoutAnimation()
+            return
         }
+
+        val source = intent.getStringExtra(CaptureNotificationManager.EXTRA_CAPTURE_SOURCE)
+            ?: "Clipboard capture"
+
+        lifecycleScope.launch {
+            val saved = withContext(Dispatchers.IO) {
+                val repository = ClipboardRepositoryImpl(
+                    AppDatabase.getInstance(applicationContext).clipboardDao()
+                )
+                repository.saveCards(
+                    listOf(
+                        CapturePayload(
+                            content = clipText,
+                            sourceApp = source
+                        )
+                    )
+                ).firstOrNull()
+            }
+
+            if (saved != null) {
+                Toast.makeText(applicationContext, "Clipboard saved", Toast.LENGTH_SHORT).show()
+                if (source == CaptureNotificationManager.SOURCE_NOTIFICATION) {
+                    CaptureNotificationManager.showCaptureNotification(applicationContext)
+                }
+            } else {
+                Toast.makeText(applicationContext, "Clipboard is empty", Toast.LENGTH_SHORT).show()
+            }
+            finishWithoutAnimation()
+        }
+    }
+
+    private fun finishWithoutAnimation() {
+        finish()
+        overridePendingTransition(0, 0)
     }
 
     override fun finish() {

@@ -41,11 +41,31 @@ interface ClipboardDao {
     @Query("SELECT COALESCE(MAX(sortOrder), 0) FROM clipboard_cards")
     suspend fun getMaxSortOrder(): Long
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertCard(card: ClipboardCard)
+    @Query("SELECT COALESCE(MAX(id), 0) FROM clipboard_cards")
+    suspend fun getMaxId(): Long
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertCards(cards: List<ClipboardCard>)
+    suspend fun insertCard(card: ClipboardCard): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertCards(cards: List<ClipboardCard>): List<Long>
+
+    @Transaction
+    suspend fun insertCardsAtEnd(cards: List<ClipboardCard>): List<ClipboardCard> {
+        if (cards.isEmpty()) return emptyList()
+        var currentOrder = getMaxSortOrder()
+        var currentId = getMaxId()
+        return cards.map { card ->
+            val now = System.currentTimeMillis()
+            val nextId = maxOf(currentId + 1L, now)
+            val nextOrder = maxOf(currentOrder + 1000L, now)
+            val storedCard = card.copy(id = nextId, sortOrder = nextOrder)
+            insertCard(storedCard)
+            currentId = nextId
+            currentOrder = nextOrder
+            storedCard
+        }
+    }
 
     @Update
     suspend fun updateCards(cards: List<ClipboardCard>)

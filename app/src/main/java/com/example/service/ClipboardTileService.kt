@@ -37,6 +37,7 @@ class ClipboardTileService : TileService() {
 
         val intent = Intent(this, TransparentCaptureActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION
+            putExtra(CaptureNotificationManager.EXTRA_CAPTURE_SOURCE, "Quick Settings Tile")
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {

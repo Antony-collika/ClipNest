@@ -10,9 +10,8 @@ import com.example.data.local.ExportFormat
 import com.example.data.local.FileManager
 import com.example.data.local.SettingsDataStore
 import com.example.data.local.UserSettings
-import com.example.data.model.ClipboardCard
 import com.example.data.model.ClipboardCardProjection
-import com.example.data.model.ContentType
+import com.example.data.repository.CapturePayload
 import com.example.data.repository.ClipboardRepository
 import com.example.domain.ExportFormatter
 import com.example.domain.OrderHelper
@@ -345,37 +344,55 @@ class VaultViewModel(
     }
 
     fun saveShareSelections(saveShared: Boolean, saveClipboard: Boolean, context: Context) {
-        val shared = _shareContent.value
+        val shared = _shareContent.value.takeIf { saveShared && it.isNotBlank() }
         val clipManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val clipText = try {
-            clipManager.primaryClip?.getItemAt(0)?.text?.toString() ?: ""
-        } catch (e: Exception) {
+            clipManager.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString() ?: ""
+        } catch (_: Exception) {
             ""
+        }.takeIf { saveClipboard && it.isNotBlank() }
+
+        val payloads = when {
+            shared != null && clipText != null && shared != clipText -> listOf(
+                CapturePayload(
+                    content = TextNormalizer.combine(shared, clipText),
+                    sourceApp = "Android Share + System Clipboard",
+                    contentType = com.example.data.model.ContentType.COMBINED
+                )
+            )
+            shared != null -> listOf(CapturePayload(shared, "Android Share"))
+            clipText != null -> listOf(CapturePayload(clipText, "System Clipboard"))
+            else -> emptyList()
         }
 
         viewModelScope.launch {
-            if (saveShared && shared.isNotBlank()) {
-                repository.saveCard(
-                    content = shared,
-                    sourceApp = "Android Share",
-                    contentType = TextNormalizer.detectContentType(shared)
-                )
-            }
-            if (saveClipboard && clipText.isNotBlank()) {
-                repository.saveCard(
-                    content = clipText,
-                    sourceApp = "System Clipboard",
-                    contentType = TextNormalizer.detectContentType(clipText)
-                )
-            }
+            val saved = repository.saveCards(payloads)
             dismissShareDialog()
-            _eventFlow.emit(VaultEvent.ShowToast("Đã lưu vào kho!"))
+            if (saved.isNotEmpty()) {
+                _eventFlow.emit(VaultEvent.ShowToast("Clipboard saved"))
+            }
         }
     }
 
     fun reorderItems(fromIndex: Int, toIndex: Int) {
         val currentVisible = uiState.value.cards
-        val updates = OrderHelper.calculateNewSortOrders(currentVisible, fromIndex, toIndex)
+        val fromCard = currentVisible.getOrNull(fromIndex) ?: return
+        val toCard = currentVisible.getOrNull(toIndex) ?: return
+
+        val reorderGroup = if (uiState.value.userSettings.showPinnedFirst) {
+            if (fromCard.pinned != toCard.pinned) return
+            currentVisible.filter { it.pinned == fromCard.pinned }
+        } else {
+            currentVisible
+        }
+
+        val fromGroupIndex = reorderGroup.indexOfFirst { it.id == fromCard.id }
+        val toGroupIndex = reorderGroup.indexOfFirst { it.id == toCard.id }
+        val updates = OrderHelper.calculateNewSortOrders(
+            reorderGroup,
+            fromGroupIndex,
+            toGroupIndex
+        )
         if (updates.isNotEmpty()) {
             viewModelScope.launch {
                 repository.updateSortOrders(updates)

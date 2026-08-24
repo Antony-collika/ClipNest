@@ -1,6 +1,5 @@
 package com.example.ui.share
 
-import android.app.Activity
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
@@ -55,18 +54,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.lifecycleScope
 import com.example.data.local.AppDatabase
-import com.example.data.model.ClipboardCard
 import com.example.data.model.ContentType
-import com.example.domain.OrderHelper
-import com.example.domain.RelativeTimeFormatter
+import com.example.data.repository.CapturePayload
+import com.example.data.repository.ClipboardRepositoryImpl
 import com.example.domain.TextNormalizer
 import com.example.ui.theme.ClipboardManagerTheme
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.math.max
 
 class ShareDialogActivity : ComponentActivity() {
 
@@ -105,51 +102,46 @@ class ShareDialogActivity : ComponentActivity() {
         saveClipboard: Boolean,
         clipboardText: String
     ) {
-        val toSave = mutableListOf<Pair<String, String>>()
-        if (saveShared && sharedText.isNotBlank()) {
-            toSave.add(Pair(sharedText, "Android Share"))
-        }
-        if (saveClipboard && clipboardText.isNotBlank()) {
-            toSave.add(Pair(clipboardText, "System Clipboard"))
+        val shared = sharedText.takeIf { saveShared && it.isNotBlank() }
+        val clipboard = clipboardText.takeIf { saveClipboard && it.isNotBlank() }
+        val payloads = when {
+            shared != null && clipboard != null && shared != clipboard -> {
+                listOf(
+                    CapturePayload(
+                        content = TextNormalizer.combine(shared, clipboard),
+                        sourceApp = "Android Share + System Clipboard",
+                        contentType = ContentType.COMBINED
+                    )
+                )
+            }
+            shared != null -> listOf(
+                CapturePayload(
+                    content = shared,
+                    sourceApp = "Android Share"
+                )
+            )
+            clipboard != null -> listOf(
+                CapturePayload(
+                    content = clipboard,
+                    sourceApp = "System Clipboard"
+                )
+            )
+            else -> emptyList()
         }
 
-        if (toSave.isEmpty()) {
+        if (payloads.isEmpty()) {
             finishActivity()
             return
         }
 
-        CoroutineScope(Dispatchers.IO).launch {
+        lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val db = AppDatabase.getInstance(applicationContext)
-                var currentMax = db.clipboardDao().getMaxSortOrder()
-                val baseTime = System.currentTimeMillis()
-
-                toSave.forEachIndexed { index, (rawContent, source) ->
-                    val normalized = TextNormalizer.normalize(rawContent)
-                    if (!normalized.isNullOrBlank()) {
-                        val preview = TextNormalizer.generatePreview(normalized)
-                        val contentType = TextNormalizer.detectContentType(normalized)
-                        val time = baseTime + index * 50
-                        val order = max(currentMax + OrderHelper.ORDER_STEP, time)
-                        currentMax = order
-
-                        val card = ClipboardCard(
-                            id = time + (0..999).random(),
-                            content = normalized,
-                            preview = preview,
-                            createdAtMillis = time,
-                            sortOrder = order,
-                            sourceApp = source,
-                            contentType = contentType,
-                            pinned = false,
-                            isSensitive = false
-                        )
-                        db.clipboardDao().insertCard(card)
-                    }
-                }
-
+                val repository = ClipboardRepositoryImpl(
+                    AppDatabase.getInstance(applicationContext).clipboardDao()
+                )
+                val saved = repository.saveCards(payloads)
                 withContext(Dispatchers.Main) {
-                    val count = toSave.size
+                    val count = saved.size
                     Toast.makeText(
                         applicationContext,
                         if (count > 1) "Đã lưu $count mục vào kho!" else "Đã lưu vào kho!",
@@ -157,11 +149,9 @@ class ShareDialogActivity : ComponentActivity() {
                     ).show()
                     finishActivity()
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                withContext(Dispatchers.Main) {
-                    finishActivity()
-                }
+            } catch (error: Exception) {
+                error.printStackTrace()
+                withContext(Dispatchers.Main) { finishActivity() }
             }
         }
     }

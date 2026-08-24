@@ -6,7 +6,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.example.data.model.ClipboardCard
 
-@Database(entities = [ClipboardCard::class], version = 1, exportSchema = false)
+@Database(entities = [ClipboardCard::class], version = 1, exportSchema = true)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun clipboardDao(): ClipboardDao
 

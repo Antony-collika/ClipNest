@@ -7,8 +7,8 @@ import android.os.Handler
 import android.os.Looper
 import androidx.core.app.RemoteInput
 import com.example.data.local.AppDatabase
-import com.example.data.model.ClipboardCard
-import com.example.domain.TextNormalizer
+import com.example.data.repository.CapturePayload
+import com.example.data.repository.ClipboardRepositoryImpl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -22,53 +22,51 @@ class QuickCaptureReceiver : BroadcastReceiver() {
     }
 
     override fun onReceive(context: Context, intent: Intent) {
-        val action = intent.action
-
-        if (action == ACTION_DIRECT_REPLY) {
-            val remoteInput = RemoteInput.getResultsFromIntent(intent)
-            val rawInput = remoteInput?.getCharSequence(KEY_TEXT_REPLY)?.toString()
-            val normalized = TextNormalizer.normalize(rawInput)
-
-            if (!normalized.isNullOrBlank()) {
-                val preview = TextNormalizer.generatePreview(normalized)
-                val contentType = TextNormalizer.detectContentType(normalized)
-
+        when (intent.action) {
+            ACTION_DIRECT_REPLY -> {
+                val rawInput = RemoteInput.getResultsFromIntent(intent)
+                    ?.getCharSequence(KEY_TEXT_REPLY)
+                    ?.toString()
                 val pendingResult = goAsync()
+
                 CoroutineScope(Dispatchers.IO).launch {
                     try {
-                        val db = AppDatabase.getInstance(context)
-                        val maxOrder = db.clipboardDao().getMaxSortOrder()
-                        val newCard = ClipboardCard(
-                            id = System.currentTimeMillis(),
-                            content = normalized,
-                            preview = preview,
-                            createdAtMillis = System.currentTimeMillis(),
-                            sortOrder = maxOrder + 1000L,
-                            sourceApp = "Quick Notification",
-                            contentType = contentType,
-                            pinned = false,
-                            isSensitive = false
+                        val repository = ClipboardRepositoryImpl(
+                            AppDatabase.getInstance(context.applicationContext).clipboardDao()
                         )
-                        db.clipboardDao().insertCard(newCard)
+                        val saved = if (!rawInput.isNullOrBlank()) {
+                            repository.saveCards(
+                                listOf(
+                                    CapturePayload(
+                                        content = rawInput,
+                                        sourceApp = "Notification RemoteInput"
+                                    )
+                                )
+                            )
+                        } else {
+                            emptyList()
+                        }
 
-                        // Show success notification state
-                        CaptureNotificationManager.showSavedSuccessNotification(context)
-
-                        // Reset notification back to normal prompt after 3 seconds
-                        Handler(Looper.getMainLooper()).postDelayed({
+                        if (saved.isNotEmpty()) {
+                            CaptureNotificationManager.showSavedSuccessNotification(context)
+                            Handler(Looper.getMainLooper()).postDelayed({
+                                CaptureNotificationManager.showCaptureNotification(context)
+                            }, 3000)
+                        } else {
                             CaptureNotificationManager.showCaptureNotification(context)
-                        }, 3000)
-                    } catch (e: Exception) {
-                        e.printStackTrace()
+                        }
+                    } catch (error: Exception) {
+                        error.printStackTrace()
+                        CaptureNotificationManager.showCaptureNotification(context)
                     } finally {
                         pendingResult.finish()
                     }
                 }
-            } else {
+            }
+
+            ACTION_RESET_NOTIFICATION -> {
                 CaptureNotificationManager.showCaptureNotification(context)
             }
-        } else if (action == ACTION_RESET_NOTIFICATION) {
-            CaptureNotificationManager.showCaptureNotification(context)
         }
     }
 }

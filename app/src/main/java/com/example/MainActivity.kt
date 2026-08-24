@@ -11,9 +11,15 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
@@ -29,6 +35,7 @@ import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.TabRowDefaults
@@ -36,14 +43,13 @@ import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -262,51 +268,73 @@ private fun MainTopBar(
 ) {
     var overflowExpanded by remember { mutableStateOf(false) }
 
-    TopAppBar(
-        navigationIcon = {
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .height(52.dp)
+                .padding(horizontal = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             IconButton(
                 onClick = onMenuClick,
                 modifier = Modifier.testTag("main_navigation_drawer_button")
             ) {
                 Icon(Icons.Default.Menu, contentDescription = "Settings")
             }
-        },
-        title = {
-            if (isSearchOpen) {
-                TextField(
-                    value = searchQuery,
-                    onValueChange = onSearchQueryChange,
-                    placeholder = { Text("Search vault...") },
-                    singleLine = true,
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
-                        unfocusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
-                        focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                        unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent
-                    ),
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .testTag("main_search_input")
-                )
-            } else {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
-                    modifier = Modifier.testTag("main_title")
-                )
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                if (isSearchOpen) {
+                    TextField(
+                        value = searchQuery,
+                        onValueChange = onSearchQueryChange,
+                        placeholder = { Text("Search vault...") },
+                        singleLine = true,
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = MaterialTheme.colorScheme.surface,
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                            focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                            unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("main_search_input")
+                    )
+                } else {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+                        modifier = Modifier.testTag("main_title")
+                    )
+                }
             }
-        },
-        actions = {
+
             if (isSearchOpen) {
-                IconButton(onClick = onSearchClose, modifier = Modifier.testTag("main_close_search_button")) {
+                IconButton(
+                    onClick = onSearchClose,
+                    modifier = Modifier.testTag("main_close_search_button")
+                ) {
                     Text("×", style = MaterialTheme.typography.headlineSmall)
                 }
             } else {
-                IconButton(onClick = onSearchOpen, modifier = Modifier.testTag("main_search_button")) {
+                IconButton(
+                    onClick = onSearchOpen,
+                    modifier = Modifier.testTag("main_search_button")
+                ) {
                     Icon(Icons.Default.Search, contentDescription = "Search")
                 }
             }
-            androidx.compose.foundation.layout.Box {
+
+            Box {
                 IconButton(
                     onClick = { overflowExpanded = true },
                     modifier = Modifier.testTag("main_overflow_button")
@@ -327,11 +355,8 @@ private fun MainTopBar(
                     )
                 }
             }
-        },
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
-    )
+        }
+    }
 }
 
 @Composable

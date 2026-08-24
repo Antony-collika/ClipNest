@@ -16,6 +16,8 @@ object CaptureNotificationManager {
     private const val NOTIFICATION_ID = 1001
     const val EXTRA_OPEN_CAPTURE = "extra_open_capture"
     const val EXTRA_START_TAB = "extra_start_tab"
+    const val EXTRA_CAPTURE_SOURCE = "extra_capture_source"
+    const val SOURCE_NOTIFICATION = "Notification"
 
     fun createNotificationChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -56,6 +58,7 @@ object CaptureNotificationManager {
         // Action 1: Lưu Clipboard (Auto capture current clipboard without app switch)
         val captureIntent = Intent(context, TransparentCaptureActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION
+            putExtra(EXTRA_CAPTURE_SOURCE, SOURCE_NOTIFICATION)
         }
         val capturePendingIntent = PendingIntent.getActivity(context, 104, captureIntent, immutableFlags)
 
