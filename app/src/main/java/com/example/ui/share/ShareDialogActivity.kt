@@ -91,12 +91,15 @@ class ShareDialogActivity : ComponentActivity() {
             ?: ""
 
         lifecycleScope.launch {
-            val language = SettingsDataStore(applicationContext).userSettingsFlow.first().language
+            val settings = SettingsDataStore(applicationContext).userSettingsFlow.first()
             withContext(Dispatchers.Main) {
                 setContent {
-                    val localizedContext = LocalContext.current.withAppLanguage(language)
+                    val localizedContext = LocalContext.current.withAppLanguage(settings.language)
                     CompositionLocalProvider(LocalContext provides localizedContext) {
-                        ClipboardManagerTheme {
+                        ClipboardManagerTheme(
+                            themeMode = settings.themeMode,
+                            themePreset = settings.themePreset
+                        ) {
                             if (clipboardReady) {
                                 ShareDialogOverlay(
                                     sharedText = sharedText,

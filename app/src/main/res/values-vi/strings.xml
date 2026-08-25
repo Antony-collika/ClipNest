@@ -78,6 +78,13 @@
     <string name="could_not_save_file">Không thể lưu file</string>
     <string name="saved_file">Đã lưu %1$s%2$s</string>
     <string name="theme_mode">Chế độ giao diện</string>
+    <string name="theme_preset">Bảng màu</string>
+    <string name="theme_preset_description">Chọn bảng màu cho toàn bộ ứng dụng. Chế độ sáng và tối vẫn được cài riêng.</string>
+    <string name="theme_emerald">Emerald</string>
+    <string name="theme_ocean">Ocean</string>
+    <string name="theme_violet">Violet</string>
+    <string name="theme_sunset">Sunset</string>
+    <string name="theme_graphite">Graphite</string>
     <string name="appearance">Giao diện</string>
     <string name="system">Hệ thống</string>
     <string name="light">Sáng</string>
@@ -143,6 +150,7 @@
     </plurals>
     <string name="copied_to_clipboard">Đã sao chép vào clipboard</string>
     <string name="share_selected_cards">Chia sẻ các card clipboard đã chọn</string>
+    <string name="share_unavailable">Không có ứng dụng nào có thể chia sẻ nội dung này.</string>
     <string name="clipboard_card_label">Card clipboard</string>
     <string name="manual_clipboard_button_source">Nút clipboard thủ công</string>
     <string name="manual_entry_source">Nhập thủ công</string>

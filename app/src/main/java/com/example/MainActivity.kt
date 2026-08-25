@@ -177,12 +177,16 @@ class MainActivity : ComponentActivity() {
 
             val localizedContext = LocalContext.current.withAppLanguage(userSettings.language)
             CompositionLocalProvider(LocalContext provides localizedContext) {
-                ClipboardManagerTheme(themeMode = userSettings.themeMode) {
+                ClipboardManagerTheme(
+                    themeMode = userSettings.themeMode,
+                    themePreset = userSettings.themePreset
+                ) {
                     MainAppContent(
                         vaultViewModel = vaultViewModel,
                         editorViewModelFactory = EditorViewModelFactory(fileManager, settingsDataStore, applicationContext),
                         settingsViewModelFactory = SettingsViewModelFactory(settingsDataStore, repository, fileManager, applicationContext),
                         onRequestFolder = ::requestFolderSelection,
+                        onShareText = ::shareTextExternally,
                         onRequestBackup = ::requestBackupFile,
                         onRequestRestore = ::requestRestoreFile
                     )
@@ -259,6 +263,23 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun shareTextExternally(text: String, chooserTitle: String) {
+        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, text)
+        }
+        val chooserIntent = Intent.createChooser(sendIntent, chooserTitle)
+        runCatching {
+            startActivity(chooserIntent)
+        }.onFailure {
+            Toast.makeText(
+                this,
+                getString(com.example.R.string.share_unavailable),
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
     private fun handleIntent(intent: Intent?) {
         if (intent?.getBooleanExtra(CaptureNotificationManager.EXTRA_OPEN_CAPTURE, false) == true) {
             vaultViewModel.openInAppCapture()
@@ -273,6 +294,7 @@ fun MainAppContent(
     editorViewModelFactory: ViewModelProvider.Factory,
     settingsViewModelFactory: ViewModelProvider.Factory,
     onRequestFolder: (((Uri) -> Unit) -> Unit),
+    onShareText: (String, String) -> Unit,
     onRequestBackup: () -> Unit,
     onRequestRestore: () -> Unit
 ) {
@@ -332,7 +354,7 @@ fun MainAppContent(
                     onToggleSelectAll = {
                         if (allSelected) vaultViewModel.clearSelection() else vaultViewModel.selectAll()
                     },
-                    onShareSelected = { vaultViewModel.shareSelected(context) },
+                    onShareSelected = { vaultViewModel.shareSelected() },
                     onSaveFile = vaultViewModel::openExportDialog,
                     onOpenEditor = ::openEditorFromVault,
                     onToggleShowPinnedFirst = vaultViewModel::toggleShowPinnedFirst,
@@ -366,6 +388,7 @@ fun MainAppContent(
                         0 -> VaultScreen(
                             viewModel = vaultViewModel,
                             onOpenEditor = ::openEditorFromVault,
+                            onShareText = onShareText,
                             onRequestExportFolder = {
                                 onRequestFolder { uri ->
                                     vaultViewModel.setExportFolder(uri, context.contentResolver)

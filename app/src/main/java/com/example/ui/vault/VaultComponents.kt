@@ -108,10 +108,7 @@ import com.example.data.model.ClipboardCard
 import com.example.data.model.ClipboardCardProjection
 import com.example.data.model.ContentType
 import com.example.domain.RelativeTimeFormatter
-import com.example.ui.theme.PinnedGreenDark
-import com.example.ui.theme.PinnedGreenLight
-import com.example.ui.theme.SensitiveAmberDark
-import com.example.ui.theme.SensitiveAmberLight
+import com.example.ui.theme.LocalThemePalette
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -139,8 +136,9 @@ fun ClipboardCardItem(
     val isMasked = isSensitive && isMaskingEnabled && !isSensitiveRevealed
 
     val isDark = MaterialTheme.colorScheme.background.red < 0.5f
-    val pinnedColor = if (isDark) PinnedGreenDark else PinnedGreenLight
-    val sensitiveColor = if (isDark) SensitiveAmberDark else SensitiveAmberLight
+    val semanticColors = LocalThemePalette.current.semanticColors(isDark)
+    val pinnedColor = semanticColors.pinned
+    val sensitiveColor = semanticColors.sensitive
 
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -1045,7 +1043,8 @@ fun ClipboardPreviewPopup(
     }
     val popupWidth = minOf(360.dp, (configuration.screenWidthDp - 24).dp)
     val isMasked = card.isSensitive && isMaskingEnabled && !isSensitiveRevealed
-    val sensitiveColor = if (MaterialTheme.colorScheme.background.red < 0.5f) SensitiveAmberDark else SensitiveAmberLight
+    val semanticColors = LocalThemePalette.current.semanticColors(MaterialTheme.colorScheme.background.red < 0.5f)
+    val sensitiveColor = semanticColors.sensitive
 
     fun dismissAnimated() {
         if (dismissing) return
@@ -1151,7 +1150,7 @@ fun ClipboardPreviewPopup(
                             Text(
                                 text = stringResource(com.example.R.string.pinned),
                                 style = MaterialTheme.typography.labelSmall.copy(
-                                    color = if (MaterialTheme.colorScheme.background.red < 0.5f) PinnedGreenDark else PinnedGreenLight,
+                                    color = semanticColors.pinned,
                                     fontWeight = FontWeight.Bold
                                 ),
                                 modifier = Modifier.padding(end = 8.dp)

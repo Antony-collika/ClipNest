@@ -11,6 +11,7 @@ import com.example.data.local.FileManager
 import com.example.data.local.RetentionPolicy
 import com.example.data.local.SettingsDataStore
 import com.example.data.local.ThemeMode
+import com.example.data.local.ThemePreset
 import com.example.data.local.UserSettings
 import com.example.data.repository.ClipboardRepository
 import com.example.service.CaptureNotificationManager
@@ -24,7 +25,9 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 data class SettingsUiState(
@@ -60,7 +63,12 @@ class SettingsViewModel(
     }
 
     fun refreshExportedFiles() {
-        _exportedFiles.value = fileManager.listExportedFiles()
+        viewModelScope.launch {
+            val files = withContext(Dispatchers.IO) {
+                fileManager.listExportedFiles()
+            }
+            _exportedFiles.value = files
+        }
     }
 
     fun setLanguage(language: AppLanguage) {
@@ -72,6 +80,12 @@ class SettingsViewModel(
     fun setThemeMode(themeMode: ThemeMode) {
         viewModelScope.launch {
             settingsDataStore.setThemeMode(themeMode)
+        }
+    }
+
+    fun setThemePreset(themePreset: ThemePreset) {
+        viewModelScope.launch {
+            settingsDataStore.setThemePreset(themePreset)
         }
     }
 

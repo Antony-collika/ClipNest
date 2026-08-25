@@ -58,6 +58,7 @@ data class VaultUiState(
 
 sealed class VaultEvent {
     data class ShowToast(val message: String) : VaultEvent()
+    data class ShareText(val text: String, val chooserTitle: String) : VaultEvent()
     data object NavigateToEditor : VaultEvent()
     data object RequestExportFolder : VaultEvent()
     data object NavigateToSettings : VaultEvent()
@@ -284,7 +285,7 @@ class VaultViewModel(
         }
     }
 
-    fun shareSelected(context: Context) {
+    fun shareSelected() {
         val selected = _selectedIds.value
         if (selected.isEmpty()) return
         val orderedSelectedIds = uiState.value.cards
@@ -293,17 +294,21 @@ class VaultViewModel(
 
         viewModelScope.launch {
             val fullCards = repository.getCardsByIds(orderedSelectedIds)
-            if (fullCards.isNotEmpty()) {
-                val shareText = TextNormalizer.formatSelectedCards(fullCards.map { it.content })
-                val sendIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                    putExtra(android.content.Intent.EXTRA_TEXT, shareText)
-                    type = "text/plain"
-                }
-                context.startActivity(android.content.Intent.createChooser(
-                    sendIntent,
-                    localizedContext().getString(com.example.R.string.share_selected_cards)
-                ))
+            if (fullCards.isEmpty()) {
+                emitToast(com.example.R.string.clipboard_empty)
+                return@launch
             }
+
+            val shareText = TextNormalizer.formatSelectedCards(
+                fullCards.map { it.content },
+                includeHeaders = true
+            )
+            _eventFlow.emit(
+                VaultEvent.ShareText(
+                    text = shareText,
+                    chooserTitle = localizedContext().getString(com.example.R.string.share_selected_cards)
+                )
+            )
         }
     }
 

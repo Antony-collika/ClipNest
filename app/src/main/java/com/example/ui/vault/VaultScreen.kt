@@ -29,11 +29,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.ui.theme.LocalThemePalette
 
 @Composable
 fun VaultScreen(
     viewModel: VaultViewModel,
     onOpenEditor: () -> Unit,
+    onShareText: (String, String) -> Unit,
     onRequestExportFolder: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -47,6 +49,7 @@ fun VaultScreen(
                     event.message,
                     android.widget.Toast.LENGTH_SHORT
                 ).show()
+                is VaultEvent.ShareText -> onShareText(event.text, event.chooserTitle)
                 VaultEvent.NavigateToEditor -> onOpenEditor()
                 VaultEvent.RequestExportFolder -> onRequestExportFolder()
                 VaultEvent.NavigateToSettings -> Unit
@@ -156,6 +159,7 @@ private fun VaultCardList(
     onReorder: (List<Long>) -> Unit
 ) {
     val isDark = MaterialTheme.colorScheme.background.red < 0.5f
+    val semanticColors = LocalThemePalette.current.semanticColors(isDark)
     val colors = VaultRecyclerColors(
         surface = MaterialTheme.colorScheme.surface.toArgb(),
         onSurface = MaterialTheme.colorScheme.onSurface.toArgb(),
@@ -163,8 +167,8 @@ private fun VaultCardList(
         primary = MaterialTheme.colorScheme.primary.toArgb(),
         primaryContainer = MaterialTheme.colorScheme.primaryContainer.toArgb(),
         outlineVariant = MaterialTheme.colorScheme.outlineVariant.toArgb(),
-        pinned = if (isDark) android.graphics.Color.rgb(74, 222, 128) else android.graphics.Color.rgb(21, 128, 61),
-        sensitive = if (isDark) android.graphics.Color.rgb(251, 191, 36) else android.graphics.Color.rgb(217, 119, 6)
+        pinned = semanticColors.pinned.toArgb(),
+        sensitive = semanticColors.sensitive.toArgb()
     )
 
     AndroidView(

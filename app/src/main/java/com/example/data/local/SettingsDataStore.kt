@@ -18,6 +18,14 @@ enum class ThemeMode {
     DARK
 }
 
+enum class ThemePreset {
+    EMERALD,
+    OCEAN,
+    VIOLET,
+    SUNSET,
+    GRAPHITE
+}
+
 enum class AppLanguage {
     ENGLISH,
     VIETNAMESE
@@ -35,6 +43,7 @@ data class UserSettings(
     val showPinnedFirst: Boolean = false,
     val isSensitivePreviewMasked: Boolean = true,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val themePreset: ThemePreset = ThemePreset.EMERALD,
     val notificationEnabled: Boolean = true,
     val firstRunEducationShown: Boolean = false,
     val retentionPolicy: RetentionPolicy = RetentionPolicy.NEVER,
@@ -48,6 +57,7 @@ class SettingsDataStore(private val context: Context) {
         val SHOW_PINNED_FIRST = booleanPreferencesKey("show_pinned_first")
         val SENSITIVE_PREVIEW_MASKED = booleanPreferencesKey("sensitive_preview_masked")
         val THEME_MODE = stringPreferencesKey("theme_mode")
+        val THEME_PRESET = stringPreferencesKey("theme_preset")
         val NOTIFICATION_ENABLED = booleanPreferencesKey("notification_enabled")
         val FIRST_RUN_EDUCATION_SHOWN = booleanPreferencesKey("first_run_education_shown")
         val RETENTION_POLICY = stringPreferencesKey("retention_policy")
@@ -61,6 +71,9 @@ class SettingsDataStore(private val context: Context) {
         val themeMode = runCatching {
             ThemeMode.valueOf(preferences[PreferencesKeys.THEME_MODE] ?: ThemeMode.SYSTEM.name)
         }.getOrDefault(ThemeMode.SYSTEM)
+        val themePreset = runCatching {
+            ThemePreset.valueOf(preferences[PreferencesKeys.THEME_PRESET] ?: ThemePreset.EMERALD.name)
+        }.getOrDefault(ThemePreset.EMERALD)
         val retention = runCatching {
             RetentionPolicy.valueOf(preferences[PreferencesKeys.RETENTION_POLICY] ?: RetentionPolicy.NEVER.name)
         }.getOrDefault(RetentionPolicy.NEVER)
@@ -70,6 +83,7 @@ class SettingsDataStore(private val context: Context) {
             showPinnedFirst = preferences[PreferencesKeys.SHOW_PINNED_FIRST] ?: false,
             isSensitivePreviewMasked = preferences[PreferencesKeys.SENSITIVE_PREVIEW_MASKED] ?: true,
             themeMode = themeMode,
+            themePreset = themePreset,
             notificationEnabled = preferences[PreferencesKeys.NOTIFICATION_ENABLED] ?: true,
             firstRunEducationShown = preferences[PreferencesKeys.FIRST_RUN_EDUCATION_SHOWN] ?: false,
             retentionPolicy = retention,
@@ -91,6 +105,10 @@ class SettingsDataStore(private val context: Context) {
 
     suspend fun setThemeMode(mode: ThemeMode) {
         context.dataStore.edit { it[PreferencesKeys.THEME_MODE] = mode.name }
+    }
+
+    suspend fun setThemePreset(preset: ThemePreset) {
+        context.dataStore.edit { it[PreferencesKeys.THEME_PRESET] = preset.name }
     }
 
     suspend fun setNotificationEnabled(enabled: Boolean) {

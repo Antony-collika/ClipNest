@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BrightnessMedium
 import androidx.compose.material.icons.filled.Check
@@ -60,6 +61,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.local.AppLanguage
 import com.example.data.local.ThemeMode
+import com.example.data.local.ThemePreset
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -161,6 +163,54 @@ fun SettingsScreen(
                             selected = userSettings.themeMode == ThemeMode.DARK,
                             onClick = { viewModel.setThemeMode(ThemeMode.DARK) },
                             modifier = Modifier.testTag("theme_chip_dark")
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = stringResource(com.example.R.string.theme_preset),
+                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)
+                    )
+                    Text(
+                        text = stringResource(com.example.R.string.theme_preset_description),
+                        style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(top = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        ThemeChip(
+                            label = stringResource(com.example.R.string.theme_emerald),
+                            selected = userSettings.themePreset == ThemePreset.EMERALD,
+                            onClick = { viewModel.setThemePreset(ThemePreset.EMERALD) },
+                            modifier = Modifier.testTag("theme_preset_emerald")
+                        )
+                        ThemeChip(
+                            label = stringResource(com.example.R.string.theme_ocean),
+                            selected = userSettings.themePreset == ThemePreset.OCEAN,
+                            onClick = { viewModel.setThemePreset(ThemePreset.OCEAN) },
+                            modifier = Modifier.testTag("theme_preset_ocean")
+                        )
+                        ThemeChip(
+                            label = stringResource(com.example.R.string.theme_violet),
+                            selected = userSettings.themePreset == ThemePreset.VIOLET,
+                            onClick = { viewModel.setThemePreset(ThemePreset.VIOLET) },
+                            modifier = Modifier.testTag("theme_preset_violet")
+                        )
+                        ThemeChip(
+                            label = stringResource(com.example.R.string.theme_sunset),
+                            selected = userSettings.themePreset == ThemePreset.SUNSET,
+                            onClick = { viewModel.setThemePreset(ThemePreset.SUNSET) },
+                            modifier = Modifier.testTag("theme_preset_sunset")
+                        )
+                        ThemeChip(
+                            label = stringResource(com.example.R.string.theme_graphite),
+                            selected = userSettings.themePreset == ThemePreset.GRAPHITE,
+                            onClick = { viewModel.setThemePreset(ThemePreset.GRAPHITE) },
+                            modifier = Modifier.testTag("theme_preset_graphite")
                         )
                     }
                 }
