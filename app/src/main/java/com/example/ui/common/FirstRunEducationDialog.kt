@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
@@ -42,7 +43,7 @@ fun FirstRunEducationDialog(
                 )
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
-                    text = "Welcome to Clipboard Vault",
+                    text = stringResource(com.example.R.string.welcome_title),
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                 )
             }
@@ -50,7 +51,7 @@ fun FirstRunEducationDialog(
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = "Your private, offline-first clipboard inbox.",
+                    text = stringResource(com.example.R.string.welcome_subtitle),
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -74,7 +75,7 @@ fun FirstRunEducationDialog(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "Explicit Capture Only: Android 10+ protects your privacy by restricting apps from reading clipboard data silently in the background.",
+                                text = stringResource(com.example.R.string.explicit_capture_notice),
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
@@ -90,7 +91,7 @@ fun FirstRunEducationDialog(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "100% Local & Offline: All your cards and notes stay encrypted on your device. No cloud sync, no tracking, and no accounts.",
+                                text = stringResource(com.example.R.string.local_offline_notice),
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
@@ -100,7 +101,7 @@ fun FirstRunEducationDialog(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = "Capture content whenever you want via the + button, Android Share sheet, Notification, or Quick Settings Tile.",
+                    text = stringResource(com.example.R.string.capture_channels_hint),
                     style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                 )
             }
@@ -110,7 +111,7 @@ fun FirstRunEducationDialog(
                 onClick = onDismiss,
                 modifier = Modifier.fillMaxWidth().testTag("first_run_got_it_button")
             ) {
-                Text("Got it")
+                Text(stringResource(com.example.R.string.got_it))
             }
         },
         modifier = Modifier.testTag("first_run_education_dialog")

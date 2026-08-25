@@ -7,6 +7,9 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import com.example.data.local.AppLanguage
+import com.example.data.repository.CaptureSource
+import com.example.ui.localization.withAppLanguage
 
 object CaptureNotificationManager {
 
@@ -15,16 +18,18 @@ object CaptureNotificationManager {
     const val EXTRA_OPEN_CAPTURE = "extra_open_capture"
     const val EXTRA_START_TAB = "extra_start_tab"
     const val EXTRA_CAPTURE_SOURCE = "extra_capture_source"
-    const val SOURCE_NOTIFICATION = "Notification"
+    const val SOURCE_NOTIFICATION = CaptureSource.NOTIFICATION
 
-    fun createNotificationChannel(context: Context) {
+    fun createNotificationChannel(context: Context, language: AppLanguage = AppLanguage.ENGLISH) {
+        val localizedContext = context.withAppLanguage(language)
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "Clipboard capture",
+                localizedContext.getString(com.example.R.string.notification_channel_name),
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Tap once to save the current clipboard"
+                description = localizedContext.getString(com.example.R.string.notification_channel_description)
                 setShowBadge(false)
                 setSound(null, null)
                 enableVibration(false)
@@ -34,8 +39,9 @@ object CaptureNotificationManager {
         }
     }
 
-    fun showCaptureNotification(context: Context) {
-        createNotificationChannel(context)
+    fun showCaptureNotification(context: Context, language: AppLanguage = AppLanguage.ENGLISH) {
+        val localizedContext = context.withAppLanguage(language)
+        createNotificationChannel(context, language)
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         val immutableFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -59,8 +65,8 @@ object CaptureNotificationManager {
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(com.example.R.drawable.ic_content_copy_white_24dp)
-            .setContentTitle("Clipboard Manager")
-            .setContentText("Tap to save the current clipboard")
+            .setContentTitle(localizedContext.getString(com.example.R.string.notification_capture_title))
+            .setContentText(localizedContext.getString(com.example.R.string.notification_capture_prompt))
             .setContentIntent(capturePendingIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -73,12 +79,13 @@ object CaptureNotificationManager {
         manager.notify(NOTIFICATION_ID, notification)
     }
 
-    fun showSavedSuccessNotification(context: Context) {
+    fun showSavedSuccessNotification(context: Context, language: AppLanguage = AppLanguage.ENGLISH) {
+        val localizedContext = context.withAppLanguage(language)
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(com.example.R.drawable.ic_content_copy_white_24dp)
-            .setContentTitle("Clipboard saved")
-            .setContentText("Content saved to the clipboard vault")
+            .setContentTitle(localizedContext.getString(com.example.R.string.notification_saved_title))
+            .setContentText(localizedContext.getString(com.example.R.string.notification_saved_body))
             .setOnlyAlertOnce(true)
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)

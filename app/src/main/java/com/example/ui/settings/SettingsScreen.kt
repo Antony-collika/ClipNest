@@ -315,7 +315,14 @@ fun SettingsScreen(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(text = file.name, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
                                     val dateStr = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(file.lastModified()))
-                                    Text(text = "$dateStr • ${file.length()} bytes", style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
+                                    Text(
+                                        text = stringResource(
+                                            com.example.R.string.file_details,
+                                            dateStr,
+                                            file.length()
+                                        ),
+                                        style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    )
                                 }
                                 IconButton(onClick = {
                                     shareFile(context, file)
@@ -378,7 +385,10 @@ private fun shareFile(context: Context, file: File) {
             putExtra(Intent.EXTRA_TEXT, content)
             type = if (file.name.endsWith(".md")) "text/markdown" else "text/plain"
         }
-        val shareIntent = Intent.createChooser(sendIntent, "Share ${file.name}")
+        val shareIntent = Intent.createChooser(
+            sendIntent,
+            context.getString(com.example.R.string.share_named_file, file.name)
+        )
         context.startActivity(shareIntent)
     } catch (_: Exception) {
         Toast.makeText(context, context.getString(com.example.R.string.could_not_open_file), Toast.LENGTH_SHORT).show()

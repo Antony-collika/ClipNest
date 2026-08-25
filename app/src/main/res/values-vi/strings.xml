@@ -114,4 +114,56 @@
     <string name="not_selected">Chưa chọn</string>
     <string name="saved_to_vault">Đã lưu vào kho</string>
     <string name="saved_to_vault_count">Đã lưu %1$d mục vào kho</string>
+    <plurals name="pinned_items">
+        <item quantity="one">Đã ghim %1$d mục</item>
+        <item quantity="other">Đã ghim %1$d mục</item>
+    </plurals>
+    <plurals name="unpinned_items">
+        <item quantity="one">Đã bỏ ghim %1$d mục</item>
+        <item quantity="other">Đã bỏ ghim %1$d mục</item>
+    </plurals>
+    <plurals name="deleted_items">
+        <item quantity="one">Đã xóa %1$d mục</item>
+        <item quantity="other">Đã xóa %1$d mục</item>
+    </plurals>
+    <plurals name="copied_items">
+        <item quantity="one">Đã sao chép %1$d mục vào clipboard</item>
+        <item quantity="other">Đã sao chép %1$d mục vào clipboard</item>
+    </plurals>
+    <string name="copied_to_clipboard">Đã sao chép vào clipboard</string>
+    <string name="share_selected_cards">Chia sẻ các card clipboard đã chọn</string>
+    <string name="clipboard_card_label">Card clipboard</string>
+    <string name="manual_clipboard_button_source">Nút clipboard thủ công</string>
+    <string name="manual_entry_source">Nhập thủ công</string>
+    <string name="source_system_clipboard">Clipboard hệ thống</string>
+    <string name="source_android_share">Android Share</string>
+    <string name="source_combined">Clipboard hệ thống + Android Share</string>
+    <string name="source_notification">Thông báo</string>
+    <string name="source_quick_settings_tile">Tile Quick Settings</string>
+    <string name="share_named_file">Chia sẻ %1$s</string>
+    <string name="default_export_filename">Xuat_Clipboard</string>
+    <string name="file_details">%1$s • %2$d byte</string>
+    <string name="welcome_title">Chào mừng đến với Clipboard Vault</string>
+    <string name="welcome_subtitle">Kho clipboard riêng tư, ưu tiên ngoại tuyến của bạn.</string>
+    <string name="explicit_capture_notice">Chỉ capture có chủ ý: Android 10+ bảo vệ quyền riêng tư bằng cách hạn chế ứng dụng âm thầm đọc dữ liệu clipboard trong nền.</string>
+    <string name="local_offline_notice">100% nội bộ và ngoại tuyến: Tất cả card và ghi chú nằm trên thiết bị của bạn. Không đồng bộ cloud, không theo dõi, không tài khoản.</string>
+    <string name="capture_channels_hint">Bạn có thể capture nội dung qua nút +, Android Share, Thông báo hoặc tile Quick Settings.</string>
+    <string name="got_it">Đã hiểu</string>
+    <string name="notification_channel_name">Capture clipboard</string>
+    <string name="notification_channel_description">Chạm một lần để lưu clipboard hiện tại</string>
+    <string name="notification_capture_title">Clipboard Manager</string>
+    <string name="notification_capture_prompt">Chạm để lưu clipboard hiện tại</string>
+    <string name="notification_saved_title">Đã lưu clipboard</string>
+    <string name="notification_saved_body">Nội dung đã được lưu vào kho clipboard</string>
+    <string name="quick_settings_copy_clipboard">Sao chép Clipboard</string>
+    <string name="export_title">Xuất clipboard</string>
+    <string name="export_no_items">Không có mục nào được chọn.</string>
+    <string name="exported_on">Xuất lúc: %1$s (%2$d mục)</string>
+    <string name="export_date">Ngày: %1$s (%2$d mục)</string>
+    <string name="export_source">Nguồn: %1$s</string>
+    <string name="export_item">Mục</string>
+    <string name="export_captured">Đã capture</string>
+    <string name="export_pinned">Đã ghim</string>
+    <string name="export_url_type">URL</string>
+    <string name="export_combined_type">Kết hợp</string>
 </resources>

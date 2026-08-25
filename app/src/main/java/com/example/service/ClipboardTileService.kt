@@ -7,16 +7,44 @@ import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import androidx.annotation.RequiresApi
+import com.example.data.local.SettingsDataStore
+import com.example.data.repository.CaptureSource
+import com.example.ui.localization.withAppLanguage
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @RequiresApi(Build.VERSION_CODES.N)
 class ClipboardTileService : TileService() {
 
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
     override fun onStartListening() {
         super.onStartListening()
-        val tile = qsTile ?: return
-        tile.state = Tile.STATE_ACTIVE
-        tile.label = "Copy Clipboard"
-        tile.updateTile()
+        qsTile?.apply {
+            state = Tile.STATE_ACTIVE
+            label = getString(com.example.R.string.quick_settings_copy_clipboard)
+            updateTile()
+        }
+        serviceScope.launch {
+            val language = withContext(Dispatchers.IO) {
+                SettingsDataStore(applicationContext).userSettingsFlow.first().language
+            }
+            val localizedContext = applicationContext.withAppLanguage(language)
+            qsTile?.apply {
+                label = localizedContext.getString(com.example.R.string.quick_settings_copy_clipboard)
+                updateTile()
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        serviceScope.cancel()
+        super.onDestroy()
     }
 
     @SuppressLint("StartActivityAndCollapseDeprecated")
@@ -45,6 +73,6 @@ class ClipboardTileService : TileService() {
     }
 
     private companion object {
-        const val SOURCE_TILE = "Quick Settings Tile"
+        const val SOURCE_TILE = CaptureSource.QUICK_SETTINGS_TILE
     }
 }

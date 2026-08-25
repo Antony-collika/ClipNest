@@ -4,6 +4,8 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import androidx.annotation.PluralsRes
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -14,10 +16,14 @@ import com.example.data.local.UserSettings
 import com.example.data.model.ClipboardCard
 import com.example.data.model.ClipboardCardProjection
 import com.example.data.repository.CapturePayload
+import com.example.data.repository.CaptureSource
+import com.example.data.repository.localizedCaptureSourceLabel
 import com.example.data.repository.ClipboardRepository
 import com.example.domain.ExportFormatter
+import com.example.domain.ExportLabels
 import com.example.domain.OrderHelper
 import com.example.domain.TextNormalizer
+import com.example.ui.localization.withAppLanguage
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -60,7 +66,8 @@ sealed class VaultEvent {
 class VaultViewModel(
     private val repository: ClipboardRepository,
     private val settingsDataStore: SettingsDataStore,
-    private val fileManager: FileManager
+    private val fileManager: FileManager,
+    private val appContext: Context
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
@@ -244,7 +251,10 @@ class VaultViewModel(
         viewModelScope.launch {
             repository.setPinned(selected, newPinned)
             _selectedIds.value = emptySet()
-            _eventFlow.emit(VaultEvent.ShowToast(if (newPinned) "Pinned ${selected.size} items" else "Unpinned ${selected.size} items"))
+            emitPluralToast(
+                if (newPinned) com.example.R.plurals.pinned_items else com.example.R.plurals.unpinned_items,
+                selected.size
+            )
         }
     }
 
@@ -270,7 +280,7 @@ class VaultViewModel(
         viewModelScope.launch {
             repository.deleteCards(selected)
             _selectedIds.value = emptySet()
-            _eventFlow.emit(VaultEvent.ShowToast("Deleted ${selected.size} items"))
+            emitPluralToast(com.example.R.plurals.deleted_items, selected.size)
         }
     }
 
@@ -289,7 +299,10 @@ class VaultViewModel(
                     putExtra(android.content.Intent.EXTRA_TEXT, shareText)
                     type = "text/plain"
                 }
-                context.startActivity(android.content.Intent.createChooser(sendIntent, "Share selected clipboard cards"))
+                context.startActivity(android.content.Intent.createChooser(
+                    sendIntent,
+                    localizedContext().getString(com.example.R.string.share_selected_cards)
+                ))
             }
         }
     }
@@ -313,7 +326,7 @@ class VaultViewModel(
                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 val clip = ClipData.newPlainText("Vault Cards", combinedText)
                 clipboard.setPrimaryClip(clip)
-                _eventFlow.emit(VaultEvent.ShowToast("Copied ${fullCards.size} items to clipboard"))
+                emitPluralToast(com.example.R.plurals.copied_items, fullCards.size)
             }
         }
     }
@@ -322,9 +335,12 @@ class VaultViewModel(
         viewModelScope.launch {
             val card = repository.getCardById(id) ?: return@launch
             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            val clip = ClipData.newPlainText("Clipboard Card", card.content)
+            val clip = ClipData.newPlainText(
+                localizedContext().getString(com.example.R.string.clipboard_card_label),
+                card.content
+            )
             clipboard.setPrimaryClip(clip)
-            _eventFlow.emit(VaultEvent.ShowToast("Copied to clipboard"))
+            emitToast(com.example.R.string.copied_to_clipboard)
         }
     }
 
@@ -363,16 +379,20 @@ class VaultViewModel(
         }.getOrNull()
 
         if (text.isNullOrBlank()) {
-            viewModelScope.launch { _eventFlow.emit(VaultEvent.ShowToast("Clipboard is empty")) }
+            emitToast(com.example.R.string.clipboard_empty)
             return
         }
 
         viewModelScope.launch {
             val saved = repository.saveCards(
-                listOf(CapturePayload(content = text, sourceApp = "Manual Clipboard Button"))
+                listOf(CapturePayload(content = text, sourceApp = CaptureSource.MANUAL_CLIPBOARD_BUTTON))
             )
             _eventFlow.emit(
-                VaultEvent.ShowToast(if (saved.isNotEmpty()) "Clipboard saved" else "Clipboard is empty")
+                VaultEvent.ShowToast(
+                    localizedContext().getString(
+                        if (saved.isNotEmpty()) com.example.R.string.clipboard_saved else com.example.R.string.clipboard_empty
+                    )
+                )
             )
         }
     }
@@ -389,12 +409,12 @@ class VaultViewModel(
         viewModelScope.launch {
             val card = repository.saveCard(
                 content = text,
-                sourceApp = "Manual Entry",
+                sourceApp = CaptureSource.MANUAL_ENTRY,
                 isSensitive = isSensitive
             )
             _showInAppCaptureSheet.value = false
             if (card != null) {
-                _eventFlow.emit(VaultEvent.ShowToast("Clipboard saved"))
+                emitToast(com.example.R.string.clipboard_saved)
             }
         }
     }
@@ -421,12 +441,12 @@ class VaultViewModel(
             clipText != null && shared != null && clipText != shared -> listOf(
                 CapturePayload(
                     content = TextNormalizer.combine(clipText, shared),
-                    sourceApp = "System Clipboard + Android Share",
+                    sourceApp = CaptureSource.COMBINED,
                     contentType = com.example.data.model.ContentType.COMBINED
                 )
             )
-            clipText != null -> listOf(CapturePayload(clipText, "System Clipboard"))
-            shared != null -> listOf(CapturePayload(shared, "Android Share"))
+            clipText != null -> listOf(CapturePayload(clipText, CaptureSource.SYSTEM_CLIPBOARD))
+            shared != null -> listOf(CapturePayload(shared, CaptureSource.ANDROID_SHARE))
             else -> emptyList()
         }
 
@@ -434,7 +454,7 @@ class VaultViewModel(
             val saved = repository.saveCards(payloads)
             dismissShareDialog()
             if (saved.isNotEmpty()) {
-                _eventFlow.emit(VaultEvent.ShowToast("Clipboard saved"))
+                emitToast(com.example.R.string.clipboard_saved)
             }
         }
     }
@@ -496,8 +516,8 @@ class VaultViewModel(
         viewModelScope.launch {
             val cards = repository.getCardsByIds(targetIds)
             val formatted = when (format) {
-                ExportFormat.MARKDOWN -> ExportFormatter.formatMarkdown(cards)
-                ExportFormat.PLAIN_TEXT -> ExportFormatter.formatPlainText(cards)
+                ExportFormat.MARKDOWN -> ExportFormatter.formatMarkdown(cards, localizedExportLabels())
+                ExportFormat.PLAIN_TEXT -> ExportFormatter.formatPlainText(cards, localizedExportLabels())
             }
             val folderUri = userSettings.value.defaultSaveFolderUri
             if (folderUri.isNullOrBlank()) {
@@ -529,8 +549,8 @@ class VaultViewModel(
             }
             val cards = repository.getCardsByIds(targetIds)
             val formatted = when (request.format) {
-                ExportFormat.MARKDOWN -> ExportFormatter.formatMarkdown(cards)
-                ExportFormat.PLAIN_TEXT -> ExportFormatter.formatPlainText(cards)
+                ExportFormat.MARKDOWN -> ExportFormatter.formatMarkdown(cards, localizedExportLabels())
+                ExportFormat.PLAIN_TEXT -> ExportFormatter.formatPlainText(cards, localizedExportLabels())
             }
             saveExportToFolder(contentResolver, uri, request.fileName, request.format, formatted)
         }
@@ -548,7 +568,11 @@ class VaultViewModel(
                 fileManager.saveNewFileToTree(contentResolver, folderUri, fileName, format, content)
             }.getOrNull()
             _eventFlow.emit(
-                VaultEvent.ShowToast(if (saved == null) "Could not save file" else "Saved file")
+                VaultEvent.ShowToast(
+                    localizedContext().getString(
+                        if (saved == null) com.example.R.string.could_not_save_file else com.example.R.string.saved_to_vault
+                    )
+                )
             )
         }
     }
@@ -590,6 +614,41 @@ class VaultViewModel(
         }
     }
 
+    private fun localizedContext(): Context = appContext.withAppLanguage(userSettings.value.language)
+
+    private fun localizedExportLabels(): ExportLabels {
+        val context = localizedContext()
+        return ExportLabels(
+            title = context.getString(com.example.R.string.export_title),
+            noItems = context.getString(com.example.R.string.export_no_items),
+            exportedOn = context.getString(com.example.R.string.exported_on),
+            date = context.getString(com.example.R.string.export_date),
+            source = context.getString(com.example.R.string.export_source).substringBefore(":"),
+            item = context.getString(com.example.R.string.export_item),
+            captured = context.getString(com.example.R.string.export_captured),
+            pinned = context.getString(com.example.R.string.export_pinned),
+            urlType = context.getString(com.example.R.string.export_url_type),
+            combinedType = context.getString(com.example.R.string.export_combined_type),
+            sourceLabel = { value -> localizedCaptureSourceLabel(context, value) }
+        )
+    }
+
+    private fun emitToast(@StringRes resourceId: Int, vararg args: Any) {
+        viewModelScope.launch {
+            _eventFlow.emit(VaultEvent.ShowToast(localizedContext().getString(resourceId, *args)))
+        }
+    }
+
+    private fun emitPluralToast(@PluralsRes resourceId: Int, quantity: Int) {
+        viewModelScope.launch {
+            _eventFlow.emit(
+                VaultEvent.ShowToast(
+                    localizedContext().resources.getQuantityString(resourceId, quantity, quantity)
+                )
+            )
+        }
+    }
+
     fun markFirstRunEducationShown() {
         viewModelScope.launch {
             settingsDataStore.setFirstRunEducationShown(true)
@@ -606,12 +665,13 @@ enum class ShareChoice {
 class VaultViewModelFactory(
     private val repository: ClipboardRepository,
     private val settingsDataStore: SettingsDataStore,
-    private val fileManager: FileManager
+    private val fileManager: FileManager,
+    private val appContext: Context
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(VaultViewModel::class.java)) {
-            return VaultViewModel(repository, settingsDataStore, fileManager) as T
+            return VaultViewModel(repository, settingsDataStore, fileManager, appContext) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

@@ -118,7 +118,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private val vaultViewModel: VaultViewModel by viewModels {
-        VaultViewModelFactory(repository, settingsDataStore, fileManager)
+        VaultViewModelFactory(repository, settingsDataStore, fileManager, applicationContext)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -150,7 +150,7 @@ class MainActivity : ComponentActivity() {
                     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
                         ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
                     ) {
-                        CaptureNotificationManager.showCaptureNotification(applicationContext)
+                        CaptureNotificationManager.showCaptureNotification(applicationContext, userSettings.language)
                     }
                 } else {
                     CaptureNotificationManager.dismissCaptureNotification(applicationContext)

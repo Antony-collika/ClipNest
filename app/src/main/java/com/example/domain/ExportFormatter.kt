@@ -6,38 +6,65 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+data class ExportLabels(
+    val title: String,
+    val noItems: String,
+    val exportedOn: String,
+    val date: String,
+    val source: String,
+    val item: String,
+    val captured: String,
+    val pinned: String,
+    val urlType: String,
+    val combinedType: String,
+    val sourceLabel: (String?) -> String? = { it }
+)
+
 object ExportFormatter {
 
-    private val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
+    fun formatMarkdown(
+        cards: List<ClipboardCard>,
+        labels: ExportLabels = ExportLabels(
+            title = "Clipboard Vault Export",
+            noItems = "No items selected.",
+            exportedOn = "Exported on: %1\u0024s (%2\u0024d items)",
+            date = "Date: %1\u0024s (%2\u0024d items)",
+            source = "Source",
+            item = "Item",
+            captured = "Captured",
+            pinned = "Pinned",
+            urlType = "URL",
+            combinedType = "Combined"
+        )
+    ): String {
+        if (cards.isEmpty()) return "# ${labels.title}\n\n${labels.noItems}\n"
 
-    fun formatMarkdown(cards: List<ClipboardCard>): String {
-        if (cards.isEmpty()) return "# Clipboard Export\n\nNo items selected.\n"
-
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
         val sb = StringBuilder()
-        sb.append("# Clipboard Vault Export\n\n")
-        sb.append("*Exported on: ${dateFormat.format(Date())} (${cards.size} items)*\n\n")
-        sb.append("---\n\n")
+        sb.append("# ${labels.title}\n\n")
+        sb.append(String.format(Locale.getDefault(), labels.exportedOn, dateFormat.format(Date()), cards.size))
+        sb.append("\n\n---\n\n")
 
         cards.forEachIndexed { index, card ->
             val num = index + 1
             val timestamp = dateFormat.format(Date(card.createdAtMillis))
-            val badge = if (card.pinned) " [Pinned]" else ""
+            val badge = if (card.pinned) " [${labels.pinned}]" else ""
             val typeStr = when (card.contentType) {
-                ContentType.URL -> " (URL)"
-                ContentType.COMBINED -> " (Combined)"
+                ContentType.URL -> " (${labels.urlType})"
+                ContentType.COMBINED -> " (${labels.combinedType})"
                 ContentType.TEXT -> ""
             }
 
-            sb.append("### $num. Item$badge$typeStr\n")
-            sb.append("*Captured: $timestamp*")
-            if (!card.sourceApp.isNullOrBlank()) {
-                sb.append(" • *Source: ${card.sourceApp}*")
+            sb.append("### $num. ${labels.item}$badge$typeStr\n")
+            sb.append("*${labels.captured}: $timestamp*")
+            val sourceLabel = labels.sourceLabel(card.sourceApp)
+            if (!sourceLabel.isNullOrBlank()) {
+                sb.append(" • *${labels.source}: $sourceLabel*")
             }
             sb.append("\n\n")
 
             if (card.contentType == ContentType.URL) {
-                val url = card.content.trim()
-                sb.append("<$url>\n\n")
+                sb.append("<${card.content.trim()}>\n\n")
             } else {
                 sb.append("```\n")
                 sb.append(card.content)
@@ -49,22 +76,38 @@ object ExportFormatter {
         return sb.toString().trimEnd() + "\n"
     }
 
-    fun formatPlainText(cards: List<ClipboardCard>): String {
-        if (cards.isEmpty()) return "Clipboard Export\n\nNo items selected.\n"
+    fun formatPlainText(
+        cards: List<ClipboardCard>,
+        labels: ExportLabels = ExportLabels(
+            title = "Clipboard Vault Export",
+            noItems = "No items selected.",
+            exportedOn = "Exported on: %1\u0024s (%2\u0024d items)",
+            date = "Date: %1\u0024s (%2\u0024d items)",
+            source = "Source",
+            item = "Item",
+            captured = "Captured",
+            pinned = "Pinned",
+            urlType = "URL",
+            combinedType = "Combined"
+        )
+    ): String {
+        if (cards.isEmpty()) return "${labels.title}\n\n${labels.noItems}\n"
 
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
         val sb = StringBuilder()
-        sb.append("CLIPBOARD VAULT EXPORT\n")
-        sb.append("Date: ${dateFormat.format(Date())} (${cards.size} items)\n")
-        sb.append("========================================\n\n")
+        sb.append(labels.title.uppercase(Locale.getDefault())).append("\n")
+        sb.append(String.format(Locale.getDefault(), labels.date, dateFormat.format(Date()), cards.size))
+        sb.append("\n========================================\n\n")
 
         cards.forEachIndexed { index, card ->
             val num = index + 1
             val timestamp = dateFormat.format(Date(card.createdAtMillis))
-            val pinnedStr = if (card.pinned) " [PINNED]" else ""
+            val pinnedStr = if (card.pinned) " [${labels.pinned.uppercase(Locale.getDefault())}]" else ""
 
-            sb.append("[$num] Captured: $timestamp$pinnedStr\n")
-            if (!card.sourceApp.isNullOrBlank()) {
-                sb.append("Source: ${card.sourceApp}\n")
+            sb.append("[$num] ${labels.captured}: $timestamp$pinnedStr\n")
+            val sourceLabel = labels.sourceLabel(card.sourceApp)
+            if (!sourceLabel.isNullOrBlank()) {
+                sb.append("${labels.source}: $sourceLabel\n")
             }
             sb.append("----------------------------------------\n")
             sb.append(card.content)

@@ -114,4 +114,56 @@
     <string name="not_selected">Not selected</string>
     <string name="saved_to_vault">Saved to vault</string>
     <string name="saved_to_vault_count">Saved %1$d items to vault</string>
+    <plurals name="pinned_items">
+        <item quantity="one">Pinned %1$d item</item>
+        <item quantity="other">Pinned %1$d items</item>
+    </plurals>
+    <plurals name="unpinned_items">
+        <item quantity="one">Unpinned %1$d item</item>
+        <item quantity="other">Unpinned %1$d items</item>
+    </plurals>
+    <plurals name="deleted_items">
+        <item quantity="one">Deleted %1$d item</item>
+        <item quantity="other">Deleted %1$d items</item>
+    </plurals>
+    <plurals name="copied_items">
+        <item quantity="one">Copied %1$d item to clipboard</item>
+        <item quantity="other">Copied %1$d items to clipboard</item>
+    </plurals>
+    <string name="copied_to_clipboard">Copied to clipboard</string>
+    <string name="share_selected_cards">Share selected clipboard cards</string>
+    <string name="clipboard_card_label">Clipboard Card</string>
+    <string name="manual_clipboard_button_source">Manual Clipboard Button</string>
+    <string name="manual_entry_source">Manual Entry</string>
+    <string name="source_system_clipboard">System Clipboard</string>
+    <string name="source_android_share">Android Share</string>
+    <string name="source_combined">System Clipboard + Android Share</string>
+    <string name="source_notification">Notification</string>
+    <string name="source_quick_settings_tile">Quick Settings Tile</string>
+    <string name="share_named_file">Share %1$s</string>
+    <string name="default_export_filename">Clipboard_Export</string>
+    <string name="file_details">%1$s • %2$d bytes</string>
+    <string name="welcome_title">Welcome to Clipboard Vault</string>
+    <string name="welcome_subtitle">Your private, offline-first clipboard inbox.</string>
+    <string name="explicit_capture_notice">Explicit Capture Only: Android 10+ protects your privacy by restricting apps from reading clipboard data silently in the background.</string>
+    <string name="local_offline_notice">100% Local &amp; Offline: All your cards and notes stay on your device. No cloud sync, no tracking, and no accounts.</string>
+    <string name="capture_channels_hint">Capture content whenever you want via the + button, Android Share sheet, Notification, or Quick Settings Tile.</string>
+    <string name="got_it">Got it</string>
+    <string name="notification_channel_name">Clipboard capture</string>
+    <string name="notification_channel_description">Tap once to save the current clipboard</string>
+    <string name="notification_capture_title">Clipboard Manager</string>
+    <string name="notification_capture_prompt">Tap to save the current clipboard</string>
+    <string name="notification_saved_title">Clipboard saved</string>
+    <string name="notification_saved_body">Content saved to the clipboard vault</string>
+    <string name="quick_settings_copy_clipboard">Copy Clipboard</string>
+    <string name="export_title">Clipboard Export</string>
+    <string name="export_no_items">No items selected.</string>
+    <string name="exported_on">Exported on: %1$s (%2$d items)</string>
+    <string name="export_date">Date: %1$s (%2$d items)</string>
+    <string name="export_source">Source: %1$s</string>
+    <string name="export_item">Item</string>
+    <string name="export_captured">Captured</string>
+    <string name="export_pinned">Pinned</string>
+    <string name="export_url_type">URL</string>
+    <string name="export_combined_type">Combined</string>
 </resources>

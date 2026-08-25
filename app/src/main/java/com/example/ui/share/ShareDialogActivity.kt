@@ -62,6 +62,7 @@ import com.example.data.local.AppDatabase
 import com.example.data.local.SettingsDataStore
 import com.example.data.model.ContentType
 import com.example.data.repository.CapturePayload
+import com.example.data.repository.CaptureSource
 import com.example.data.repository.ClipboardRepositoryImpl
 import com.example.domain.TextNormalizer
 import com.example.ui.localization.withAppLanguage
@@ -150,7 +151,7 @@ class ShareDialogActivity : ComponentActivity() {
                 listOf(
                     CapturePayload(
                         content = TextNormalizer.combine(clipboard, shared),
-                        sourceApp = "System Clipboard + Android Share",
+                        sourceApp = CaptureSource.COMBINED,
                         contentType = ContentType.COMBINED
                     )
                 )
@@ -158,13 +159,13 @@ class ShareDialogActivity : ComponentActivity() {
             shared != null -> listOf(
                 CapturePayload(
                     content = shared,
-                    sourceApp = "Android Share"
+                    sourceApp = CaptureSource.ANDROID_SHARE
                 )
             )
             clipboard != null -> listOf(
                 CapturePayload(
                     content = clipboard,
-                    sourceApp = "System Clipboard"
+                    sourceApp = CaptureSource.SYSTEM_CLIPBOARD
                 )
             )
             else -> emptyList()

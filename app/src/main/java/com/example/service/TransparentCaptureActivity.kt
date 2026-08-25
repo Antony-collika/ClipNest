@@ -8,8 +8,12 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
 import com.example.data.local.AppDatabase
+import com.example.data.local.SettingsDataStore
 import com.example.data.repository.CapturePayload
+import com.example.data.repository.CaptureSource
 import com.example.data.repository.ClipboardRepositoryImpl
+import com.example.ui.localization.withAppLanguage
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -52,9 +56,13 @@ class TransparentCaptureActivity : ComponentActivity() {
         }
 
         val source = intent.getStringExtra(CaptureNotificationManager.EXTRA_CAPTURE_SOURCE)
-            ?: getString(com.example.R.string.clipboard_capture_source)
+            ?: CaptureSource.NOTIFICATION
 
         lifecycleScope.launch {
+            val language = withContext(Dispatchers.IO) {
+                SettingsDataStore(applicationContext).userSettingsFlow.first().language
+            }
+            val localizedContext = applicationContext.withAppLanguage(language)
             val saved = withContext(Dispatchers.IO) {
                 val repository = ClipboardRepositoryImpl(
                     AppDatabase.getInstance(applicationContext).clipboardDao()
@@ -70,12 +78,12 @@ class TransparentCaptureActivity : ComponentActivity() {
             }
 
             if (saved != null) {
-                Toast.makeText(applicationContext, getString(com.example.R.string.clipboard_saved), Toast.LENGTH_SHORT).show()
-                if (source == CaptureNotificationManager.SOURCE_NOTIFICATION) {
-                    CaptureNotificationManager.showCaptureNotification(applicationContext)
+                Toast.makeText(localizedContext, localizedContext.getString(com.example.R.string.clipboard_saved), Toast.LENGTH_SHORT).show()
+                if (CaptureSource.isNotification(source)) {
+                    CaptureNotificationManager.showCaptureNotification(applicationContext, language)
                 }
             } else {
-                Toast.makeText(applicationContext, getString(com.example.R.string.clipboard_empty), Toast.LENGTH_SHORT).show()
+                Toast.makeText(localizedContext, localizedContext.getString(com.example.R.string.clipboard_empty), Toast.LENGTH_SHORT).show()
             }
             finishWithoutAnimation()
         }

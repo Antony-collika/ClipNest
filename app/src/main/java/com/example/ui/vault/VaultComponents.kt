@@ -862,7 +862,8 @@ fun ExportDialog(
     onDismiss: () -> Unit,
     onConfirm: (fileName: String, format: ExportFormat) -> Unit
 ) {
-    var fileName by remember { mutableStateOf("Clipboard_Export") }
+    val defaultFileName = stringResource(com.example.R.string.default_export_filename)
+    var fileName by remember(defaultFileName) { mutableStateOf(defaultFileName) }
     var selectedFormat by remember { mutableStateOf(ExportFormat.MARKDOWN) }
 
     AlertDialog(
