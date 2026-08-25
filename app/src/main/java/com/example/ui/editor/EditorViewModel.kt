@@ -37,7 +37,10 @@ data class EditorUiState(
     val isDirty: Boolean = false,
     val showSaveNewFileDialog: Boolean = false,
     val defaultSaveFolderUri: String? = null,
-    val lastSavedTimestamp: Long = 0L
+    val lastSavedTimestamp: Long = 0L,
+    val isMarkdownToolsExpanded: Boolean = false,
+    val showMarkdownPreview: Boolean = false,
+    val previewSplitFraction: Float = 0.30f
 )
 
 sealed class EditorEvent {
@@ -256,6 +259,134 @@ class EditorViewModel(
         _uiState.value = _uiState.value.copy(content = _uiState.value.content.copy(selection = TextRange(0, text.length)))
     }
 
+    fun toggleMarkdownTools() {
+        _uiState.value = _uiState.value.copy(isMarkdownToolsExpanded = !_uiState.value.isMarkdownToolsExpanded)
+    }
+
+    fun toggleMarkdownPreview() {
+        _uiState.value = _uiState.value.copy(showMarkdownPreview = !_uiState.value.showMarkdownPreview)
+    }
+
+    fun setPreviewSplitFraction(fraction: Float) {
+        _uiState.value = _uiState.value.copy(
+            previewSplitFraction = fraction.coerceIn(MIN_PREVIEW_FRACTION, MAX_PREVIEW_FRACTION)
+        )
+    }
+
+    fun insertMarkdownHeading(level: Int) {
+        applyLinePrefix("${"#".repeat(level)} ")
+    }
+
+    fun toggleMarkdownStrong() {
+        applyInlineDelimiter("**")
+    }
+
+    fun toggleMarkdownEmphasis() {
+        applyInlineDelimiter("*")
+    }
+
+    fun insertMarkdownQuote() {
+        applyLinePrefix("> ")
+    }
+
+    fun insertMarkdownCodeBlock() {
+        val current = _uiState.value.content
+        val selection = current.selection
+        if (selection.collapsed) {
+            replaceRange(
+                start = selection.start,
+                end = selection.end,
+                replacement = "```\\n\\n```",
+                selectionStart = selection.start + 4,
+                selectionEnd = selection.start + 4
+            )
+            return
+        }
+        val selected = current.text.substring(selection.min, selection.max)
+        val replacement = "```\\n$selected\\n```"
+        replaceRange(
+            start = selection.min,
+            end = selection.max,
+            replacement = replacement,
+            selectionStart = selection.min + 4,
+            selectionEnd = selection.min + 4 + selected.length
+        )
+    }
+
+    fun insertMarkdownBullets() {
+        applyLinePrefix("- ")
+    }
+
+    fun insertMarkdownNumbers() {
+        applyLinePrefix("1. ")
+    }
+
+    fun insertMarkdownHorizontalRule() {
+        val current = _uiState.value.content
+        val caret = current.selection.max
+        val before = if (caret > 0 && current.text[caret - 1] != '\n') "\n" else ""
+        val after = if (caret < current.text.length && current.text[caret] != '\n') "\n" else ""
+        val replacement = "$before---$after"
+        val newCaret = caret + before.length + 3 + after.length
+        replaceRange(caret, caret, replacement, newCaret, newCaret)
+    }
+
+    private fun applyInlineDelimiter(delimiter: String) {
+        val current = _uiState.value.content
+        val selection = current.selection
+        if (selection.collapsed) {
+            replaceRange(
+                start = selection.start,
+                end = selection.end,
+                replacement = delimiter + delimiter,
+                selectionStart = selection.start + delimiter.length,
+                selectionEnd = selection.start + delimiter.length
+            )
+        } else {
+            val selected = current.text.substring(selection.min, selection.max)
+            val replacement = delimiter + selected + delimiter
+            replaceRange(
+                start = selection.min,
+                end = selection.max,
+                replacement = replacement,
+                selectionStart = selection.min + delimiter.length,
+                selectionEnd = selection.min + delimiter.length + selected.length
+            )
+        }
+    }
+
+    private fun applyLinePrefix(prefix: String) {
+        val current = _uiState.value.content
+        val selection = current.selection
+        val start = current.text.lastIndexOf('\n', (selection.min - 1).coerceAtLeast(0))
+            .let { if (it < 0) 0 else it + 1 }
+        val end = current.text.indexOf('\n', selection.max).let { if (it < 0) current.text.length else it }
+        val block = current.text.substring(start, end)
+        val lines = if (block.isEmpty()) listOf("") else block.split('\n')
+        val transformed = lines.joinToString("\n") { line -> prefix + line }
+        val insertedPrefixLength = transformed.length - block.length
+        val newSelectionStart = selection.min + prefix.length
+        val newSelectionEnd = if (selection.collapsed) newSelectionStart else selection.max + insertedPrefixLength
+        replaceRange(start, end, transformed, newSelectionStart, newSelectionEnd)
+    }
+
+    private fun replaceRange(
+        start: Int,
+        end: Int,
+        replacement: String,
+        selectionStart: Int,
+        selectionEnd: Int
+    ) {
+        val current = _uiState.value.content
+        val newText = current.text.substring(0, start) + replacement + current.text.substring(end)
+        onContentChange(
+            TextFieldValue(
+                text = newText,
+                selection = TextRange(selectionStart.coerceIn(0, newText.length), selectionEnd.coerceIn(0, newText.length))
+            )
+        )
+    }
+
     fun deleteSelectedText() {
         val current = _uiState.value.content
         if (current.selection.collapsed) {
@@ -397,6 +528,8 @@ class EditorViewModel(
 
     companion object {
         private const val MAX_HISTORY = 100
+        private const val MIN_PREVIEW_FRACTION = 0.18f
+        private const val MAX_PREVIEW_FRACTION = 0.82f
     }
 }
 

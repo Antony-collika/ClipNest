@@ -1,30 +1,39 @@
 package com.example.ui.editor
 
-import android.content.Intent
+import android.graphics.Color as AndroidColor
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.Toast
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.Redo
+import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Redo
-import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.SelectAll
-import androidx.compose.material.icons.filled.Undo
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -34,31 +43,38 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun EditorScreen(
@@ -68,7 +84,23 @@ fun EditorScreen(
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val lifecycleOwner = LocalLifecycleOwner.current
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    val colorScheme = MaterialTheme.colorScheme
+    val isDark = colorScheme.background.red < 0.5f
+    val previewColors = remember(colorScheme, isDark) {
+        MarkdownPreviewColors.from(
+            background = colorScheme.surface,
+            onSurface = colorScheme.onSurface,
+            onSurfaceVariant = colorScheme.onSurfaceVariant,
+            surfaceVariant = colorScheme.surfaceVariant,
+            outline = colorScheme.outline,
+            outlineVariant = colorScheme.outlineVariant,
+            primary = colorScheme.primary,
+            codeBackground = colorScheme.surfaceVariant.copy(alpha = if (isDark) 0.65f else 0.55f),
+            isDark = isDark
+        )
+    }
+    var previewHtml by remember { mutableStateOf("") }
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -92,12 +124,24 @@ fun EditorScreen(
         }
     }
 
+    LaunchedEffect(uiState.showMarkdownPreview, uiState.content.text, previewColors) {
+        if (!uiState.showMarkdownPreview) {
+            previewHtml = ""
+            return@LaunchedEffect
+        }
+        delay(120)
+        previewHtml = withContext(Dispatchers.Default) {
+            MarkdownPreviewRenderer.render(uiState.content.text, previewColors)
+        }
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .imePadding()
     ) {
         EditorToolbox(
+            isMarkdownToolsExpanded = uiState.isMarkdownToolsExpanded,
             onPaste = { viewModel.pasteFromClipboard(context) },
             onCopy = { viewModel.copySelectedText(context) },
             onSelectAll = viewModel::selectAll,
@@ -106,39 +150,42 @@ fun EditorScreen(
             onRedo = viewModel::redo,
             onMoveCursorLeft = viewModel::moveCursorLeft,
             onMoveCursorRight = viewModel::moveCursorRight,
-            onSave = viewModel::onSaveClicked
+            onToggleExpanded = viewModel::toggleMarkdownTools
         )
-        Spacer(modifier = Modifier.size(4.dp))
+        if (uiState.isMarkdownToolsExpanded) {
+            ExpandedMarkdownToolbox(
+                isPreviewVisible = uiState.showMarkdownPreview,
+                onHeading = viewModel::insertMarkdownHeading,
+                onBold = viewModel::toggleMarkdownStrong,
+                onItalic = viewModel::toggleMarkdownEmphasis,
+                onQuote = viewModel::insertMarkdownQuote,
+                onCode = viewModel::insertMarkdownCodeBlock,
+                onBullets = viewModel::insertMarkdownBullets,
+                onNumbers = viewModel::insertMarkdownNumbers,
+                onHorizontalRule = viewModel::insertMarkdownHorizontalRule,
+                onTogglePreview = viewModel::toggleMarkdownPreview
+            )
+        }
 
-        BasicTextField(
-            value = uiState.content,
-            onValueChange = viewModel::onContentChange,
-            textStyle = TextStyle(
-                fontFamily = FontFamily.Monospace,
-                fontSize = 14.sp,
-                lineHeight = 17.sp,
-                color = MaterialTheme.colorScheme.onSurface
-            ),
-            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 8.dp, vertical = 4.dp)
-                .testTag("editor_text_input"),
-            decorationBox = { innerTextField ->
-                if (uiState.content.text.isEmpty()) {
-                    Text(
-                        text = stringResource(com.example.R.string.write_or_paste),
-                        style = TextStyle(
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 14.sp,
-                            lineHeight = 17.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                        )
-                    )
-                }
-                innerTextField()
-            }
-        )
+        if (uiState.showMarkdownPreview) {
+            SplitEditorAndPreview(
+                uiState = uiState,
+                previewHtml = previewHtml,
+                onPreviewFractionChange = viewModel::setPreviewSplitFraction,
+                onContentChange = viewModel::onContentChange,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+            )
+        } else {
+            EditorTextInput(
+                value = uiState.content,
+                onValueChange = viewModel::onContentChange,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .weight(1f)
+            )
+        }
     }
 
     if (uiState.showSaveNewFileDialog) {
@@ -154,7 +201,190 @@ fun EditorScreen(
 }
 
 @Composable
+private fun SplitEditorAndPreview(
+    uiState: EditorUiState,
+    previewHtml: String,
+    onPreviewFractionChange: (Float) -> Unit,
+    onContentChange: (TextFieldValue) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    BoxWithConstraints(
+        modifier = modifier
+            .testTag("editor_split_view")
+    ) {
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        val totalHeightPx = with(density) { maxHeight.toPx() }
+        val editorFraction = 1f - uiState.previewSplitFraction
+        Column(modifier = Modifier.fillMaxSize()) {
+            EditorTextInput(
+                value = uiState.content,
+                onValueChange = onContentChange,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(editorFraction)
+            )
+            PreviewDivider(
+                onDrag = { dragAmount ->
+                    if (totalHeightPx > 0f) {
+                        onPreviewFractionChange(uiState.previewSplitFraction - dragAmount / totalHeightPx)
+                    }
+                }
+            )
+            MarkdownPreviewPane(
+                html = previewHtml,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(uiState.previewSplitFraction)
+            )
+        }
+    }
+}
+
+@Composable
+private fun PreviewDivider(onDrag: (Float) -> Unit) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(28.dp)
+            .pointerInput(Unit) {
+                detectDragGestures { change, dragAmount ->
+                    change.consume()
+                    onDrag(dragAmount.y)
+                }
+            }
+            .testTag("markdown_preview_divider")
+    ) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Surface(
+                color = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                shape = RoundedCornerShape(12.dp),
+                tonalElevation = 1.dp,
+                modifier = Modifier
+                    .size(width = 72.dp, height = 22.dp)
+                    .clip(RoundedCornerShape(12.dp))
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowUp,
+                        contentDescription = stringResource(com.example.R.string.resize_preview),
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowDown,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MarkdownPreviewPane(html: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("markdown_preview_pane")
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(com.example.R.string.preview_markdown),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        }
+        AndroidView(
+            factory = { context ->
+                WebView(context).apply {
+                    setBackgroundColor(AndroidColor.TRANSPARENT)
+                    settings.javaScriptEnabled = false
+                    settings.domStorageEnabled = false
+                    settings.allowFileAccess = false
+                    settings.allowContentAccess = false
+                    isVerticalScrollBarEnabled = true
+                    isHorizontalScrollBarEnabled = false
+                    webViewClient = WebViewClient()
+                }
+            },
+            update = { webView ->
+                if (html.isNotBlank()) {
+                    webView.loadDataWithBaseURL(
+                        null,
+                        html,
+                        "text/html",
+                        "UTF-8",
+                        null
+                    )
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .testTag("markdown_preview_content")
+        )
+    }
+}
+
+@Composable
+private fun EditorTextInput(
+    value: TextFieldValue,
+    onValueChange: (TextFieldValue) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    BasicTextField(
+        value = value,
+        onValueChange = onValueChange,
+        textStyle = TextStyle(
+            fontFamily = FontFamily.Monospace,
+            fontSize = 14.sp,
+            lineHeight = 17.sp,
+            color = MaterialTheme.colorScheme.onSurface
+        ),
+        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+        modifier = modifier
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .testTag("editor_text_input"),
+        decorationBox = { innerTextField ->
+            if (value.text.isEmpty()) {
+                Text(
+                    text = stringResource(com.example.R.string.write_or_paste),
+                    style = TextStyle(
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 14.sp,
+                        lineHeight = 17.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                )
+            }
+            innerTextField()
+        }
+    )
+}
+
+@Composable
 private fun EditorToolbox(
+    isMarkdownToolsExpanded: Boolean,
     onPaste: () -> Unit,
     onCopy: () -> Unit,
     onSelectAll: () -> Unit,
@@ -163,7 +393,7 @@ private fun EditorToolbox(
     onRedo: () -> Unit,
     onMoveCursorLeft: () -> Unit,
     onMoveCursorRight: () -> Unit,
-    onSave: () -> Unit
+    onToggleExpanded: () -> Unit
 ) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
@@ -182,11 +412,101 @@ private fun EditorToolbox(
             EditorToolButton("editor_action_copy", stringResource(com.example.R.string.copy_selected), Icons.Default.ContentCopy, onCopy)
             EditorToolButton("editor_action_select_all", stringResource(com.example.R.string.select_all), Icons.Default.SelectAll, onSelectAll)
             EditorToolButton("editor_action_delete", stringResource(com.example.R.string.delete_selected), Icons.Default.Delete, onDelete)
-            EditorToolButton("editor_action_undo", stringResource(com.example.R.string.undo), Icons.Default.Undo, onUndo, repeatOnHold = true)
-            EditorToolButton("editor_action_redo", stringResource(com.example.R.string.redo), Icons.Default.Redo, onRedo, repeatOnHold = true)
-            EditorToolButton("editor_action_cursor_left", stringResource(com.example.R.string.move_cursor_left), Icons.Default.KeyboardArrowLeft, onMoveCursorLeft, repeatOnHold = true)
-            EditorToolButton("editor_action_cursor_right", stringResource(com.example.R.string.move_cursor_right), Icons.Default.KeyboardArrowRight, onMoveCursorRight, repeatOnHold = true)
-            EditorToolButton("editor_action_save", stringResource(com.example.R.string.save_file), Icons.Default.Save, onSave)
+            EditorToolButton("editor_action_undo", stringResource(com.example.R.string.undo), Icons.AutoMirrored.Filled.Undo, onUndo, repeatOnHold = true)
+            EditorToolButton("editor_action_redo", stringResource(com.example.R.string.redo), Icons.AutoMirrored.Filled.Redo, onRedo, repeatOnHold = true)
+            EditorToolButton("editor_action_cursor_left", stringResource(com.example.R.string.move_cursor_left), Icons.AutoMirrored.Filled.KeyboardArrowLeft, onMoveCursorLeft, repeatOnHold = true)
+            EditorToolButton("editor_action_cursor_right", stringResource(com.example.R.string.move_cursor_right), Icons.AutoMirrored.Filled.KeyboardArrowRight, onMoveCursorRight, repeatOnHold = true)
+            EditorToolButton(
+                tag = "editor_action_markdown_expand",
+                contentDescription = if (isMarkdownToolsExpanded) stringResource(com.example.R.string.hide_markdown_tools) else stringResource(com.example.R.string.show_markdown_tools),
+                icon = if (isMarkdownToolsExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                onClick = onToggleExpanded
+            )
+        }
+    }
+}
+
+@Composable
+private fun ExpandedMarkdownToolbox(
+    isPreviewVisible: Boolean,
+    onHeading: (Int) -> Unit,
+    onBold: () -> Unit,
+    onItalic: () -> Unit,
+    onQuote: () -> Unit,
+    onCode: () -> Unit,
+    onBullets: () -> Unit,
+    onNumbers: () -> Unit,
+    onHorizontalRule: () -> Unit,
+    onTogglePreview: () -> Unit
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("markdown_expanded_toolbox")
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 2.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            MarkdownTextButton("markdown_action_h1", "H1", stringResource(com.example.R.string.markdown_h1), { onHeading(1) })
+            MarkdownTextButton("markdown_action_h2", "H2", stringResource(com.example.R.string.markdown_h2), { onHeading(2) })
+            MarkdownTextButton("markdown_action_h3", "H3", stringResource(com.example.R.string.markdown_h3), { onHeading(3) })
+            MarkdownTextButton("markdown_action_bold", "B", stringResource(com.example.R.string.markdown_bold), onBold, bold = true)
+            MarkdownTextButton("markdown_action_italic", "I", stringResource(com.example.R.string.markdown_italic), onItalic, italic = true)
+            MarkdownTextButton("markdown_action_quote", "❝", stringResource(com.example.R.string.markdown_quote), onQuote)
+            MarkdownTextButton("markdown_action_code", "</>", stringResource(com.example.R.string.markdown_code), onCode)
+            MarkdownTextButton("markdown_action_bullets", "•", stringResource(com.example.R.string.markdown_bullets), onBullets)
+            MarkdownTextButton("markdown_action_numbers", "1.", stringResource(com.example.R.string.markdown_numbers), onNumbers)
+            MarkdownTextButton("markdown_action_rule", "—", stringResource(com.example.R.string.markdown_horizontal_rule), onHorizontalRule)
+            MarkdownTextButton(
+                tag = "markdown_action_view",
+                label = "View",
+                contentDescription = if (isPreviewVisible) stringResource(com.example.R.string.hide_markdown_preview) else stringResource(com.example.R.string.show_markdown_preview),
+                onClick = onTogglePreview,
+                active = isPreviewVisible
+            )
+        }
+    }
+}
+
+@Composable
+private fun MarkdownTextButton(
+    tag: String,
+    label: String,
+    contentDescription: String,
+    onClick: () -> Unit,
+    bold: Boolean = false,
+    italic: Boolean = false,
+    active: Boolean = false
+) {
+    Surface(
+        color = if (active) MaterialTheme.colorScheme.primary else Color.Transparent,
+        contentColor = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
+        shape = RoundedCornerShape(6.dp),
+        modifier = Modifier
+            .size(width = 44.dp, height = 40.dp)
+            .testTag(tag)
+            .semantics {
+                role = Role.Button
+                this.contentDescription = contentDescription
+            }
+            .pointerInput(Unit) {
+                detectTapGestures(onTap = { onClick() })
+            },
+        tonalElevation = if (active) 1.dp else 0.dp
+    ) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge.copy(
+                    fontWeight = if (bold) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Normal,
+                    fontStyle = if (italic) androidx.compose.ui.text.font.FontStyle.Italic else androidx.compose.ui.text.font.FontStyle.Normal
+                )
+            )
         }
     }
 }

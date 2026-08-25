@@ -356,6 +356,7 @@ fun MainAppContent(
                     },
                     onShareSelected = { vaultViewModel.shareSelected() },
                     onSaveFile = vaultViewModel::openExportDialog,
+                    onEditorSave = editorViewModel::onSaveClicked,
                     onOpenEditor = ::openEditorFromVault,
                     onToggleShowPinnedFirst = vaultViewModel::toggleShowPinnedFirst,
                     onPinSelected = vaultViewModel::togglePinSelected,
@@ -449,6 +450,7 @@ private fun MainTopBar(
     onToggleSelectAll: () -> Unit,
     onShareSelected: () -> Unit,
     onSaveFile: () -> Unit,
+    onEditorSave: () -> Unit,
     onOpenEditor: () -> Unit,
     onToggleShowPinnedFirst: () -> Unit,
     onPinSelected: () -> Unit,
@@ -718,6 +720,14 @@ private fun MainTopBar(
                             modifier = Modifier.testTag("main_menu_settings")
                         )
                     } else {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(com.example.R.string.save_file)) },
+                            onClick = {
+                                overflowExpanded = false
+                                onEditorSave()
+                            },
+                            modifier = Modifier.testTag("editor_menu_save_file")
+                        )
                         DropdownMenuItem(
                             text = { Text(stringResource(com.example.R.string.settings)) },
                             onClick = {
