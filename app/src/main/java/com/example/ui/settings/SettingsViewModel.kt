@@ -14,6 +14,7 @@ import com.example.data.local.ThemeMode
 import com.example.data.local.UserSettings
 import com.example.data.repository.ClipboardRepository
 import com.example.service.CaptureNotificationManager
+import com.example.ui.localization.withAppLanguage
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -21,6 +22,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
@@ -37,7 +39,8 @@ sealed class SettingsEvent {
 class SettingsViewModel(
     private val settingsDataStore: SettingsDataStore,
     private val repository: ClipboardRepository,
-    private val fileManager: FileManager
+    private val fileManager: FileManager,
+    private val appContext: Context
 ) : ViewModel() {
 
     private val _eventFlow = MutableSharedFlow<SettingsEvent>()
@@ -88,7 +91,8 @@ class SettingsViewModel(
         viewModelScope.launch {
             settingsDataStore.setNotificationEnabled(enabled)
             if (enabled) {
-                CaptureNotificationManager.showCaptureNotification(context)
+                val language = settingsDataStore.userSettingsFlow.first().language
+                CaptureNotificationManager.showCaptureNotification(context, language)
             } else {
                 CaptureNotificationManager.dismissCaptureNotification(context)
             }
@@ -114,7 +118,15 @@ class SettingsViewModel(
             settingsDataStore.setRetentionPolicy(policy)
             val deleted = repository.cleanupOldCards(policy)
             if (deleted > 0) {
-                _eventFlow.emit(SettingsEvent.ShowToast("Cleaned up $deleted old cards"))
+                val language = settingsDataStore.userSettingsFlow.first().language
+                _eventFlow.emit(
+                    SettingsEvent.ShowToast(
+                        appContext.withAppLanguage(language).getString(
+                            com.example.R.string.cleaned_old_cards,
+                            deleted
+                        )
+                    )
+                )
             }
         }
     }
@@ -123,12 +135,13 @@ class SettingsViewModel(
 class SettingsViewModelFactory(
     private val settingsDataStore: SettingsDataStore,
     private val repository: ClipboardRepository,
-    private val fileManager: FileManager
+    private val fileManager: FileManager,
+    private val appContext: Context
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(SettingsViewModel::class.java)) {
-            return SettingsViewModel(settingsDataStore, repository, fileManager) as T
+            return SettingsViewModel(settingsDataStore, repository, fileManager, appContext) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

@@ -96,6 +96,17 @@
     <string name="quick_settings_tile">Quick Settings Tile</string>
     <string name="quick_settings_description">Add the Clipboard Manager tile to your Android Quick Settings panel to quickly trigger foreground capture from anywhere.</string>
     <string name="exported_documents">Exported Documents</string>
+    <string name="backup_restore">Backup &amp; Restore</string>
+    <string name="backup_restore_description">Save and restore your Vault cards as a local JSON file.</string>
+    <string name="backup_vault">Backup Vault</string>
+    <string name="restore_vault">Restore Vault</string>
+    <string name="backup_saved">Vault backup saved</string>
+    <string name="backup_failed">Could not save Vault backup</string>
+    <string name="restore_complete">Restored %1$d items; skipped %2$d duplicates</string>
+    <string name="restore_empty">The backup did not contain any valid cards</string>
+    <string name="restore_failed">Could not restore Vault backup</string>
+    <string name="cleaned_old_cards">Cleaned up %1$d old cards</string>
+    <string name="invalid_backup_file">This is not a valid X-board backup file</string>
     <string name="share_file">Share file</string>
     <string name="privacy_security">Privacy &amp; Security</string>
     <string name="private_by_design">Private by Design</string>

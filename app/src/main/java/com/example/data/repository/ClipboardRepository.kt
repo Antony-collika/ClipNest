@@ -4,6 +4,8 @@ import com.example.data.local.ClipboardDao
 import com.example.data.local.RetentionPolicy
 import com.example.data.model.ClipboardCard
 import com.example.data.model.ClipboardCardProjection
+import com.example.data.model.VaultBackupCard
+import com.example.data.model.VaultBackupResult
 import com.example.data.model.ContentType
 import com.example.domain.OrderHelper
 import com.example.domain.TextNormalizer
@@ -21,6 +23,8 @@ data class CapturePayload(
 interface ClipboardRepository {
     fun getAllCardProjections(): Flow<List<ClipboardCardProjection>>
     fun searchCardProjections(query: String): Flow<List<ClipboardCardProjection>>
+    suspend fun getAllCards(): List<ClipboardCard>
+    suspend fun mergeBackupCards(cards: List<VaultBackupCard>): VaultBackupResult
     suspend fun getCardById(id: Long): ClipboardCard?
     suspend fun getCardsByIds(ids: List<Long>): List<ClipboardCard>
     suspend fun saveCard(
@@ -44,6 +48,69 @@ class ClipboardRepositoryImpl(
 
     override fun getAllCardProjections(): Flow<List<ClipboardCardProjection>> {
         return dao.getAllCardProjections()
+    }
+
+    override suspend fun getAllCards(): List<ClipboardCard> = dao.getAllCards()
+
+    override suspend fun mergeBackupCards(cards: List<VaultBackupCard>): VaultBackupResult {
+        if (cards.isEmpty()) {
+            return VaultBackupResult(imported = 0, skippedDuplicates = 0, skippedInvalid = 0)
+        }
+
+        val existingKeys = dao.getAllCards()
+            .asSequence()
+            .map { card -> BackupCardKey(card.content, card.createdAtMillis) }
+            .toMutableSet()
+        val importedCards = mutableListOf<ClipboardCard>()
+        var skippedDuplicates = 0
+        var skippedInvalid = 0
+
+        cards.forEach { backupCard ->
+            if (backupCard.content.isBlank()) {
+                skippedInvalid++
+                return@forEach
+            }
+            val key = BackupCardKey(backupCard.content, backupCard.createdAtMillis)
+            if (!existingKeys.add(key)) {
+                skippedDuplicates++
+                return@forEach
+            }
+            importedCards += ClipboardCard(
+                id = 0L,
+                content = backupCard.content,
+                createdAtMillis = backupCard.createdAtMillis,
+                sortOrder = 0L,
+                sourceApp = null,
+                contentType = TextNormalizer.detectContentType(backupCard.content),
+                pinned = backupCard.pinned,
+                preview = TextNormalizer.generatePreview(backupCard.content),
+                isSensitive = backupCard.isSensitive
+            )
+        }
+
+        if (importedCards.isEmpty()) {
+            return VaultBackupResult(
+                imported = 0,
+                skippedDuplicates = skippedDuplicates,
+                skippedInvalid = skippedInvalid
+            )
+        }
+
+        var nextId = dao.getMaxId()
+        val now = System.currentTimeMillis()
+        val storedCards = importedCards.mapIndexed { index, card ->
+            nextId = maxOf(nextId + 1L, now + index)
+            card.copy(
+                id = nextId,
+                sortOrder = card.createdAtMillis + index
+            )
+        }
+        dao.insertCards(storedCards)
+        return VaultBackupResult(
+            imported = storedCards.size,
+            skippedDuplicates = skippedDuplicates,
+            skippedInvalid = skippedInvalid
+        )
     }
 
     override fun searchCardProjections(query: String): Flow<List<ClipboardCardProjection>> {
@@ -130,3 +197,9 @@ class ClipboardRepositoryImpl(
         return dao.deleteOlderThan(cutoff)
     }
 }
+
+
+data class BackupCardKey(
+    val content: String,
+    val createdAtMillis: Long
+)

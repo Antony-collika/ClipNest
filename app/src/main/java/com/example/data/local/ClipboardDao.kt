@@ -32,6 +32,9 @@ interface ClipboardDao {
     )
     fun searchCardProjections(query: String): Flow<List<ClipboardCardProjection>>
 
+    @Query("SELECT * FROM clipboard_cards ORDER BY sortOrder DESC")
+    suspend fun getAllCards(): List<ClipboardCard>
+
     @Query("SELECT * FROM clipboard_cards WHERE id = :id")
     suspend fun getCardById(id: Long): ClipboardCard?
 

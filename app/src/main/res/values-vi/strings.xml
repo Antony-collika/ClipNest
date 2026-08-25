@@ -96,6 +96,17 @@
     <string name="quick_settings_tile">Tile Quick Settings</string>
     <string name="quick_settings_description">Thêm tile Clipboard Manager vào Quick Settings Android để kích hoạt capture foreground nhanh từ mọi nơi.</string>
     <string name="exported_documents">Tài liệu đã xuất</string>
+    <string name="backup_restore">Sao lưu &amp; Khôi phục</string>
+    <string name="backup_restore_description">Lưu và khôi phục các card trong Vault bằng file JSON local.</string>
+    <string name="backup_vault">Sao lưu Vault</string>
+    <string name="restore_vault">Khôi phục Vault</string>
+    <string name="backup_saved">Đã lưu bản sao Vault</string>
+    <string name="backup_failed">Không thể lưu bản sao Vault</string>
+    <string name="restore_complete">Đã khôi phục %1$d mục; bỏ qua %2$d mục trùng</string>
+    <string name="restore_empty">Bản sao lưu không có card hợp lệ</string>
+    <string name="restore_failed">Không thể khôi phục bản sao Vault</string>
+    <string name="cleaned_old_cards">Đã dọn %1$d card cũ</string>
+    <string name="invalid_backup_file">Đây không phải file backup X-board hợp lệ</string>
     <string name="share_file">Chia sẻ file</string>
     <string name="privacy_security">Quyền riêng tư &amp; bảo mật</string>
     <string name="private_by_design">Riêng tư theo thiết kế</string>

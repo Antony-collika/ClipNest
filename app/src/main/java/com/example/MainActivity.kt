@@ -7,6 +7,7 @@ import android.net.Uri
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -78,6 +79,7 @@ import com.example.data.local.AppDatabase
 import com.example.data.local.FileManager
 import com.example.data.local.SettingsDataStore
 import com.example.data.repository.ClipboardRepositoryImpl
+import com.example.data.repository.VaultBackupCodec
 import com.example.service.CaptureNotificationManager
 import com.example.ui.editor.EditorScreen
 import com.example.ui.editor.EditorViewModel
@@ -91,7 +93,11 @@ import com.example.ui.theme.ClipboardManagerTheme
 import com.example.ui.vault.VaultScreen
 import com.example.ui.vault.VaultViewModel
 import com.example.ui.vault.VaultViewModelFactory
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @SuppressLint("InvalidFragmentVersionForActivityResult")
 class MainActivity : ComponentActivity() {
@@ -115,6 +121,18 @@ class MainActivity : ComponentActivity() {
         val callback = pendingFolderSelection
         pendingFolderSelection = null
         if (uri != null) callback?.invoke(uri)
+    }
+
+    private val backupFileLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) writeVaultBackup(uri)
+    }
+
+    private val restoreFileLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) readVaultBackup(uri)
     }
 
     private val vaultViewModel: VaultViewModel by viewModels {
@@ -163,8 +181,10 @@ class MainActivity : ComponentActivity() {
                     MainAppContent(
                         vaultViewModel = vaultViewModel,
                         editorViewModelFactory = EditorViewModelFactory(fileManager, settingsDataStore, applicationContext),
-                        settingsViewModelFactory = SettingsViewModelFactory(settingsDataStore, repository, fileManager),
-                        onRequestFolder = ::requestFolderSelection
+                        settingsViewModelFactory = SettingsViewModelFactory(settingsDataStore, repository, fileManager, applicationContext),
+                        onRequestFolder = ::requestFolderSelection,
+                        onRequestBackup = ::requestBackupFile,
+                        onRequestRestore = ::requestRestoreFile
                     )
                 }
             }
@@ -182,6 +202,63 @@ class MainActivity : ComponentActivity() {
         folderPickerLauncher.launch(null)
     }
 
+    private fun requestBackupFile() {
+        val date = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+        backupFileLauncher.launch("XBoard_Backup_$date.json")
+    }
+
+    private fun requestRestoreFile() {
+        restoreFileLauncher.launch(arrayOf("application/json", "text/json", "*/*"))
+    }
+
+    private fun writeVaultBackup(uri: Uri) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val result = runCatching {
+                val json = VaultBackupCodec.encode(repository.getAllCards())
+                contentResolver.openOutputStream(uri)?.use { output ->
+                    output.write(json.toByteArray(Charsets.UTF_8))
+                } ?: error("Unable to open backup destination")
+            }
+            val language = settingsDataStore.userSettingsFlow.first().language
+            val message = applicationContext.withAppLanguage(language).getString(
+                if (result.isSuccess) com.example.R.string.backup_saved else com.example.R.string.backup_failed
+            )
+            withContext(Dispatchers.Main) {
+                Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun readVaultBackup(uri: Uri) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val result = runCatching {
+                val json = contentResolver.openInputStream(uri)?.use { input ->
+                    input.readBytes().toString(Charsets.UTF_8)
+                } ?: error("Unable to open backup source")
+                val backup = VaultBackupCodec.decode(json)
+                repository.mergeBackupCards(backup.cards)
+            }
+            val language = settingsDataStore.userSettingsFlow.first().language
+            val message = applicationContext.withAppLanguage(language).getString(
+                when {
+                    result.isSuccess &&
+                        result.getOrNull()?.imported == 0 &&
+                        result.getOrNull()?.skippedDuplicates == 0 -> com.example.R.string.restore_empty
+                    result.isSuccess -> com.example.R.string.restore_complete
+                    result.exceptionOrNull() is IllegalArgumentException ||
+                        result.exceptionOrNull() is com.squareup.moshi.JsonDataException ||
+                        result.exceptionOrNull() is com.squareup.moshi.JsonEncodingException -> com.example.R.string.invalid_backup_file
+                    else -> com.example.R.string.restore_failed
+                },
+                result.getOrNull()?.imported ?: 0,
+                result.getOrNull()?.skippedDuplicates ?: 0
+            )
+            withContext(Dispatchers.Main) {
+                Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
     private fun handleIntent(intent: Intent?) {
         if (intent?.getBooleanExtra(CaptureNotificationManager.EXTRA_OPEN_CAPTURE, false) == true) {
             vaultViewModel.openInAppCapture()
@@ -195,7 +272,9 @@ fun MainAppContent(
     vaultViewModel: VaultViewModel,
     editorViewModelFactory: ViewModelProvider.Factory,
     settingsViewModelFactory: ViewModelProvider.Factory,
-    onRequestFolder: (((Uri) -> Unit) -> Unit)
+    onRequestFolder: (((Uri) -> Unit) -> Unit),
+    onRequestBackup: () -> Unit,
+    onRequestRestore: () -> Unit
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -307,14 +386,16 @@ fun MainAppContent(
             }
             composable(Screen.Settings.route) {
                 val settingsViewModel: SettingsViewModel = viewModel(factory = settingsViewModelFactory)
-                    SettingsScreen(
-                        viewModel = settingsViewModel,
-                        onRequestSaveFolder = {
-                            onRequestFolder { uri ->
-                                settingsViewModel.setDefaultSaveFolder(uri, context.contentResolver)
-                            }
-                        }
-                    )
+                        SettingsScreen(
+                            viewModel = settingsViewModel,
+                            onRequestSaveFolder = {
+                                onRequestFolder { uri ->
+                                    settingsViewModel.setDefaultSaveFolder(uri, context.contentResolver)
+                                }
+                            },
+                            onRequestBackup = onRequestBackup,
+                            onRequestRestore = onRequestRestore
+                        )
             }
         }
     }

@@ -70,6 +70,8 @@ import java.util.Locale
 fun SettingsScreen(
     viewModel: SettingsViewModel,
     onRequestSaveFolder: () -> Unit,
+    onRequestBackup: () -> Unit,
+    onRequestRestore: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -235,7 +237,41 @@ fun SettingsScreen(
                 }
             }
 
-            // 4. Capture & Notifications Section
+            // 4. Backup & Restore Section
+            SettingsSectionHeader(title = stringResource(com.example.R.string.backup_restore), icon = Icons.Default.Folder)
+
+            OutlinedCard(
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = stringResource(com.example.R.string.backup_restore_description),
+                        style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(
+                            onClick = onRequestBackup,
+                            modifier = Modifier.testTag("settings_backup_button")
+                        ) {
+                            Text(stringResource(com.example.R.string.backup_vault))
+                        }
+                        TextButton(
+                            onClick = onRequestRestore,
+                            modifier = Modifier.testTag("settings_restore_button")
+                        ) {
+                            Text(stringResource(com.example.R.string.restore_vault))
+                        }
+                    }
+                }
+            }
+
+            // 5. Capture & Notifications Section
             SettingsSectionHeader(title = stringResource(com.example.R.string.capture_shortcuts), icon = Icons.Default.Notifications)
 
             OutlinedCard(
