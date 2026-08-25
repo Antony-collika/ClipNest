@@ -317,6 +317,7 @@ fun MainAppContent(
                     selectedCount = if (isSettings) 0 else vaultState.selectedIds.size,
                     allSelected = allSelected,
                     allSelectedPinned = !isSettings && selectedCards.isNotEmpty() && selectedCards.all { it.pinned },
+                    isSettings = isSettings,
                     showPinnedFirst = vaultState.userSettings.showPinnedFirst,
                     isSearchOpen = if (isEditorTab) editorSearchOpen else vaultState.isSearchOpen,
                     searchQuery = if (isEditorTab) editorSearchQuery else vaultState.searchQuery,
@@ -410,6 +411,7 @@ private fun MainTopBar(
     selectedCount: Int,
     allSelected: Boolean,
     allSelectedPinned: Boolean,
+    isSettings: Boolean,
     showPinnedFirst: Boolean,
     isSearchOpen: Boolean,
     searchQuery: String,
@@ -603,37 +605,38 @@ private fun MainTopBar(
                     }
                 }
 
-                if (isSearchOpen) {
-                    IconButton(
-                        onClick = onSearchClose,
-                        modifier = Modifier.size(36.dp).testTag("main_close_search_button")
-                    ) {
-                        Text("×", style = MaterialTheme.typography.headlineSmall)
+                if (!isSettings) {
+                    if (isSearchOpen) {
+                        IconButton(
+                            onClick = onSearchClose,
+                            modifier = Modifier.size(36.dp).testTag("main_close_search_button")
+                        ) {
+                            Text("×", style = MaterialTheme.typography.headlineSmall)
+                        }
+                    } else {
+                        IconButton(
+                            onClick = onSearchOpen,
+                            modifier = Modifier.size(36.dp).testTag("main_search_button")
+                        ) {
+                            Icon(Icons.Default.Search, contentDescription = stringResource(com.example.R.string.search), modifier = Modifier.size(22.dp))
+                        }
                     }
-                } else {
-                    IconButton(
-                        onClick = onSearchOpen,
-                        modifier = Modifier.size(36.dp).testTag("main_search_button")
-                    ) {
-                        Icon(Icons.Default.Search, contentDescription = stringResource(com.example.R.string.search), modifier = Modifier.size(22.dp))
-                    }
-                }
 
-                Box {
-                    IconButton(
-                        onClick = { overflowExpanded = true },
-                        modifier = Modifier.size(36.dp).testTag("main_overflow_button")
-                    ) {
-                        Icon(Icons.Default.MoreVert, contentDescription = stringResource(com.example.R.string.more_options), modifier = Modifier.size(22.dp))
-                    }
-                DropdownMenu(
-                    expanded = overflowExpanded,
-                    onDismissRequest = { overflowExpanded = false },
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 2.dp,
-                    shadowElevation = 2.dp,
-                    modifier = Modifier.testTag("main_overflow_menu")
-                    ) {
+                    Box {
+                        IconButton(
+                            onClick = { overflowExpanded = true },
+                            modifier = Modifier.size(36.dp).testTag("main_overflow_button")
+                        ) {
+                            Icon(Icons.Default.MoreVert, contentDescription = stringResource(com.example.R.string.more_options), modifier = Modifier.size(22.dp))
+                        }
+                        DropdownMenu(
+                            expanded = overflowExpanded,
+                            onDismissRequest = { overflowExpanded = false },
+                            containerColor = MaterialTheme.colorScheme.surface,
+                            tonalElevation = 2.dp,
+                            shadowElevation = 2.dp,
+                            modifier = Modifier.testTag("main_overflow_menu")
+                        ) {
                     if (isVault) {
                         DropdownMenuItem(
                             text = { Text(if (allSelected) stringResource(com.example.R.string.clear_selection) else stringResource(com.example.R.string.select_all)) },
@@ -707,7 +710,7 @@ private fun MainTopBar(
     }
 }
 }
-
+}
 
 @Composable
 private fun MainTabSlot(
