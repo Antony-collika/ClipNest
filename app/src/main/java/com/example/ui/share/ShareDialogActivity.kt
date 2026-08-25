@@ -40,6 +40,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,7 +48,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -56,12 +59,15 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.lifecycleScope
 import com.example.data.local.AppDatabase
+import com.example.data.local.SettingsDataStore
 import com.example.data.model.ContentType
 import com.example.data.repository.CapturePayload
 import com.example.data.repository.ClipboardRepositoryImpl
 import com.example.domain.TextNormalizer
+import com.example.ui.localization.withAppLanguage
 import com.example.ui.theme.ClipboardManagerTheme
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -83,17 +89,25 @@ class ShareDialogActivity : ComponentActivity() {
             ?: intent.clipData?.getItemAt(0)?.text?.toString()
             ?: ""
 
-        setContent {
-            ClipboardManagerTheme {
-                if (clipboardReady) {
-                    ShareDialogOverlay(
-                        sharedText = sharedText,
-                        clipboardText = clipboardText,
-                        onDismiss = { finishActivity() },
-                        onSave = { saveShared, saveClipboard ->
-                            saveSelections(saveShared, sharedText, saveClipboard, clipboardText)
+        lifecycleScope.launch {
+            val language = SettingsDataStore(applicationContext).userSettingsFlow.first().language
+            withContext(Dispatchers.Main) {
+                setContent {
+                    val localizedContext = LocalContext.current.withAppLanguage(language)
+                    CompositionLocalProvider(LocalContext provides localizedContext) {
+                        ClipboardManagerTheme {
+                            if (clipboardReady) {
+                                ShareDialogOverlay(
+                                    sharedText = sharedText,
+                                    clipboardText = clipboardText,
+                                    onDismiss = { finishActivity() },
+                                    onSave = { saveShared, saveClipboard ->
+                                        saveSelections(saveShared, sharedText, saveClipboard, clipboardText)
+                                    }
+                                )
+                            }
                         }
-                    )
+                    }
                 }
             }
         }
@@ -171,7 +185,7 @@ class ShareDialogActivity : ComponentActivity() {
                     val count = saved.size
                     Toast.makeText(
                         applicationContext,
-                        if (count > 1) "Đã lưu $count mục vào kho!" else "Đã lưu vào kho!",
+                        if (count > 1) getString(com.example.R.string.saved_to_vault_count, count) else getString(com.example.R.string.saved_to_vault),
                         Toast.LENGTH_SHORT
                     ).show()
                     finishActivity()
@@ -253,7 +267,7 @@ fun ShareDialogOverlay(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = "Lưu vào Clipboard",
+                    text = stringResource(com.example.R.string.save_to_clipboard),
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.Bold,
                         fontSize = 20.sp
@@ -290,7 +304,7 @@ fun ShareDialogOverlay(
                         ) {
                             Icon(
                                 imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Outlined.Circle,
-                                contentDescription = if (isSelected) "Đã chọn" else "Chưa chọn",
+                                contentDescription = if (isSelected) stringResource(com.example.R.string.selected) else stringResource(com.example.R.string.not_selected),
                                 tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                                 modifier = Modifier.size(22.dp)
                             )
@@ -310,7 +324,7 @@ fun ShareDialogOverlay(
 
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Clipboard trên thiết bị",
+                                    text = stringResource(com.example.R.string.device_clipboard),
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                         fontWeight = FontWeight.Bold,
@@ -361,7 +375,7 @@ fun ShareDialogOverlay(
                         ) {
                             Icon(
                                 imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Outlined.Circle,
-                                contentDescription = if (isSelected) "Đã chọn" else "Chưa chọn",
+                                contentDescription = if (isSelected) stringResource(com.example.R.string.selected) else stringResource(com.example.R.string.not_selected),
                                 tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                                 modifier = Modifier.size(22.dp)
                             )
@@ -379,7 +393,7 @@ fun ShareDialogOverlay(
 
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Nội dung chia sẻ",
+                                    text = stringResource(com.example.R.string.shared_content),
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                         fontWeight = FontWeight.Bold,
@@ -418,7 +432,7 @@ fun ShareDialogOverlay(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Chạm để chọn 1 hoặc cả hai nội dung muốn lưu vào kho.",
+                        text = stringResource(com.example.R.string.share_select_hint),
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 12.sp
@@ -441,7 +455,7 @@ fun ShareDialogOverlay(
                             .weight(1f)
                             .testTag("share_dialog_cancel_button")
                     ) {
-                        Text("Hủy", fontSize = 14.sp)
+                        Text(stringResource(com.example.R.string.cancel), fontSize = 14.sp)
                     }
 
                     Button(
@@ -455,7 +469,7 @@ fun ShareDialogOverlay(
                             .weight(1f)
                             .testTag("share_dialog_save_button")
                     ) {
-                        Text("Lưu", fontSize = 14.sp)
+                        Text(stringResource(com.example.R.string.save), fontSize = 14.sp)
                     }
                 }
             }

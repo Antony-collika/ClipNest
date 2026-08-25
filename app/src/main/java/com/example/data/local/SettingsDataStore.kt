@@ -18,6 +18,11 @@ enum class ThemeMode {
     DARK
 }
 
+enum class AppLanguage {
+    ENGLISH,
+    VIETNAMESE
+}
+
 enum class RetentionPolicy(val days: Int, val label: String) {
     NEVER(0, "Never auto-delete"),
     DAYS_7(7, "After 7 days"),
@@ -26,6 +31,7 @@ enum class RetentionPolicy(val days: Int, val label: String) {
 }
 
 data class UserSettings(
+    val language: AppLanguage = AppLanguage.ENGLISH,
     val showPinnedFirst: Boolean = false,
     val isSensitivePreviewMasked: Boolean = true,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
@@ -38,6 +44,7 @@ data class UserSettings(
 class SettingsDataStore(private val context: Context) {
 
     private object PreferencesKeys {
+        val LANGUAGE = stringPreferencesKey("language")
         val SHOW_PINNED_FIRST = booleanPreferencesKey("show_pinned_first")
         val SENSITIVE_PREVIEW_MASKED = booleanPreferencesKey("sensitive_preview_masked")
         val THEME_MODE = stringPreferencesKey("theme_mode")
@@ -48,6 +55,9 @@ class SettingsDataStore(private val context: Context) {
     }
 
     val userSettingsFlow: Flow<UserSettings> = context.dataStore.data.map { preferences ->
+        val language = runCatching {
+            AppLanguage.valueOf(preferences[PreferencesKeys.LANGUAGE] ?: AppLanguage.ENGLISH.name)
+        }.getOrDefault(AppLanguage.ENGLISH)
         val themeMode = runCatching {
             ThemeMode.valueOf(preferences[PreferencesKeys.THEME_MODE] ?: ThemeMode.SYSTEM.name)
         }.getOrDefault(ThemeMode.SYSTEM)
@@ -56,6 +66,7 @@ class SettingsDataStore(private val context: Context) {
         }.getOrDefault(RetentionPolicy.NEVER)
 
         UserSettings(
+            language = language,
             showPinnedFirst = preferences[PreferencesKeys.SHOW_PINNED_FIRST] ?: false,
             isSensitivePreviewMasked = preferences[PreferencesKeys.SENSITIVE_PREVIEW_MASKED] ?: true,
             themeMode = themeMode,
@@ -64,6 +75,10 @@ class SettingsDataStore(private val context: Context) {
             retentionPolicy = retention,
             defaultSaveFolderUri = preferences[PreferencesKeys.DEFAULT_SAVE_FOLDER_URI]
         )
+    }
+
+    suspend fun setLanguage(language: AppLanguage) {
+        context.dataStore.edit { it[PreferencesKeys.LANGUAGE] = language.name }
     }
 
     suspend fun setShowPinnedFirst(enabled: Boolean) {

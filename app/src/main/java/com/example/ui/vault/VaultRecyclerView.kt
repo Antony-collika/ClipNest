@@ -384,7 +384,7 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
                 setPadding(0, 0, 0, 0)
                 minWidth = dp(48)
                 minHeight = dp(48)
-                contentDescription = "Select card"
+                contentDescription = context.getString(com.example.R.string.select_card)
             }
             contentRow.addView(checkbox)
 
@@ -414,7 +414,7 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
             }
             sensitiveLabel = TextView(context).apply {
                 layoutParams = LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                text = "Sensitive"
+                text = context.getString(com.example.R.string.sensitive)
                 textSize = 11f
                 setTypeface(Typeface.DEFAULT, Typeface.BOLD)
             }
@@ -423,7 +423,7 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
                 layoutParams = LayoutParams(dp(32), dp(32))
                 setPadding(dp(4), dp(4), dp(4), dp(4))
                 setImageResource(android.R.drawable.ic_menu_view)
-                contentDescription = "Reveal sensitive content"
+                contentDescription = context.getString(com.example.R.string.reveal_sensitive)
                 background = null
             }
             sensitiveRow.addView(revealButton)
@@ -443,7 +443,7 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
             metadataRow.addView(timestamp)
             pinnedLabel = TextView(context).apply {
                 layoutParams = LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                text = "Pinned"
+                text = context.getString(com.example.R.string.pinned)
                 textSize = 11f
                 setTypeface(Typeface.DEFAULT, Typeface.BOLD)
             }
@@ -454,14 +454,14 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
                 layoutParams = LayoutParams(dp(48), dp(48))
                 setPadding(dp(10), dp(10), dp(10), dp(10))
                 setImageResource(com.example.R.drawable.ic_copy)
-                contentDescription = "Copy item"
+                contentDescription = context.getString(com.example.R.string.copy_item)
                 background = null
             }
             contentRow.addView(copyButton)
 
             dragHandle = DragHandleView(context).apply {
                 layoutParams = LayoutParams(dp(48), dp(48))
-                contentDescription = "Drag handle"
+                contentDescription = context.getString(com.example.R.string.drag_handle)
                 isClickable = true
                 isFocusable = false
             }
@@ -497,7 +497,7 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
             checkbox.isChecked = selected
 
             val masked = card.isSensitive && isMaskingEnabled && !isSensitiveRevealed
-            preview.text = if (masked) "•••••••••••••••• (Sensitive)" else card.preview
+            preview.text = if (masked) "•••••••••••••••• ${context.getString(com.example.R.string.sensitive)}" else card.preview
             preview.setTextColor(if (masked) colors.sensitive else colors.onSurface)
             preview.setTypeface(Typeface.DEFAULT, if (masked) Typeface.BOLD else Typeface.NORMAL)
             sensitiveRow.visibility = if (card.isSensitive) VISIBLE else GONE
@@ -505,10 +505,14 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
             revealButton.visibility = if (card.isSensitive) VISIBLE else GONE
             sensitiveLabel.setTextColor(colors.sensitive)
             revealButton.imageTintList = ColorStateList.valueOf(colors.onSurfaceVariant)
-            revealButton.contentDescription = if (masked) "Reveal sensitive content" else "Mask sensitive content"
+            revealButton.contentDescription = if (masked) context.getString(com.example.R.string.reveal_sensitive) else context.getString(com.example.R.string.mask_sensitive)
             revealButton.setOnClickListener { onToggleRevealSensitive() }
 
-            timestamp.text = RelativeTimeFormatter.format(card.createdAtMillis)
+            timestamp.text = RelativeTimeFormatter.format(
+                card.createdAtMillis,
+                context.getString(com.example.R.string.today),
+                context.getString(com.example.R.string.yesterday)
+            )
             timestamp.setTextColor(colors.onSurfaceVariant)
             pinnedLabel.visibility = if (card.pinned) VISIBLE else GONE
             pinnedLabel.setTextColor(colors.pinned)
@@ -608,7 +612,6 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dp(16).toFloat()
                 setColor(current)
-                setStroke(dp(1 + kotlin.math.round(pressProgress).toInt()), colors.primary)
             }.also(::setBackgroundDrawable)
         }
 
@@ -641,10 +644,6 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
                     else -> backgroundColor(colors, isSelected)
                 }
             )
-            when {
-                isDragging -> background.setStroke(dp(2), colors.primary)
-                isSelected -> background.setStroke(dp(2), colors.primary)
-            }
             return background
         }
 

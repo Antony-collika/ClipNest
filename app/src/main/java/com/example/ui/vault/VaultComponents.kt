@@ -8,9 +8,9 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -66,7 +66,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -96,6 +98,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -148,21 +151,6 @@ fun ClipboardCardItem(
                 MaterialTheme.colorScheme.surface
             }
         ),
-        border = BorderStroke(
-            width = when {
-                isDragging -> 2.dp
-                isDropTarget -> 2.dp
-                isSelected -> 1.5.dp
-                else -> 1.dp
-            },
-            color = when {
-                isDragging -> MaterialTheme.colorScheme.primary
-                isDropTarget -> MaterialTheme.colorScheme.primary.copy(alpha = 0.75f)
-                isSelected -> MaterialTheme.colorScheme.primary
-                isDark -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                else -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-            }
-        ),
         elevation = CardDefaults.cardElevation(defaultElevation = if (isDragging) 8.dp else 0.dp),
         modifier = modifier
             .fillMaxWidth()
@@ -206,13 +194,13 @@ fun ClipboardCardItem(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Lock,
-                            contentDescription = "Sensitive",
+                            contentDescription = stringResource(com.example.R.string.sensitive),
                             tint = sensitiveColor,
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "•••••••••••••••• (Sensitive)",
+                            text = stringResource(com.example.R.string.masked_sensitive),
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontWeight = FontWeight.Medium,
                                 color = sensitiveColor
@@ -225,7 +213,7 @@ fun ClipboardCardItem(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Visibility,
-                                contentDescription = "Reveal sensitive content",
+                                contentDescription = stringResource(com.example.R.string.reveal_sensitive),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(18.dp)
                             )
@@ -251,13 +239,13 @@ fun ClipboardCardItem(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Lock,
-                                contentDescription = "Sensitive",
+                                contentDescription = stringResource(com.example.R.string.sensitive),
                                 tint = sensitiveColor,
                                 modifier = Modifier.size(14.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "Sensitive",
+                                text = stringResource(com.example.R.string.sensitive),
                                 style = MaterialTheme.typography.labelSmall.copy(color = sensitiveColor)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
@@ -267,7 +255,7 @@ fun ClipboardCardItem(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.VisibilityOff,
-                                    contentDescription = "Mask sensitive content",
+                                    contentDescription = stringResource(com.example.R.string.mask_sensitive),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(14.dp)
                                 )
@@ -284,7 +272,11 @@ fun ClipboardCardItem(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    val relativeTime = RelativeTimeFormatter.format(card.createdAtMillis)
+                    val relativeTime = RelativeTimeFormatter.format(
+                        card.createdAtMillis,
+                        stringResource(com.example.R.string.today),
+                        stringResource(com.example.R.string.yesterday)
+                    )
                     Text(
                         text = relativeTime,
                         style = MaterialTheme.typography.labelMedium.copy(
@@ -297,7 +289,7 @@ fun ClipboardCardItem(
 
                     if (card.pinned) {
                         Text(
-                            text = "Pinned",
+                            text = stringResource(com.example.R.string.pinned),
                             style = MaterialTheme.typography.labelMedium.copy(
                                 color = pinnedColor,
                                 fontWeight = FontWeight.Bold,
@@ -320,7 +312,7 @@ fun ClipboardCardItem(
             ) {
                 Icon(
                     imageVector = Icons.Default.ContentCopy,
-                    contentDescription = "Copy item",
+                    contentDescription = stringResource(com.example.R.string.copy_item),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                     modifier = Modifier.size(20.dp)
                 )
@@ -391,7 +383,7 @@ fun VaultTopBar(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Menu,
-                        contentDescription = "Navigation drawer",
+                        contentDescription = stringResource(com.example.R.string.navigation_drawer),
                         tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
@@ -402,7 +394,7 @@ fun VaultTopBar(
                 TextField(
                     value = searchQuery,
                     onValueChange = onSearchQueryChange,
-                    placeholder = { Text("Search vault...") },
+                    placeholder = { Text(stringResource(com.example.R.string.search_vault)) },
                     singleLine = true,
                     colors = TextFieldDefaults.colors(
                         focusedContainerColor = Color.Transparent,
@@ -413,7 +405,7 @@ fun VaultTopBar(
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
                             IconButton(onClick = { onSearchQueryChange("") }) {
-                                Icon(Icons.Default.Clear, contentDescription = "Clear search")
+                                Icon(Icons.Default.Clear, contentDescription = stringResource(com.example.R.string.clear_search))
                             }
                         }
                     },
@@ -423,7 +415,7 @@ fun VaultTopBar(
                 )
             } else {
                 Text(
-                    text = "Clipboard Manager",
+                    text = stringResource(com.example.R.string.clipboard_manager),
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 19.sp
@@ -438,7 +430,7 @@ fun VaultTopBar(
                     onClick = onSearchClose,
                     modifier = Modifier.testTag("vault_close_search_button")
                 ) {
-                    Icon(Icons.Default.Clear, contentDescription = "Close search")
+                    Icon(Icons.Default.Clear, contentDescription = stringResource(com.example.R.string.close_search))
                 }
             } else {
                 IconButton(
@@ -447,7 +439,7 @@ fun VaultTopBar(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Search,
-                        contentDescription = "Search",
+                        contentDescription = stringResource(com.example.R.string.search),
                         tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
@@ -459,7 +451,7 @@ fun VaultTopBar(
                     ) {
                         Icon(
                             imageVector = Icons.Default.MoreVert,
-                            contentDescription = "More options",
+                            contentDescription = stringResource(com.example.R.string.more_options),
                             tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
@@ -473,7 +465,7 @@ fun VaultTopBar(
                         modifier = Modifier.testTag("vault_overflow_menu")
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Save file") },
+                            text = { Text(stringResource(com.example.R.string.save_file)) },
                             onClick = {
                                 overflowExpanded = false
                                 onSaveFile()
@@ -481,7 +473,7 @@ fun VaultTopBar(
                             modifier = Modifier.testTag("vault_menu_save_file")
                         )
                         DropdownMenuItem(
-                            text = { Text("Open editor") },
+                            text = { Text(stringResource(com.example.R.string.open_editor)) },
                             onClick = {
                                 overflowExpanded = false
                                 onOpenEditor()
@@ -489,7 +481,7 @@ fun VaultTopBar(
                             modifier = Modifier.testTag("vault_menu_open_editor")
                         )
                         DropdownMenuItem(
-                            text = { Text("Settings") },
+                            text = { Text(stringResource(com.example.R.string.settings)) },
                             onClick = {
                                 overflowExpanded = false
                                 onOpenSettings()
@@ -557,7 +549,7 @@ fun ShareCaptureDialog(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = "Lưu vào Clipboard",
+                    text = stringResource(com.example.R.string.save_to_clipboard),
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.Bold,
                         fontSize = 20.sp
@@ -615,7 +607,7 @@ fun ShareCaptureDialog(
                             Spacer(modifier = Modifier.width(8.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Clipboard trên thiết bị",
+                                    text = stringResource(com.example.R.string.device_clipboard),
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                         fontWeight = FontWeight.Bold,
@@ -677,7 +669,7 @@ fun ShareCaptureDialog(
                             Spacer(modifier = Modifier.width(10.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Nội dung chia sẻ",
+                                    text = stringResource(com.example.R.string.shared_content),
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                         fontWeight = FontWeight.Bold,
@@ -714,7 +706,7 @@ fun ShareCaptureDialog(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Chạm để chọn 1 hoặc cả hai nội dung muốn lưu vào kho.",
+                        text = stringResource(com.example.R.string.share_select_hint),
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 11.sp
@@ -738,7 +730,7 @@ fun ShareCaptureDialog(
                         .weight(1f)
                         .testTag("share_dialog_cancel_button")
                 ) {
-                    Text("Hủy", fontSize = 14.sp)
+                    Text(stringResource(com.example.R.string.cancel), fontSize = 14.sp)
                 }
 
                 Button(
@@ -752,7 +744,7 @@ fun ShareCaptureDialog(
                         .weight(1f)
                         .testTag("share_dialog_save_button")
                 ) {
-                    Text("Lưu", fontSize = 14.sp)
+                    Text(stringResource(com.example.R.string.save), fontSize = 14.sp)
                 }
             }
         },
@@ -781,7 +773,7 @@ fun InAppCaptureSheet(
                 .padding(horizontal = 24.dp, vertical = 12.dp)
         ) {
             Text(
-                text = "Lưu nội dung vào Clipboard",
+                text = stringResource(com.example.R.string.save_content_to_clipboard),
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, fontSize = 20.sp)
             )
 
@@ -790,8 +782,8 @@ fun InAppCaptureSheet(
             OutlinedTextField(
                 value = inputText,
                 onValueChange = { inputText = it },
-                label = { Text("Nội dung") },
-                placeholder = { Text("Nhập hoặc dán nội dung bạn muốn lưu...") },
+                label = { Text(stringResource(com.example.R.string.content)) },
+                placeholder = { Text(stringResource(com.example.R.string.enter_or_paste_content)) },
                 minLines = 4,
                 maxLines = 8,
                 shape = RoundedCornerShape(12.dp),
@@ -813,7 +805,7 @@ fun InAppCaptureSheet(
                     modifier = Modifier.testTag("capture_sensitive_checkbox")
                 )
                 Text(
-                    text = "Đánh dấu là nội dung nhạy cảm (ẩn xem trước)",
+                    text = stringResource(com.example.R.string.mark_sensitive),
                     style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.5.sp)
                 )
             }
@@ -840,7 +832,7 @@ fun InAppCaptureSheet(
                 ) {
                     Icon(Icons.Default.ContentPaste, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Dán nhanh")
+                    Text(stringResource(com.example.R.string.quick_paste))
                 }
 
                 Button(
@@ -856,7 +848,7 @@ fun InAppCaptureSheet(
                         .weight(1.2f)
                         .testTag("capture_save_button")
                 ) {
-                    Text("Lưu vào kho")
+                    Text(stringResource(com.example.R.string.save_to_vault))
                 }
             }
 
@@ -875,17 +867,25 @@ fun ExportDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(24.dp),
+        containerColor = MaterialTheme.colorScheme.surface,
         title = {
-            Text("Lưu file", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
+            Text(stringResource(com.example.R.string.save_file), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
         },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
                     value = fileName,
                     onValueChange = { fileName = it },
-                    label = { Text("Tên file") },
+                    label = { Text(stringResource(com.example.R.string.filename)) },
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        focusedLabelColor = MaterialTheme.colorScheme.primary,
+                        cursorColor = MaterialTheme.colorScheme.primary
+                    ),
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("export_filename_input")
@@ -893,7 +893,7 @@ fun ExportDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                Text("Định dạng:", style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(com.example.R.string.format_colon), style = MaterialTheme.typography.labelLarge)
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -904,18 +904,26 @@ fun ExportDialog(
                     RadioButton(
                         selected = selectedFormat == ExportFormat.MARKDOWN,
                         onClick = { selectedFormat = ExportFormat.MARKDOWN },
+                        colors = RadioButtonDefaults.colors(
+                            selectedColor = MaterialTheme.colorScheme.primary,
+                            unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
                         modifier = Modifier.testTag("export_format_markdown")
                     )
-                    Text("Markdown (.md)")
+                    Text(stringResource(com.example.R.string.markdown_format))
 
                     Spacer(modifier = Modifier.width(16.dp))
 
                     RadioButton(
                         selected = selectedFormat == ExportFormat.PLAIN_TEXT,
                         onClick = { selectedFormat = ExportFormat.PLAIN_TEXT },
+                        colors = RadioButtonDefaults.colors(
+                            selectedColor = MaterialTheme.colorScheme.primary,
+                            unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
                         modifier = Modifier.testTag("export_format_plain_text")
                     )
-                    Text("Plain text (.txt)")
+                    Text(stringResource(com.example.R.string.plain_text_format))
                 }
             }
         },
@@ -927,17 +935,22 @@ fun ExportDialog(
                     }
                 },
                 enabled = fileName.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ),
                 modifier = Modifier.testTag("export_save_button")
             ) {
-                Text("Lưu")
+                Text(stringResource(com.example.R.string.save))
             }
         },
         dismissButton = {
             TextButton(
                 onClick = onDismiss,
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary),
                 modifier = Modifier.testTag("export_cancel_button")
             ) {
-                Text("Hủy")
+                Text(stringResource(com.example.R.string.cancel))
             }
         },
         modifier = Modifier.testTag("export_dialog")
@@ -953,10 +966,10 @@ fun DeleteConfirmDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text("Xóa $count mục đã chọn?")
+            Text(stringResource(com.example.R.string.delete_selected_title, count))
         },
         text = {
-            Text("Bạn có chắc chắn muốn xóa $count mục này khỏi kho clipboard không? Hành động này không thể hoàn tác.")
+            Text(stringResource(com.example.R.string.delete_selected_message, count))
         },
         confirmButton = {
             Button(
@@ -966,7 +979,7 @@ fun DeleteConfirmDialog(
                 ),
                 modifier = Modifier.testTag("delete_confirm_button")
             ) {
-                Text("Xóa")
+                Text(stringResource(com.example.R.string.delete_selected))
             }
         },
         dismissButton = {
@@ -974,7 +987,7 @@ fun DeleteConfirmDialog(
                 onClick = onDismiss,
                 modifier = Modifier.testTag("delete_cancel_button")
             ) {
-                Text("Hủy")
+                Text(stringResource(com.example.R.string.cancel))
             }
         },
         modifier = Modifier.testTag("delete_confirm_dialog")
@@ -1017,9 +1030,18 @@ fun ClipboardPreviewPopup(
     } else {
         anchorY - popupHeightPx - with(density) { 20.dp.toPx() }
     }
-    val verticalOffset = rawVerticalOffset
-        .coerceIn(marginPx, (screenHeightPx - popupHeightPx - marginPx).coerceAtLeast(marginPx))
+    val minPopupOffset = marginPx
+    val maxPopupOffset = (screenHeightPx - popupHeightPx - marginPx).coerceAtLeast(marginPx)
+    var dragOffsetY by remember(card.id, anchorY) { mutableStateOf(0f) }
+    val verticalOffset = (rawVerticalOffset + dragOffsetY)
+        .coerceIn(minPopupOffset, maxPopupOffset)
         .toInt()
+    val popupDragModifier = Modifier.pointerInput(card.id) {
+        detectDragGestures { change, dragAmount ->
+            dragOffsetY = (dragOffsetY + dragAmount.y)
+                .coerceIn(minPopupOffset - rawVerticalOffset, maxPopupOffset - rawVerticalOffset)
+        }
+    }
     val popupWidth = minOf(360.dp, (configuration.screenWidthDp - 24).dp)
     val isMasked = card.isSensitive && isMaskingEnabled && !isSensitiveRevealed
     val sensitiveColor = if (MaterialTheme.colorScheme.background.red < 0.5f) SensitiveAmberDark else SensitiveAmberLight
@@ -1059,18 +1081,18 @@ fun ClipboardPreviewPopup(
             ) {
                 Column {
                     Row(
-                        modifier = Modifier
+                        modifier = popupDragModifier
                             .fillMaxWidth()
                             .padding(start = 16.dp, end = 8.dp, top = 10.dp, bottom = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Clipboard preview",
+                            text = stringResource(com.example.R.string.clipboard_preview),
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                             modifier = Modifier.weight(1f)
                         )
                         IconButton(onClick = ::dismissAnimated, modifier = Modifier.size(36.dp)) {
-                            Icon(Icons.Default.Clear, contentDescription = "Close preview")
+                            Icon(Icons.Default.Clear, contentDescription = stringResource(com.example.R.string.close_preview))
                         }
                     }
 
@@ -1086,11 +1108,11 @@ fun ClipboardPreviewPopup(
                         if (isMasked) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(
-                                    text = "••••••••••••••••",
+                                    text = stringResource(com.example.R.string.masked_preview),
                                     style = MaterialTheme.typography.bodyLarge.copy(color = sensitiveColor)
                                 )
                                 TextButton(onClick = onToggleRevealSensitive) {
-                                    Text("Reveal sensitive content")
+                                    Text(stringResource(com.example.R.string.reveal_sensitive))
                                 }
                             }
                         } else {
@@ -1108,13 +1130,17 @@ fun ClipboardPreviewPopup(
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
                     Row(
-                        modifier = Modifier
+                        modifier = popupDragModifier
                             .fillMaxWidth()
                             .padding(horizontal = 12.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = RelativeTimeFormatter.format(card.createdAtMillis),
+                            text = RelativeTimeFormatter.format(
+                        card.createdAtMillis,
+                        stringResource(com.example.R.string.today),
+                        stringResource(com.example.R.string.yesterday)
+                    ),
                             style = MaterialTheme.typography.labelSmall.copy(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             ),
@@ -1122,7 +1148,7 @@ fun ClipboardPreviewPopup(
                         )
                         if (card.pinned) {
                             Text(
-                                text = "Pinned",
+                                text = stringResource(com.example.R.string.pinned),
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     color = if (MaterialTheme.colorScheme.background.red < 0.5f) PinnedGreenDark else PinnedGreenLight,
                                     fontWeight = FontWeight.Bold
@@ -1131,7 +1157,7 @@ fun ClipboardPreviewPopup(
                             )
                         }
                         IconButton(onClick = onCopy, modifier = Modifier.size(36.dp)) {
-                            Icon(Icons.Default.ContentCopy, contentDescription = "Copy content")
+                            Icon(Icons.Default.ContentCopy, contentDescription = stringResource(com.example.R.string.copy_content))
                         }
                     }
                 }

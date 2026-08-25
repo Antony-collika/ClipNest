@@ -2,8 +2,6 @@ package com.example.ui.editor
 
 import android.content.Intent
 import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
@@ -47,6 +45,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.TextFieldValue
@@ -64,18 +63,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 @Composable
 fun EditorScreen(
     viewModel: EditorViewModel,
+    onRequestSaveFolder: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
-    val saveFolderLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocumentTree()
-    ) { uri ->
-        if (uri != null) {
-            viewModel.setDefaultSaveFolder(uri, context.contentResolver)
-        }
-    }
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -94,7 +87,7 @@ fun EditorScreen(
         viewModel.eventFlow.collect { event ->
             when (event) {
                 is EditorEvent.ShowToast -> Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
-                EditorEvent.RequestSaveFolder -> saveFolderLauncher.launch(null)
+                EditorEvent.RequestSaveFolder -> onRequestSaveFolder()
             }
         }
     }
@@ -134,7 +127,7 @@ fun EditorScreen(
             decorationBox = { innerTextField ->
                 if (uiState.content.text.isEmpty()) {
                     Text(
-                        text = "Write or paste content here...",
+                        text = stringResource(com.example.R.string.write_or_paste),
                         style = TextStyle(
                             fontFamily = FontFamily.Monospace,
                             fontSize = 14.sp,
@@ -151,7 +144,7 @@ fun EditorScreen(
     if (uiState.showSaveNewFileDialog) {
         SaveNewFileDialog(
             defaultFolderUri = uiState.defaultSaveFolderUri,
-            onChooseFolder = { saveFolderLauncher.launch(null) },
+            onChooseFolder = onRequestSaveFolder,
             onDismiss = viewModel::dismissSaveNewFileDialog,
             onConfirm = { fileName, format ->
                 viewModel.confirmSaveToNewFile(fileName, format, context.contentResolver)
@@ -185,15 +178,15 @@ private fun EditorToolbox(
                 .padding(horizontal = 2.dp, vertical = 0.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            EditorToolButton("editor_action_paste", "Paste", Icons.Default.ContentPaste, onPaste)
-            EditorToolButton("editor_action_copy", "Copy selected text", Icons.Default.ContentCopy, onCopy)
-            EditorToolButton("editor_action_select_all", "Select all", Icons.Default.SelectAll, onSelectAll)
-            EditorToolButton("editor_action_delete", "Delete selected text", Icons.Default.Delete, onDelete)
-            EditorToolButton("editor_action_undo", "Undo", Icons.Default.Undo, onUndo, repeatOnHold = true)
-            EditorToolButton("editor_action_redo", "Redo", Icons.Default.Redo, onRedo, repeatOnHold = true)
-            EditorToolButton("editor_action_cursor_left", "Move cursor left", Icons.Default.KeyboardArrowLeft, onMoveCursorLeft, repeatOnHold = true)
-            EditorToolButton("editor_action_cursor_right", "Move cursor right", Icons.Default.KeyboardArrowRight, onMoveCursorRight, repeatOnHold = true)
-            EditorToolButton("editor_action_save", "Save file", Icons.Default.Save, onSave)
+            EditorToolButton("editor_action_paste", stringResource(com.example.R.string.paste), Icons.Default.ContentPaste, onPaste)
+            EditorToolButton("editor_action_copy", stringResource(com.example.R.string.copy_selected), Icons.Default.ContentCopy, onCopy)
+            EditorToolButton("editor_action_select_all", stringResource(com.example.R.string.select_all), Icons.Default.SelectAll, onSelectAll)
+            EditorToolButton("editor_action_delete", stringResource(com.example.R.string.delete_selected), Icons.Default.Delete, onDelete)
+            EditorToolButton("editor_action_undo", stringResource(com.example.R.string.undo), Icons.Default.Undo, onUndo, repeatOnHold = true)
+            EditorToolButton("editor_action_redo", stringResource(com.example.R.string.redo), Icons.Default.Redo, onRedo, repeatOnHold = true)
+            EditorToolButton("editor_action_cursor_left", stringResource(com.example.R.string.move_cursor_left), Icons.Default.KeyboardArrowLeft, onMoveCursorLeft, repeatOnHold = true)
+            EditorToolButton("editor_action_cursor_right", stringResource(com.example.R.string.move_cursor_right), Icons.Default.KeyboardArrowRight, onMoveCursorRight, repeatOnHold = true)
+            EditorToolButton("editor_action_save", stringResource(com.example.R.string.save_file), Icons.Default.Save, onSave)
         }
     }
 }

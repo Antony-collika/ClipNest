@@ -10,8 +10,10 @@ import kotlin.math.max
 import kotlin.math.min
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.annotation.StringRes
 import androidx.lifecycle.viewModelScope
 import com.example.data.local.ExportFormat
+import com.example.ui.localization.withAppLanguage
 import com.example.data.local.FileManager
 import com.example.data.local.SettingsDataStore
 import kotlinx.coroutines.Dispatchers
@@ -45,7 +47,8 @@ sealed class EditorEvent {
 
 class EditorViewModel(
     private val fileManager: FileManager,
-    private val settingsDataStore: SettingsDataStore
+    private val settingsDataStore: SettingsDataStore,
+    private val appContext: Context
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(EditorUiState())
@@ -185,7 +188,7 @@ class EditorViewModel(
         _searchMatchCount.value = matches.size
         if (matches.isEmpty()) {
             _activeSearchMatch.value = 0
-            emitToast("No matches")
+            emitToast(com.example.R.string.no_matches)
             return
         }
 
@@ -209,23 +212,23 @@ class EditorViewModel(
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val clip = runCatching { clipboard.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString() }.getOrNull()
         if (clip.isNullOrEmpty()) {
-            emitToast("Clipboard is empty")
+            emitToast(com.example.R.string.clipboard_empty)
             return
         }
         replaceSelection(clip)
-        emitToast("Pasted")
+        emitToast(com.example.R.string.pasted)
     }
 
     fun copySelectedText(context: Context) {
         val current = _uiState.value.content
         if (current.selection.collapsed) {
-            emitToast("Select text to copy")
+            emitToast(com.example.R.string.select_text_to_copy)
             return
         }
         val selected = current.text.substring(current.selection.min, current.selection.max)
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Editor selection", selected))
-        emitToast("Copied")
+        emitToast(com.example.R.string.copied)
     }
 
     fun moveCursorLeft() {
@@ -256,7 +259,7 @@ class EditorViewModel(
     fun deleteSelectedText() {
         val current = _uiState.value.content
         if (current.selection.collapsed) {
-            emitToast("Select text to delete")
+            emitToast(com.example.R.string.select_text_to_delete)
             return
         }
         replaceSelection("")
@@ -370,10 +373,10 @@ class EditorViewModel(
             }.getOrNull()
             withContext(Dispatchers.Main.immediate) {
                 if (saved == null) {
-                    emitToast("Could not save file")
+                    emitToast(com.example.R.string.could_not_save_file)
                 } else {
                     _uiState.value = _uiState.value.copy(showSaveNewFileDialog = false)
-                    emitToast("Saved ${fileName}${format.extension}")
+                    emitToast(com.example.R.string.saved_file, fileName, format.extension)
                 }
             }
         }
@@ -387,6 +390,11 @@ class EditorViewModel(
         viewModelScope.launch { _eventFlow.emit(EditorEvent.ShowToast(message)) }
     }
 
+    private fun emitToast(@StringRes resourceId: Int, vararg args: Any) {
+        val localizedContext = appContext.withAppLanguage(settings.value.language)
+        emitToast(localizedContext.getString(resourceId, *args))
+    }
+
     companion object {
         private const val MAX_HISTORY = 100
     }
@@ -394,12 +402,13 @@ class EditorViewModel(
 
 class EditorViewModelFactory(
     private val fileManager: FileManager,
-    private val settingsDataStore: SettingsDataStore
+    private val settingsDataStore: SettingsDataStore,
+    private val appContext: Context
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(EditorViewModel::class.java)) {
-            return EditorViewModel(fileManager, settingsDataStore) as T
+            return EditorViewModel(fileManager, settingsDataStore, appContext) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

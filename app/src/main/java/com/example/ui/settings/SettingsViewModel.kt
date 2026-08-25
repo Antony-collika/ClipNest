@@ -6,6 +6,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.data.local.AppLanguage
 import com.example.data.local.FileManager
 import com.example.data.local.RetentionPolicy
 import com.example.data.local.SettingsDataStore
@@ -57,6 +58,12 @@ class SettingsViewModel(
 
     fun refreshExportedFiles() {
         _exportedFiles.value = fileManager.listExportedFiles()
+    }
+
+    fun setLanguage(language: AppLanguage) {
+        viewModelScope.launch {
+            settingsDataStore.setLanguage(language)
+        }
     }
 
     fun setThemeMode(themeMode: ThemeMode) {

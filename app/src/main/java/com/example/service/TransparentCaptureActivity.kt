@@ -46,13 +46,13 @@ class TransparentCaptureActivity : ComponentActivity() {
         }
 
         if (clipText.isNullOrBlank()) {
-            Toast.makeText(this, "Clipboard is empty", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(com.example.R.string.clipboard_empty), Toast.LENGTH_SHORT).show()
             finishWithoutAnimation()
             return
         }
 
         val source = intent.getStringExtra(CaptureNotificationManager.EXTRA_CAPTURE_SOURCE)
-            ?: "Clipboard capture"
+            ?: getString(com.example.R.string.clipboard_capture_source)
 
         lifecycleScope.launch {
             val saved = withContext(Dispatchers.IO) {
@@ -70,12 +70,12 @@ class TransparentCaptureActivity : ComponentActivity() {
             }
 
             if (saved != null) {
-                Toast.makeText(applicationContext, "Clipboard saved", Toast.LENGTH_SHORT).show()
+                Toast.makeText(applicationContext, getString(com.example.R.string.clipboard_saved), Toast.LENGTH_SHORT).show()
                 if (source == CaptureNotificationManager.SOURCE_NOTIFICATION) {
                     CaptureNotificationManager.showCaptureNotification(applicationContext)
                 }
             } else {
-                Toast.makeText(applicationContext, "Clipboard is empty", Toast.LENGTH_SHORT).show()
+                Toast.makeText(applicationContext, getString(com.example.R.string.clipboard_empty), Toast.LENGTH_SHORT).show()
             }
             finishWithoutAnimation()
         }

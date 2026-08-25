@@ -3,6 +3,7 @@ package com.example
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.net.Uri
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -12,10 +13,10 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -34,6 +35,8 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -42,12 +45,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.ui.state.ToggleableState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -56,16 +58,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -82,6 +82,7 @@ import com.example.service.CaptureNotificationManager
 import com.example.ui.editor.EditorScreen
 import com.example.ui.editor.EditorViewModel
 import com.example.ui.editor.EditorViewModelFactory
+import com.example.ui.localization.withAppLanguage
 import com.example.ui.navigation.Screen
 import com.example.ui.settings.SettingsScreen
 import com.example.ui.settings.SettingsViewModel
@@ -92,6 +93,7 @@ import com.example.ui.vault.VaultViewModel
 import com.example.ui.vault.VaultViewModelFactory
 import kotlinx.coroutines.launch
 
+@SuppressLint("InvalidFragmentVersionForActivityResult")
 class MainActivity : ComponentActivity() {
 
     private lateinit var settingsDataStore: SettingsDataStore
@@ -104,6 +106,15 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) CaptureNotificationManager.showCaptureNotification(applicationContext)
+    }
+
+    private var pendingFolderSelection: ((Uri) -> Unit)? = null
+    private val folderPickerLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        val callback = pendingFolderSelection
+        pendingFolderSelection = null
+        if (uri != null) callback?.invoke(uri)
     }
 
     private val vaultViewModel: VaultViewModel by viewModels {
@@ -146,12 +157,16 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            ClipboardManagerTheme(themeMode = userSettings.themeMode) {
-                MainAppContent(
-                    vaultViewModel = vaultViewModel,
-                    editorViewModelFactory = EditorViewModelFactory(fileManager, settingsDataStore),
-                    settingsViewModelFactory = SettingsViewModelFactory(settingsDataStore, repository, fileManager)
-                )
+            val localizedContext = LocalContext.current.withAppLanguage(userSettings.language)
+            CompositionLocalProvider(LocalContext provides localizedContext) {
+                ClipboardManagerTheme(themeMode = userSettings.themeMode) {
+                    MainAppContent(
+                        vaultViewModel = vaultViewModel,
+                        editorViewModelFactory = EditorViewModelFactory(fileManager, settingsDataStore, applicationContext),
+                        settingsViewModelFactory = SettingsViewModelFactory(settingsDataStore, repository, fileManager),
+                        onRequestFolder = ::requestFolderSelection
+                    )
+                }
             }
         }
     }
@@ -160,6 +175,11 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         handleIntent(intent)
+    }
+
+    private fun requestFolderSelection(onSelected: (Uri) -> Unit) {
+        pendingFolderSelection = onSelected
+        folderPickerLauncher.launch(null)
     }
 
     private fun handleIntent(intent: Intent?) {
@@ -174,7 +194,8 @@ class MainActivity : ComponentActivity() {
 fun MainAppContent(
     vaultViewModel: VaultViewModel,
     editorViewModelFactory: ViewModelProvider.Factory,
-    settingsViewModelFactory: ViewModelProvider.Factory
+    settingsViewModelFactory: ViewModelProvider.Factory,
+    onRequestFolder: (((Uri) -> Unit) -> Unit)
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -197,11 +218,6 @@ fun MainAppContent(
     val selectedCards = vaultState.cards.filter { vaultState.selectedIds.contains(it.id) }
     val visibleSelectedCount = selectedCards.size
     val allSelected = vaultState.cards.isNotEmpty() && visibleSelectedCount == vaultState.cards.size
-    val selectionState = when {
-        allSelected -> ToggleableState.On
-        visibleSelectedCount > 0 -> ToggleableState.Indeterminate
-        else -> ToggleableState.Off
-    }
 
     fun openEditorFromVault() {
         vaultViewModel.copySelectedCardsThenOpenEditor(context) {
@@ -213,19 +229,19 @@ fun MainAppContent(
         topBar = {
                 MainTopBar(
                     title = when {
-                        isSettings -> "Settings"
-                        selectedTab == 0 -> "Vault"
-                        else -> "Editor"
+                        isSettings -> stringResource(com.example.R.string.settings)
+                        selectedTab == 0 -> stringResource(com.example.R.string.vault)
+                        else -> stringResource(com.example.R.string.editor)
                     },
                     isVault = !isSettings && selectedTab == 0,
                     isEditor = !isSettings && selectedTab == 1,
                     selectedCount = if (isSettings) 0 else vaultState.selectedIds.size,
-                    selectionState = selectionState,
+                    allSelected = allSelected,
                     allSelectedPinned = !isSettings && selectedCards.isNotEmpty() && selectedCards.all { it.pinned },
                     showPinnedFirst = vaultState.userSettings.showPinnedFirst,
                     isSearchOpen = if (isEditorTab) editorSearchOpen else vaultState.isSearchOpen,
                     searchQuery = if (isEditorTab) editorSearchQuery else vaultState.searchQuery,
-                    searchPlaceholder = if (isEditorTab) "Search editor..." else "Search vault...",
+                    searchPlaceholder = if (isEditorTab) stringResource(com.example.R.string.search_editor) else stringResource(com.example.R.string.search_vault),
                     editorSearchMatchCount = editorSearchMatchCount,
                     editorActiveSearchMatch = editorActiveSearchMatch,
                     onPreviousSearchMatch = editorViewModel::previousSearchMatch,
@@ -270,10 +286,20 @@ fun MainAppContent(
                         0 -> VaultScreen(
                             viewModel = vaultViewModel,
                             onOpenEditor = ::openEditorFromVault,
+                            onRequestExportFolder = {
+                                onRequestFolder { uri ->
+                                    vaultViewModel.setExportFolder(uri, context.contentResolver)
+                                }
+                            },
                             modifier = Modifier.fillMaxSize()
                         )
                         1 -> EditorScreen(
                             viewModel = editorViewModel,
+                            onRequestSaveFolder = {
+                                onRequestFolder { uri ->
+                                    editorViewModel.setDefaultSaveFolder(uri, context.contentResolver)
+                                }
+                            },
                             modifier = Modifier.fillMaxSize()
                         )
                     }
@@ -281,7 +307,14 @@ fun MainAppContent(
             }
             composable(Screen.Settings.route) {
                 val settingsViewModel: SettingsViewModel = viewModel(factory = settingsViewModelFactory)
-                SettingsScreen(viewModel = settingsViewModel)
+                    SettingsScreen(
+                        viewModel = settingsViewModel,
+                        onRequestSaveFolder = {
+                            onRequestFolder { uri ->
+                                settingsViewModel.setDefaultSaveFolder(uri, context.contentResolver)
+                            }
+                        }
+                    )
             }
         }
     }
@@ -294,7 +327,7 @@ private fun MainTopBar(
     isVault: Boolean,
     isEditor: Boolean,
     selectedCount: Int,
-    selectionState: ToggleableState,
+    allSelected: Boolean,
     allSelectedPinned: Boolean,
     showPinnedFirst: Boolean,
     isSearchOpen: Boolean,
@@ -380,62 +413,58 @@ private fun MainTopBar(
                                     onClick = onPreviousSearchMatch,
                                     modifier = Modifier.size(36.dp).testTag("editor_search_previous")
                                 ) {
-                                    Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Previous match")
+                                    Icon(Icons.Default.KeyboardArrowUp, contentDescription = stringResource(com.example.R.string.previous_match))
                                 }
                                 IconButton(
                                     onClick = onNextSearchMatch,
                                     modifier = Modifier.size(36.dp).testTag("editor_search_next")
                                 ) {
-                                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Next match")
+                                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(com.example.R.string.next_match))
                                 }
                             }
                         }
                     }
                     isVault || isEditor -> {
-                        Row(
-                                                            modifier = Modifier
-                                    .fillMaxWidth(),
-
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Tab(
-                                selected = isVault,
-                                onClick = { onTabSelected(0) },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .testTag("main_tab_vault")
+                                                    Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                if (isVault && selectedCount > 0) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        VaultSelectionCheckbox(
-                                            state = selectionState,
-                                            onClick = onToggleSelectAll,
-                                            modifier = Modifier.testTag("vault_select_all_checkbox")
-                                        )
-                                        Text(
-                                            text = "Selected $selectedCount",
-                                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                                            maxLines = 1,
-                                            modifier = Modifier.testTag("vault_selected_count_text")
-                                        )
+                                MainTabSlot(
+                                    selected = isVault,
+                                    onClick = { onTabSelected(0) },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("main_tab_vault")
+                                ) {
+                                    if (isVault && selectedCount > 0) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            VaultSelectionCheckbox(
+                                                checked = allSelected,
+                                                onClick = onToggleSelectAll,
+                                                modifier = Modifier.testTag("vault_select_all_checkbox")
+                                            )
+                                            Text(
+                                                text = stringResource(com.example.R.string.selected_count, selectedCount),
+                                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                                                maxLines = 1,
+                                                modifier = Modifier.testTag("vault_selected_count_text")
+                                            )
+                                        }
+                                    } else {
+                                        Text(stringResource(com.example.R.string.vault), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
                                     }
-                                } else {
-                                    Text("Vault", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
                                 }
-                            }
-                            if (!isVault || selectedCount == 0) {
-                                Tab(
+                                MainTabSlot(
                                     selected = isEditor,
                                     onClick = { onTabSelected(1) },
-                                    text = {
-                                        Text("Editor", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
-                                    },
                                     modifier = Modifier
                                         .weight(1f)
                                         .testTag("main_tab_editor")
-                                )
+                                ) {
+                                    Text(stringResource(com.example.R.string.editor), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
+                                }
                             }
-                        }
+
                     }
                     else -> {
                         Text(
@@ -460,7 +489,7 @@ private fun MainTopBar(
                     ) {
                         Icon(
                             imageVector = if (allSelectedPinned) Icons.Outlined.PushPin else Icons.Default.PushPin,
-                            contentDescription = if (allSelectedPinned) "Unpin selected" else "Pin selected",
+                            contentDescription = stringResource(if (allSelectedPinned) com.example.R.string.unpin_selected else com.example.R.string.pin_selected),
                             modifier = Modifier.size(22.dp)
                         )
                     }
@@ -468,13 +497,13 @@ private fun MainTopBar(
                         onClick = onCopySelected,
                         modifier = Modifier.size(36.dp).testTag("vault_action_copy")
                     ) {
-                        Icon(Icons.Default.ContentCopy, contentDescription = "Copy selected", modifier = Modifier.size(22.dp))
+                        Icon(Icons.Default.ContentCopy, contentDescription = stringResource(com.example.R.string.copy_selected), modifier = Modifier.size(22.dp))
                     }
                     IconButton(
                         onClick = onDeleteSelected,
                         modifier = Modifier.size(36.dp).testTag("vault_action_delete")
                     ) {
-                        Icon(Icons.Default.Delete, contentDescription = "Delete selected", modifier = Modifier.size(22.dp))
+                        Icon(Icons.Default.Delete, contentDescription = stringResource(com.example.R.string.delete_selected), modifier = Modifier.size(22.dp))
                     }
                 }
 
@@ -490,7 +519,7 @@ private fun MainTopBar(
                         onClick = onSearchOpen,
                         modifier = Modifier.size(36.dp).testTag("main_search_button")
                     ) {
-                        Icon(Icons.Default.Search, contentDescription = "Search", modifier = Modifier.size(22.dp))
+                        Icon(Icons.Default.Search, contentDescription = stringResource(com.example.R.string.search), modifier = Modifier.size(22.dp))
                     }
                 }
 
@@ -499,7 +528,7 @@ private fun MainTopBar(
                         onClick = { overflowExpanded = true },
                         modifier = Modifier.size(36.dp).testTag("main_overflow_button")
                     ) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "More options", modifier = Modifier.size(22.dp))
+                        Icon(Icons.Default.MoreVert, contentDescription = stringResource(com.example.R.string.more_options), modifier = Modifier.size(22.dp))
                     }
                 DropdownMenu(
                     expanded = overflowExpanded,
@@ -511,7 +540,7 @@ private fun MainTopBar(
                     ) {
                     if (isVault) {
                         DropdownMenuItem(
-                            text = { Text(if (selectionState == ToggleableState.On) "Clear selection" else "Select all") },
+                            text = { Text(if (allSelected) stringResource(com.example.R.string.clear_selection) else stringResource(com.example.R.string.select_all)) },
                             onClick = {
                                 overflowExpanded = false
                                 onToggleSelectAll()
@@ -519,7 +548,7 @@ private fun MainTopBar(
                             modifier = Modifier.testTag("main_menu_select_all")
                         )
                         DropdownMenuItem(
-                            text = { Text("Share") },
+                            text = { Text(stringResource(com.example.R.string.share)) },
                             enabled = selectedCount > 0,
                             onClick = {
                                 overflowExpanded = false
@@ -528,7 +557,7 @@ private fun MainTopBar(
                             modifier = Modifier.testTag("main_menu_share")
                         )
                         DropdownMenuItem(
-                            text = { Text("Save file") },
+                            text = { Text(stringResource(com.example.R.string.save_file)) },
                             enabled = selectedCount > 0,
                             onClick = {
                                 overflowExpanded = false
@@ -537,7 +566,7 @@ private fun MainTopBar(
                             modifier = Modifier.testTag("main_menu_save_file")
                         )
                         DropdownMenuItem(
-                            text = { Text("Open editor") },
+                            text = { Text(stringResource(com.example.R.string.open_editor)) },
                             enabled = selectedCount > 0,
                             onClick = {
                                 overflowExpanded = false
@@ -546,10 +575,10 @@ private fun MainTopBar(
                             modifier = Modifier.testTag("main_menu_open_editor")
                         )
                         DropdownMenuItem(
-                            text = { Text("Show pinned first") },
+                            text = { Text(stringResource(com.example.R.string.show_pinned_first)) },
                             trailingIcon = {
                                 if (showPinnedFirst) {
-                                    Icon(Icons.Default.Check, contentDescription = "Active")
+                                    Icon(Icons.Default.Check, contentDescription = stringResource(com.example.R.string.active))
                                 }
                             },
                             onClick = {
@@ -559,7 +588,7 @@ private fun MainTopBar(
                             modifier = Modifier.testTag("main_menu_show_pinned_first")
                         )
                         DropdownMenuItem(
-                            text = { Text("Settings") },
+                            text = { Text(stringResource(com.example.R.string.settings)) },
                             onClick = {
                                 overflowExpanded = false
                                 onOpenSettings()
@@ -568,7 +597,7 @@ private fun MainTopBar(
                         )
                     } else {
                         DropdownMenuItem(
-                            text = { Text("Settings") },
+                            text = { Text(stringResource(com.example.R.string.settings)) },
                             onClick = {
                                 overflowExpanded = false
                                 onOpenSettings()
@@ -585,38 +614,54 @@ private fun MainTopBar(
 
 
 @Composable
+private fun MainTabSlot(
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    Column(
+        modifier = modifier
+            .fillMaxHeight()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Bottom
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            contentAlignment = Alignment.Center
+        ) {
+            content()
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(2.dp)
+                .background(
+                    if (selected) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+                )
+        )
+    }
+}
+
+@Composable
 private fun VaultSelectionCheckbox(
-    state: ToggleableState,
+    checked: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val shape = RoundedCornerShape(2.dp)
-    val primary = MaterialTheme.colorScheme.primary
-    val outline = MaterialTheme.colorScheme.onSurfaceVariant
-    val surface = MaterialTheme.colorScheme.surface
-    Box(
-        modifier = modifier
-            .size(32.dp)
-            .clip(shape)
-            .background(if (state == ToggleableState.Off) androidx.compose.ui.graphics.Color.Transparent else primary)
-            .border(2.dp, if (state == ToggleableState.Off) outline else primary, shape)
-            .clickable(role = Role.Checkbox, onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        when (state) {
-            ToggleableState.On -> Icon(
-                imageVector = Icons.Default.Check,
-                contentDescription = "Clear selection",
-                tint = surface,
-                modifier = Modifier.size(22.dp)
-            )
-            ToggleableState.Indeterminate -> Box(
-                modifier = Modifier
-                    .fillMaxWidth(0.55f)
-                    .height(3.dp)
-                    .background(surface, RoundedCornerShape(2.dp))
-            )
-            ToggleableState.Off -> Unit
-        }
-    }
+    Checkbox(
+        checked = checked,
+        onCheckedChange = { onClick() },
+        colors = CheckboxDefaults.colors(
+            checkedColor = MaterialTheme.colorScheme.primary,
+            uncheckedColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            checkmarkColor = MaterialTheme.colorScheme.onPrimary
+        ),
+        modifier = modifier.size(32.dp)
+    )
 }

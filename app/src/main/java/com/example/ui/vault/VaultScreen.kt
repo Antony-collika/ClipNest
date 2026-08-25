@@ -1,7 +1,5 @@
 package com.example.ui.vault
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -35,16 +34,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 fun VaultScreen(
     viewModel: VaultViewModel,
     onOpenEditor: () -> Unit,
+    onRequestExportFolder: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val exportFolderLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocumentTree()
-    ) { uri ->
-        if (uri != null) {
-            viewModel.setExportFolder(uri, context.contentResolver)
-        }
-    }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) {
         viewModel.eventFlow.collect { event ->
@@ -55,7 +48,7 @@ fun VaultScreen(
                     android.widget.Toast.LENGTH_SHORT
                 ).show()
                 VaultEvent.NavigateToEditor -> onOpenEditor()
-                VaultEvent.RequestExportFolder -> exportFolderLauncher.launch(null)
+                VaultEvent.RequestExportFolder -> onRequestExportFolder()
                 VaultEvent.NavigateToSettings -> Unit
             }
         }
@@ -71,7 +64,7 @@ fun VaultScreen(
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,
-                    contentDescription = "Save current clipboard"
+                    contentDescription = stringResource(com.example.R.string.save_to_clipboard)
                 )
             }
         },
@@ -220,15 +213,15 @@ private fun VaultEmptyState(
             modifier = Modifier.padding(bottom = 16.dp)
         )
         Text(
-            text = if (isSearch) "Không tìm thấy nội dung phù hợp" else "Kho Clipboard trống",
+            text = if (isSearch) stringResource(com.example.R.string.no_matching_content) else stringResource(com.example.R.string.empty_vault),
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
             textAlign = TextAlign.Center
         )
         Text(
             text = if (isSearch) {
-                "Thử tìm kiếm với từ khóa khác hoặc xóa bộ lọc tìm kiếm."
+                stringResource(com.example.R.string.try_another_search)
             } else {
-                "Dùng nút + bên dưới, Chia sẻ từ ứng dụng khác, Thông báo hoặc Quick Settings để lưu clipboard."
+                stringResource(com.example.R.string.empty_vault_hint)
             },
             style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
             textAlign = TextAlign.Center,

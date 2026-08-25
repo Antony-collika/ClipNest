@@ -1,8 +1,6 @@
 package com.example.ui.settings
 
 import android.content.Context
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
@@ -22,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BrightnessMedium
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PushPin
@@ -54,10 +53,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.data.local.AppLanguage
 import com.example.data.local.ThemeMode
 import java.io.File
 import java.text.SimpleDateFormat
@@ -68,16 +69,12 @@ import java.util.Locale
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel,
+    onRequestSaveFolder: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val userSettings by viewModel.userSettings.collectAsStateWithLifecycle()
     val exportedFiles by viewModel.exportedFiles.collectAsStateWithLifecycle()
-    val saveFolderLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocumentTree()
-    ) { uri ->
-        if (uri != null) viewModel.setDefaultSaveFolder(uri, context.contentResolver)
-    }
 
     LaunchedEffect(Unit) {
         viewModel.eventFlow.collect { event ->
@@ -100,8 +97,36 @@ fun SettingsScreen(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            SettingsSectionHeader(title = stringResource(com.example.R.string.language), icon = Icons.Default.Language)
+
+            OutlinedCard(
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    ThemeChip(
+                        label = stringResource(com.example.R.string.english),
+                        selected = userSettings.language == AppLanguage.ENGLISH,
+                        onClick = { viewModel.setLanguage(AppLanguage.ENGLISH) },
+                        modifier = Modifier.testTag("language_chip_english")
+                    )
+                    ThemeChip(
+                        label = stringResource(com.example.R.string.vietnamese),
+                        selected = userSettings.language == AppLanguage.VIETNAMESE,
+                        onClick = { viewModel.setLanguage(AppLanguage.VIETNAMESE) },
+                        modifier = Modifier.testTag("language_chip_vietnamese")
+                    )
+                }
+            }
+
             // 1. Appearance Section
-            SettingsSectionHeader(title = "Appearance", icon = Icons.Default.BrightnessMedium)
+            SettingsSectionHeader(title = stringResource(com.example.R.string.appearance), icon = Icons.Default.BrightnessMedium)
 
             OutlinedCard(
                 shape = RoundedCornerShape(16.dp),
@@ -109,7 +134,7 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "Theme Mode",
+                        text = stringResource(com.example.R.string.theme_mode),
                         style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)
                     )
                     Spacer(modifier = Modifier.height(10.dp))
@@ -118,19 +143,19 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         ThemeChip(
-                            label = "System",
+                            label = stringResource(com.example.R.string.system),
                             selected = userSettings.themeMode == ThemeMode.SYSTEM,
                             onClick = { viewModel.setThemeMode(ThemeMode.SYSTEM) },
                             modifier = Modifier.testTag("theme_chip_system")
                         )
                         ThemeChip(
-                            label = "Light",
+                            label = stringResource(com.example.R.string.light),
                             selected = userSettings.themeMode == ThemeMode.LIGHT,
                             onClick = { viewModel.setThemeMode(ThemeMode.LIGHT) },
                             modifier = Modifier.testTag("theme_chip_light")
                         )
                         ThemeChip(
-                            label = "Dark",
+                            label = stringResource(com.example.R.string.dark),
                             selected = userSettings.themeMode == ThemeMode.DARK,
                             onClick = { viewModel.setThemeMode(ThemeMode.DARK) },
                             modifier = Modifier.testTag("theme_chip_dark")
@@ -140,7 +165,7 @@ fun SettingsScreen(
             }
 
             // 2. Vault Preferences Section
-            SettingsSectionHeader(title = "Vault Preferences", icon = Icons.Default.PushPin)
+            SettingsSectionHeader(title = stringResource(com.example.R.string.vault_preferences), icon = Icons.Default.PushPin)
 
             OutlinedCard(
                 shape = RoundedCornerShape(16.dp),
@@ -157,11 +182,11 @@ fun SettingsScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Show pinned first",
+                                text = stringResource(com.example.R.string.show_pinned_first),
                                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)
                             )
                             Text(
-                                text = "Display pinned cards at the top without altering manual database order",
+                                text = stringResource(com.example.R.string.pinned_first_description),
                                 style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                             )
                         }
@@ -176,7 +201,7 @@ fun SettingsScreen(
             }
 
             // 3. File export location
-            SettingsSectionHeader(title = "File Storage", icon = Icons.Default.Folder)
+            SettingsSectionHeader(title = stringResource(com.example.R.string.file_storage), icon = Icons.Default.Folder)
 
             OutlinedCard(
                 shape = RoundedCornerShape(16.dp),
@@ -184,11 +209,11 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "Default save folder",
+                        text = stringResource(com.example.R.string.default_save_folder),
                         style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)
                     )
                     Text(
-                        text = userSettings.defaultSaveFolderUri?.let { folderLabel(it) } ?: "Not set — the system picker will ask when needed",
+                        text = userSettings.defaultSaveFolderUri?.let { folderLabel(context, it) } ?: stringResource(com.example.R.string.save_folder_not_set),
                         style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
                         modifier = Modifier.padding(top = 4.dp)
                     )
@@ -198,12 +223,12 @@ fun SettingsScreen(
                             .padding(top = 8.dp),
                         horizontalArrangement = Arrangement.End
                     ) {
-                        TextButton(onClick = { saveFolderLauncher.launch(null) }) {
-                            Text("Choose folder")
+                        TextButton(onClick = onRequestSaveFolder) {
+                            Text(stringResource(com.example.R.string.choose_folder))
                         }
                         if (userSettings.defaultSaveFolderUri != null) {
                             TextButton(onClick = viewModel::clearDefaultSaveFolder) {
-                                Text("Clear")
+                                Text(stringResource(com.example.R.string.clear))
                             }
                         }
                     }
@@ -211,7 +236,7 @@ fun SettingsScreen(
             }
 
             // 4. Capture & Notifications Section
-            SettingsSectionHeader(title = "Capture Shortcuts", icon = Icons.Default.Notifications)
+            SettingsSectionHeader(title = stringResource(com.example.R.string.capture_shortcuts), icon = Icons.Default.Notifications)
 
             OutlinedCard(
                 shape = RoundedCornerShape(16.dp),
@@ -227,11 +252,11 @@ fun SettingsScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Capture notification",
+                                text = stringResource(com.example.R.string.capture_notification),
                                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)
                             )
                             Text(
-                                text = "Keep a persistent notification entry point to capture text anytime",
+                                text = stringResource(com.example.R.string.capture_notification_description),
                                 style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                             )
                         }
@@ -259,11 +284,11 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(
-                                text = "Quick Settings Tile",
+                                text = stringResource(com.example.R.string.quick_settings_tile),
                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
                             )
                             Text(
-                                text = "Add the 'Clipboard Manager' tile to your Android Quick Settings panel to quickly trigger foreground capture from anywhere.",
+                                text = stringResource(com.example.R.string.quick_settings_description),
                                 style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                             )
                         }
@@ -273,7 +298,7 @@ fun SettingsScreen(
 
             // 6. Exported Documents Section
             if (exportedFiles.isNotEmpty()) {
-                SettingsSectionHeader(title = "Exported Documents", icon = Icons.Default.Folder)
+                SettingsSectionHeader(title = stringResource(com.example.R.string.exported_documents), icon = Icons.Default.Folder)
 
                 OutlinedCard(
                     shape = RoundedCornerShape(16.dp),
@@ -295,7 +320,7 @@ fun SettingsScreen(
                                 IconButton(onClick = {
                                     shareFile(context, file)
                                 }) {
-                                    Icon(Icons.Default.Share, contentDescription = "Share file", tint = MaterialTheme.colorScheme.primary)
+                                    Icon(Icons.Default.Share, contentDescription = stringResource(com.example.R.string.share_file), tint = MaterialTheme.colorScheme.primary)
                                 }
                             }
                         }
@@ -304,7 +329,7 @@ fun SettingsScreen(
             }
 
             // 7. Privacy & Security Notice
-            SettingsSectionHeader(title = "Privacy & Security", icon = Icons.Default.Security)
+            SettingsSectionHeader(title = stringResource(com.example.R.string.privacy_security), icon = Icons.Default.Security)
 
             Card(
                 shape = RoundedCornerShape(16.dp),
@@ -318,7 +343,7 @@ fun SettingsScreen(
                         Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Private by Design",
+                            text = stringResource(com.example.R.string.private_by_design),
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                         )
                     }
@@ -326,9 +351,7 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        text = "• 100% Offline: No servers, no user accounts, and no cloud synchronization.\n" +
-                                "• Explicit capture only: This app does not monitor your clipboard in the background or use accessibility services.\n" +
-                                "• Android 10+ compliant: Android prohibits background clipboard snooping. Every capture is triggered by your deliberate action.",
+                        text = stringResource(com.example.R.string.private_notice),
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = MaterialTheme.colorScheme.onSurface,
                             lineHeight = 18.sp
@@ -342,9 +365,9 @@ fun SettingsScreen(
     }
 }
 
-private fun folderLabel(uri: String): String {
+private fun folderLabel(context: Context, uri: String): String {
     val segment = android.net.Uri.parse(uri).lastPathSegment.orEmpty()
-    return "Selected: ${segment.substringAfterLast(':').ifBlank { "folder" }}"
+    return context.getString(com.example.R.string.selected_folder, segment.substringAfterLast(':').ifBlank { context.getString(com.example.R.string.folder) })
 }
 
 private fun shareFile(context: Context, file: File) {
@@ -358,7 +381,7 @@ private fun shareFile(context: Context, file: File) {
         val shareIntent = Intent.createChooser(sendIntent, "Share ${file.name}")
         context.startActivity(shareIntent)
     } catch (_: Exception) {
-        Toast.makeText(context, "Could not open file", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, context.getString(com.example.R.string.could_not_open_file), Toast.LENGTH_SHORT).show()
     }
 }
 
