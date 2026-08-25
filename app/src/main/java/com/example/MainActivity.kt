@@ -424,47 +424,62 @@ private fun MainTopBar(
                             }
                         }
                     }
-                    isVault || isEditor -> {
-                                                    Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
+                    isVault && selectedCount > 0 -> {
+                        MainTabSlot(
+                            selected = true,
+                            onClick = { onTabSelected(0) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("main_tab_vault")
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 8.dp)
                             ) {
-                                MainTabSlot(
-                                    selected = isVault,
-                                    onClick = { onTabSelected(0) },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .testTag("main_tab_vault")
-                                ) {
-                                    if (isVault && selectedCount > 0) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            VaultSelectionCheckbox(
-                                                checked = allSelected,
-                                                onClick = onToggleSelectAll,
-                                                modifier = Modifier.testTag("vault_select_all_checkbox")
-                                            )
-                                            Text(
-                                                text = stringResource(com.example.R.string.selected_count, selectedCount),
-                                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                                                maxLines = 1,
-                                                modifier = Modifier.testTag("vault_selected_count_text")
-                                            )
-                                        }
-                                    } else {
-                                        Text(stringResource(com.example.R.string.vault), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
-                                    }
-                                }
-                                MainTabSlot(
-                                    selected = isEditor,
-                                    onClick = { onTabSelected(1) },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .testTag("main_tab_editor")
-                                ) {
-                                    Text(stringResource(com.example.R.string.editor), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
-                                }
+                                VaultSelectionCheckbox(
+                                    checked = allSelected,
+                                    onClick = onToggleSelectAll,
+                                    modifier = Modifier.testTag("vault_select_all_checkbox")
+                                )
+                                Text(
+                                    text = stringResource(com.example.R.string.selected_count, selectedCount),
+                                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                                    maxLines = 1,
+                                    modifier = Modifier.testTag("vault_selected_count_text")
+                                )
                             }
-
+                        }
+                    }
+                    isVault || isEditor -> {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            MainTabSlot(
+                                selected = isVault,
+                                onClick = { onTabSelected(0) },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("main_tab_vault")
+                            ) {
+                                Text(
+                                    stringResource(com.example.R.string.vault),
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+                                )
+                            }
+                            MainTabSlot(
+                                selected = isEditor,
+                                onClick = { onTabSelected(1) },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("main_tab_editor")
+                            ) {
+                                Text(
+                                    stringResource(com.example.R.string.editor),
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+                                )
+                            }
+                        }
                     }
                     else -> {
                         Text(
