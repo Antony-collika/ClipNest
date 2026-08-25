@@ -296,14 +296,14 @@ class EditorViewModel(
             replaceRange(
                 start = selection.start,
                 end = selection.end,
-                replacement = "```\\n\\n```",
+                replacement = "```\n\n```",
                 selectionStart = selection.start + 4,
                 selectionEnd = selection.start + 4
             )
             return
         }
         val selected = current.text.substring(selection.min, selection.max)
-        val replacement = "```\\n$selected\\n```"
+        val replacement = "```\n$selected\n```"
         replaceRange(
             start = selection.min,
             end = selection.max,

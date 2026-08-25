@@ -4,7 +4,9 @@ import android.graphics.Color as AndroidColor
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -44,6 +46,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -242,17 +245,16 @@ private fun SplitEditorAndPreview(
 
 @Composable
 private fun PreviewDivider(onDrag: (Float) -> Unit) {
+    val latestOnDrag by rememberUpdatedState(onDrag)
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
         modifier = Modifier
             .fillMaxWidth()
             .height(28.dp)
-            .pointerInput(Unit) {
-                detectDragGestures { change, dragAmount ->
-                    change.consume()
-                    onDrag(dragAmount.y)
-                }
-            }
+            .draggable(
+                orientation = Orientation.Vertical,
+                state = rememberDraggableState { delta -> latestOnDrag(delta) }
+            )
             .testTag("markdown_preview_divider")
     ) {
         Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
@@ -448,26 +450,26 @@ private fun ExpandedMarkdownToolbox(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
                 .padding(horizontal = 2.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            MarkdownTextButton("markdown_action_h1", "H1", stringResource(com.example.R.string.markdown_h1), { onHeading(1) })
-            MarkdownTextButton("markdown_action_h2", "H2", stringResource(com.example.R.string.markdown_h2), { onHeading(2) })
-            MarkdownTextButton("markdown_action_h3", "H3", stringResource(com.example.R.string.markdown_h3), { onHeading(3) })
-            MarkdownTextButton("markdown_action_bold", "B", stringResource(com.example.R.string.markdown_bold), onBold, bold = true)
-            MarkdownTextButton("markdown_action_italic", "I", stringResource(com.example.R.string.markdown_italic), onItalic, italic = true)
-            MarkdownTextButton("markdown_action_quote", "❝", stringResource(com.example.R.string.markdown_quote), onQuote)
-            MarkdownTextButton("markdown_action_code", "</>", stringResource(com.example.R.string.markdown_code), onCode)
-            MarkdownTextButton("markdown_action_bullets", "•", stringResource(com.example.R.string.markdown_bullets), onBullets)
-            MarkdownTextButton("markdown_action_numbers", "1.", stringResource(com.example.R.string.markdown_numbers), onNumbers)
-            MarkdownTextButton("markdown_action_rule", "—", stringResource(com.example.R.string.markdown_horizontal_rule), onHorizontalRule)
+            MarkdownTextButton("markdown_action_h1", "H1", stringResource(com.example.R.string.markdown_h1), { onHeading(1) }, modifier = Modifier.weight(1f))
+            MarkdownTextButton("markdown_action_h2", "H2", stringResource(com.example.R.string.markdown_h2), { onHeading(2) }, modifier = Modifier.weight(1f))
+            MarkdownTextButton("markdown_action_h3", "H3", stringResource(com.example.R.string.markdown_h3), { onHeading(3) }, modifier = Modifier.weight(1f))
+            MarkdownTextButton("markdown_action_bold", "B", stringResource(com.example.R.string.markdown_bold), onBold, bold = true, modifier = Modifier.weight(1f))
+            MarkdownTextButton("markdown_action_italic", "I", stringResource(com.example.R.string.markdown_italic), onItalic, italic = true, modifier = Modifier.weight(1f))
+            MarkdownTextButton("markdown_action_quote", "❝", stringResource(com.example.R.string.markdown_quote), onQuote, modifier = Modifier.weight(1f))
+            MarkdownTextButton("markdown_action_code", "</>", stringResource(com.example.R.string.markdown_code), onCode, modifier = Modifier.weight(1f))
+            MarkdownTextButton("markdown_action_bullets", "•", stringResource(com.example.R.string.markdown_bullets), onBullets, modifier = Modifier.weight(1f))
+            MarkdownTextButton("markdown_action_numbers", "1.", stringResource(com.example.R.string.markdown_numbers), onNumbers, modifier = Modifier.weight(1f))
+            MarkdownTextButton("markdown_action_rule", "—", stringResource(com.example.R.string.markdown_horizontal_rule), onHorizontalRule, modifier = Modifier.weight(1f))
             MarkdownTextButton(
                 tag = "markdown_action_view",
                 label = "View",
                 contentDescription = if (isPreviewVisible) stringResource(com.example.R.string.hide_markdown_preview) else stringResource(com.example.R.string.show_markdown_preview),
                 onClick = onTogglePreview,
-                active = isPreviewVisible
+                active = isPreviewVisible,
+                modifier = Modifier.weight(1f)
             )
         }
     }
@@ -481,14 +483,16 @@ private fun MarkdownTextButton(
     onClick: () -> Unit,
     bold: Boolean = false,
     italic: Boolean = false,
-    active: Boolean = false
+    active: Boolean = false,
+    modifier: Modifier = Modifier
 ) {
     Surface(
         color = if (active) MaterialTheme.colorScheme.primary else Color.Transparent,
         contentColor = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
         shape = RoundedCornerShape(6.dp),
         modifier = Modifier
-            .size(width = 44.dp, height = 40.dp)
+            .then(modifier)
+            .height(36.dp)
             .testTag(tag)
             .semantics {
                 role = Role.Button
