@@ -41,7 +41,6 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.SelectAll
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -58,11 +57,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -90,11 +91,10 @@ import kotlin.math.abs
 
 private const val MAX_PREVIEW_FRACTION = 1.0f
 private const val PREVIEW_RENDER_DEBOUNCE_MS = 140L
-private val PREVIEW_HANDLE_ROW_HEIGHT = 20.dp
-private val PREVIEW_TITLE_ROW_HEIGHT = 36.dp
-private val PREVIEW_HEADER_DIVIDER_HEIGHT = 1.dp
+private val PREVIEW_HANDLE_ROW_HEIGHT = 30.dp
+private val PREVIEW_TITLE_ROW_HEIGHT = 44.dp
 private val PREVIEW_COLLAPSED_HEIGHT =
-    PREVIEW_HANDLE_ROW_HEIGHT + PREVIEW_TITLE_ROW_HEIGHT + PREVIEW_HEADER_DIVIDER_HEIGHT
+    PREVIEW_HANDLE_ROW_HEIGHT + PREVIEW_TITLE_ROW_HEIGHT
 
 @Composable
 fun EditorScreen(
@@ -107,16 +107,19 @@ fun EditorScreen(
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     val colorScheme = MaterialTheme.colorScheme
     val isDark = colorScheme.background.red < 0.5f
-    val previewColors = remember(colorScheme, isDark) {
+    val previewBackground = if (isDark) Color(0xFF2B2B2B) else Color(0xFFF6F6F6)
+    val previewTextColor = if (isDark) Color(0xFFF4F4F4) else Color(0xFF171717)
+    val previewMutedColor = if (isDark) Color(0xFFCACACA) else Color(0xFF5E5E5E)
+    val previewColors = remember(isDark) {
         MarkdownPreviewColors.from(
-            background = colorScheme.surface,
-            onSurface = colorScheme.onSurface,
-            onSurfaceVariant = colorScheme.onSurfaceVariant,
-            surfaceVariant = colorScheme.surfaceVariant,
-            outline = colorScheme.outline,
-            outlineVariant = colorScheme.outlineVariant,
-            primary = colorScheme.primary,
-            codeBackground = colorScheme.surfaceVariant.copy(alpha = if (isDark) 0.65f else 0.55f),
+            background = previewBackground,
+            onSurface = previewTextColor,
+            onSurfaceVariant = previewMutedColor,
+            surfaceVariant = if (isDark) Color(0xFF3A3A3A) else Color(0xFFE8E8E8),
+            outline = if (isDark) Color(0xFF777777) else Color(0xFF8A8A8A),
+            outlineVariant = if (isDark) Color(0xFF555555) else Color(0xFFC7C7C7),
+            primary = previewTextColor,
+            codeBackground = if (isDark) Color(0xFF3A3A3A) else Color(0xFFE8E8E8),
             isDark = isDark
         )
     }
@@ -198,6 +201,8 @@ fun EditorScreen(
             uiState = uiState,
             previewHtml = previewHtml,
             onPreviewFractionChange = viewModel::setPreviewSplitFraction,
+            previewBackground = previewBackground,
+            previewTextColor = previewTextColor,
             modifier = Modifier.fillMaxSize()
         )
     }
@@ -219,8 +224,10 @@ fun EditorScreen(
 private fun EditorWithPreviewOverlay(
     uiState: EditorUiState,
     previewHtml: String,
-    onPreviewFractionChange: (Float) -> Unit,
-    modifier: Modifier = Modifier
+        onPreviewFractionChange: (Float) -> Unit,
+        previewBackground: Color,
+        previewTextColor: Color,
+        modifier: Modifier = Modifier
 ) {
     BoxWithConstraints(
         modifier = modifier.testTag("editor_split_view")
@@ -269,10 +276,13 @@ private fun EditorWithPreviewOverlay(
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .height(previewHeight)
+                .zIndex(2f)
                 .testTag("markdown_preview_overlay")
         ) {
             MarkdownPreviewPane(
                 html = previewHtml,
+                backgroundColor = previewBackground,
+                contentColor = previewTextColor,
                 dragState = previewDragState,
                 onDragStarted = {
                     isDragging = true
@@ -292,87 +302,64 @@ private fun EditorWithPreviewOverlay(
 @Composable
 private fun MarkdownPreviewPane(
     html: String,
+    backgroundColor: Color,
+    contentColor: Color,
     dragState: androidx.compose.foundation.gestures.DraggableState,
     onDragStarted: () -> Unit,
     onDragStopped: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val previewSurfaceColor = MaterialTheme.colorScheme.surface.toArgb()
+    val previewSurfaceColor = backgroundColor.toArgb()
     val resizeModifier = Modifier.draggable(
         orientation = Orientation.Vertical,
         state = dragState,
         onDragStarted = { _ -> onDragStarted() },
         onDragStopped = { _ -> onDragStopped() }
     )
-    val previewShape = RoundedCornerShape(16.dp)
+    val previewShape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp)
     Surface(
-        color = MaterialTheme.colorScheme.surface,
+        color = backgroundColor,
+        contentColor = contentColor,
         shape = previewShape,
+        shadowElevation = 8.dp,
         modifier = modifier
             .fillMaxWidth()
+            .shadow(8.dp, previewShape)
             .clip(previewShape)
             .testTag("markdown_preview_pane")
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            Surface(
-                color = MaterialTheme.colorScheme.surface,
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .height(PREVIEW_HANDLE_ROW_HEIGHT)
                     .then(resizeModifier)
                     .testTag("markdown_preview_resize_band"),
-                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                contentAlignment = Alignment.TopCenter
             ) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(PREVIEW_HANDLE_ROW_HEIGHT)
-                            .padding(horizontal = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        HorizontalDivider(
-                            color = MaterialTheme.colorScheme.outline,
-                            thickness = 1.dp,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Box(
-                            modifier = Modifier
-                                .width(40.dp)
-                                .height(20.dp)
-                                .offset(y = 2.dp)
-                                .padding(vertical = 8.dp)
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.58f))
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        HorizontalDivider(
-                            color = MaterialTheme.colorScheme.outline,
-                            thickness = 1.dp,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(PREVIEW_TITLE_ROW_HEIGHT)
-                            .padding(horizontal = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = stringResource(com.example.R.string.preview_markdown),
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
+                Box(
+                    modifier = Modifier
+                        .offset(y = 8.dp)
+                        .width(48.dp)
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(Color(0xFF8B8B8B))
+                )
             }
-            HorizontalDivider(
-                color = MaterialTheme.colorScheme.outline,
-                thickness = 1.dp,
-                modifier = Modifier.padding(horizontal = 12.dp)
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(PREVIEW_TITLE_ROW_HEIGHT)
+                    .padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(com.example.R.string.preview_markdown),
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
+                    color = contentColor,
+                    modifier = Modifier.weight(1f)
+                )
+            }
             AndroidView(
                 factory = { context ->
                     WebView(context).apply {
