@@ -2,6 +2,7 @@ package com.example
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.ContentResolver
 import android.content.Intent
 import android.net.Uri
 import android.content.pm.PackageManager
@@ -320,40 +321,67 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    @SuppressLint("WrongConstant")
+    private fun resolveIncomingDocumentUri(intent: Intent): Uri? {
+        intent.data?.let { return it }
+        intent.clipData?.let { clipData ->
+            for (index in 0 until clipData.itemCount) {
+                clipData.getItemAt(index).uri?.let { return it }
+            }
+        }
+        val streamUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            intent.getParcelableExtra(Intent.EXTRA_STREAM) as? Uri
+        }
+        streamUri?.let { return it }
+        @Suppress("DEPRECATION")
+        intent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM)
+            ?.firstOrNull()
+            ?.let { return it }
+
+        // A few senders put a content/file URI in EXTRA_TEXT instead of
+        // EXTRA_STREAM. Do not treat ordinary shared text as a document.
+        intent.getStringExtra(Intent.EXTRA_TEXT)
+            ?.let(Uri::parse)
+            ?.takeIf { it.scheme == ContentResolver.SCHEME_CONTENT || it.scheme == ContentResolver.SCHEME_FILE }
+            ?.let { return it }
+        return null
+    }
+
     private fun handleIntent(intent: Intent?) {
         if (intent?.getBooleanExtra(CaptureNotificationManager.EXTRA_OPEN_CAPTURE, false) == true) {
             vaultViewModel.openInAppCapture()
         }
-        val clipUri = intent?.clipData?.getItemAt(0)?.uri
-        @Suppress("DEPRECATION")
-        val streamUri = intent?.getParcelableExtra(Intent.EXTRA_STREAM) as? Uri
-        val isOpenAction = intent?.action == Intent.ACTION_VIEW ||
-            intent?.action == Intent.ACTION_EDIT ||
-            (intent?.action == Intent.ACTION_SEND && (streamUri != null || clipUri != null))
-        if (isOpenAction) {
-            val uri = intent.data ?: clipUri ?: streamUri
-            Log.d(
-                "XBoard.OpenWith",
-                    "action=${intent.action}, type=${intent.type}, data=${intent.data}, " +
-                    "clipData=$clipUri, stream=$streamUri, flags=0x${intent.flags.toString(16)}"
-            )
-            if (uri != null) {
-                val grantedFlags = intent.flags and
-                    (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-                if (grantedFlags != 0 &&
-                    intent.flags and Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION != 0
-                ) {
-                    runCatching { contentResolver.takePersistableUriPermission(uri, grantedFlags) }
-                        .onFailure { error ->
-                            Log.d("XBoard.OpenWith", "Persistable permission unavailable for $uri", error)
-                        }
-                }
-                incomingOpenUri.value = uri
-            } else {
-                Log.w("XBoard.OpenWith", "Open intent did not contain a data or ClipData URI")
-            }
+        val action = intent?.action ?: return
+        val isOpenAction = action == Intent.ACTION_VIEW ||
+            action == Intent.ACTION_EDIT ||
+            action == Intent.ACTION_SEND ||
+            action == Intent.ACTION_SEND_MULTIPLE
+        if (!isOpenAction) return
+
+        val uri = resolveIncomingDocumentUri(intent)
+        Log.d(
+            "XBoard.OpenWith",
+            "action=$action, type=${intent.type}, data=${intent.data}, " +
+                "clipData=${intent.clipData?.itemCount}, uri=$uri, flags=0x${intent.flags.toString(16)}"
+        )
+        if (uri == null) {
+            Log.w("XBoard.OpenWith", "Open intent did not contain a supported document URI")
+            return
         }
+
+        val grantedFlags = intent.flags and
+            (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+        if (grantedFlags != 0 &&
+            intent.flags and Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION != 0
+        ) {
+            runCatching { contentResolver.takePersistableUriPermission(uri, grantedFlags) }
+                .onFailure { error ->
+                    Log.d("XBoard.OpenWith", "Persistable permission unavailable for $uri", error)
+                }
+        }
+        incomingOpenUri.value = uri
     }
 }
 

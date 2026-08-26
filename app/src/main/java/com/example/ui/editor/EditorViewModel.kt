@@ -198,6 +198,7 @@ class EditorViewModel(
             ContentResolver.SCHEME_CONTENT -> {
                 runCatching { contentResolver.openInputStream(uri)?.use { it.readBytes() } }
                     .getOrNull()
+                    ?: readFromFileDescriptor(uri, contentResolver)
                     ?: readFromAssetFileDescriptor(uri, contentResolver)
                     ?: readFromTypedAssetFileDescriptor(uri, contentResolver)
             }
@@ -209,11 +210,20 @@ class EditorViewModel(
             else -> {
                 runCatching { contentResolver.openInputStream(uri)?.use { it.readBytes() } }
                     .getOrNull()
+                    ?: readFromFileDescriptor(uri, contentResolver)
                     ?: readFromAssetFileDescriptor(uri, contentResolver)
                     ?: readFromTypedAssetFileDescriptor(uri, contentResolver)
             }
         } ?: error("Unable to open file")
         return decodeUtf8(bytes)
+    }
+
+    private fun readFromFileDescriptor(uri: Uri, contentResolver: ContentResolver): ByteArray? {
+        return runCatching {
+            contentResolver.openFileDescriptor(uri, "r")?.let { descriptor ->
+                android.os.ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { it.readBytes() }
+            }
+        }.getOrNull()
     }
 
     private fun readFromAssetFileDescriptor(uri: Uri, contentResolver: ContentResolver): ByteArray? {
@@ -225,7 +235,7 @@ class EditorViewModel(
     }
 
     private fun readFromTypedAssetFileDescriptor(uri: Uri, contentResolver: ContentResolver): ByteArray? {
-        return listOf("text/markdown", "text/plain", "text/*").firstNotNullOfOrNull { mimeType ->
+        return listOf("*/*", "text/markdown", "text/plain", "text/*").firstNotNullOfOrNull { mimeType ->
             runCatching {
                 contentResolver.openTypedAssetFileDescriptor(uri, mimeType, null)?.use { descriptor ->
                     descriptor.createInputStream().use { it.readBytes() }
