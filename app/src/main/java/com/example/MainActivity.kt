@@ -136,7 +136,7 @@ class MainActivity : ComponentActivity() {
             runCatching {
                 contentResolver.takePersistableUriPermission(
                     uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
                 )
             }
             val callback = pendingOpenFileSelection
@@ -234,7 +234,16 @@ class MainActivity : ComponentActivity() {
 
     private fun requestOpenFile(onSelected: (Uri) -> Unit) {
         pendingOpenFileSelection = onSelected
-        openFileLauncher.launch(arrayOf("text/plain", "text/markdown", "text/*", "application/octet-stream"))
+        openFileLauncher.launch(
+            arrayOf(
+                "text/plain",
+                "text/markdown",
+                "text/x-markdown",
+                "text/plain+md",
+                "text/*",
+                "application/octet-stream"
+            )
+        )
     }
 
     private fun requestBackupFile() {
@@ -316,13 +325,18 @@ class MainActivity : ComponentActivity() {
         if (intent?.getBooleanExtra(CaptureNotificationManager.EXTRA_OPEN_CAPTURE, false) == true) {
             vaultViewModel.openInAppCapture()
         }
-        if (intent?.action == Intent.ACTION_VIEW || intent?.action == Intent.ACTION_EDIT) {
-            val clipUri = intent.clipData?.getItemAt(0)?.uri
-            val uri = intent.data ?: clipUri
+        val clipUri = intent?.clipData?.getItemAt(0)?.uri
+        @Suppress("DEPRECATION")
+        val streamUri = intent?.getParcelableExtra(Intent.EXTRA_STREAM) as? Uri
+        val isOpenAction = intent?.action == Intent.ACTION_VIEW ||
+            intent?.action == Intent.ACTION_EDIT ||
+            (intent?.action == Intent.ACTION_SEND && (streamUri != null || clipUri != null))
+        if (isOpenAction) {
+            val uri = intent.data ?: clipUri ?: streamUri
             Log.d(
                 "XBoard.OpenWith",
-                "action=${intent.action}, type=${intent.type}, data=${intent.data}, " +
-                    "clipData=$clipUri, flags=0x${intent.flags.toString(16)}"
+                    "action=${intent.action}, type=${intent.type}, data=${intent.data}, " +
+                    "clipData=$clipUri, stream=$streamUri, flags=0x${intent.flags.toString(16)}"
             )
             if (uri != null) {
                 val grantedFlags = intent.flags and
@@ -468,7 +482,9 @@ fun MainAppContent(
             composable(Screen.Vault.route) {
                 androidx.compose.foundation.pager.HorizontalPager(
                     state = pagerState,
-                    beyondViewportPageCount = 0,
+                    // Keep Vault and Editor alive while switching tabs. Both pages
+                    // host heavyweight Android views (RecyclerView and WebView).
+                    beyondViewportPageCount = 1,
                     modifier = Modifier
                         .fillMaxSize()
                         .testTag("main_content_pager")

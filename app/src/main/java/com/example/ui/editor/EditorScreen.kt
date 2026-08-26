@@ -1,6 +1,5 @@
 package com.example.ui.editor
 
-import android.graphics.Color as AndroidColor
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
@@ -56,6 +55,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -83,6 +83,7 @@ import kotlinx.coroutines.withContext
 
 private const val MIN_PREVIEW_FRACTION = 0.18f
 private const val MAX_PREVIEW_FRACTION = 1.0f
+private const val PREVIEW_RENDER_DEBOUNCE_MS = 140L
 
 @Composable
 fun EditorScreen(
@@ -132,7 +133,13 @@ fun EditorScreen(
         }
     }
 
-    LaunchedEffect(uiState.content.text, previewColors) {
+    LaunchedEffect(uiState.content.text, previewColors, uiState.showMarkdownPreview) {
+        if (!uiState.showMarkdownPreview) return@LaunchedEffect
+
+        // Coalesce rapid keystrokes so Flexmark and WebView do not process every
+        // intermediate document state. The effect is cancelled by Compose when
+        // the text/theme changes again.
+        delay(PREVIEW_RENDER_DEBOUNCE_MS)
         previewHtml = withContext(Dispatchers.Default) {
             MarkdownPreviewRenderer.render(uiState.content.text, previewColors)
         }
@@ -270,6 +277,7 @@ private fun MarkdownPreviewPane(
     onDragStopped: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val previewSurfaceColor = MaterialTheme.colorScheme.surface.toArgb()
     val resizeModifier = Modifier.draggable(
         orientation = Orientation.Vertical,
         state = dragState,
@@ -351,7 +359,7 @@ private fun MarkdownPreviewPane(
             AndroidView(
                 factory = { context ->
                     WebView(context).apply {
-                        setBackgroundColor(AndroidColor.TRANSPARENT)
+                        setBackgroundColor(previewSurfaceColor)
                         settings.javaScriptEnabled = false
                         settings.domStorageEnabled = false
                         settings.allowFileAccess = false
@@ -372,6 +380,7 @@ private fun MarkdownPreviewPane(
                     }
                 },
                 update = { webView ->
+                    webView.setBackgroundColor(previewSurfaceColor)
                     if (html.isNotBlank() && webView.tag != html) {
                         val previousScrollY = webView.scrollY
                         webView.tag = html

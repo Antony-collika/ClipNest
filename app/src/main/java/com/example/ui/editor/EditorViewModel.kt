@@ -130,7 +130,6 @@ class EditorViewModel(
         autoSaveJob?.cancel()
         viewModelScope.launch(Dispatchers.IO) {
             val result = runCatching {
-                writeDocumentSnapshot(previousState, contentResolver)
                 val text = readExternalDocument(uri, contentResolver)
                 val name = queryDisplayName(uri, contentResolver)
                 name to text
@@ -149,6 +148,12 @@ class EditorViewModel(
                         showSaveNewFileDialog = false,
                         lastSavedTimestamp = System.currentTimeMillis()
                     )
+                    viewModelScope.launch(Dispatchers.IO) {
+                        runCatching { writeDocumentSnapshot(previousState, contentResolver) }
+                            .onFailure { error ->
+                                Log.e(TAG, "Could not snapshot previous document before opening: $uri", error)
+                            }
+                    }
                 }.onFailure { error ->
                     Log.e(TAG, "Could not open external document: $uri", error)
                     emitToast(com.example.R.string.could_not_open_file)
@@ -194,6 +199,7 @@ class EditorViewModel(
                 runCatching { contentResolver.openInputStream(uri)?.use { it.readBytes() } }
                     .getOrNull()
                     ?: readFromAssetFileDescriptor(uri, contentResolver)
+                    ?: readFromTypedAssetFileDescriptor(uri, contentResolver)
             }
             ContentResolver.SCHEME_FILE -> {
                 val path = uri.path?.takeIf { it.isNotBlank() }
@@ -204,6 +210,7 @@ class EditorViewModel(
                 runCatching { contentResolver.openInputStream(uri)?.use { it.readBytes() } }
                     .getOrNull()
                     ?: readFromAssetFileDescriptor(uri, contentResolver)
+                    ?: readFromTypedAssetFileDescriptor(uri, contentResolver)
             }
         } ?: error("Unable to open file")
         return decodeUtf8(bytes)
@@ -215,6 +222,16 @@ class EditorViewModel(
                 descriptor.createInputStream().use { it.readBytes() }
             }
         }.getOrNull()
+    }
+
+    private fun readFromTypedAssetFileDescriptor(uri: Uri, contentResolver: ContentResolver): ByteArray? {
+        return listOf("text/markdown", "text/plain", "text/*").firstNotNullOfOrNull { mimeType ->
+            runCatching {
+                contentResolver.openTypedAssetFileDescriptor(uri, mimeType, null)?.use { descriptor ->
+                    descriptor.createInputStream().use { it.readBytes() }
+                }
+            }.getOrNull()
+        }
     }
 
     private fun decodeUtf8(bytes: ByteArray): String {

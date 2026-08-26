@@ -38,6 +38,15 @@
                 <data android:mimeType="text/x-markdown" />
                 <data android:mimeType="text/plain+md" />
             </intent-filter>
+            <!-- Some senders deliver a document URI through ACTION_SEND. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/markdown" />
+                <data android:mimeType="text/x-markdown" />
+                <data android:mimeType="text/plain+md" />
+                <data android:mimeType="application/octet-stream" />
+            </intent-filter>
             <!-- Some providers expose .txt/.md with a generic MIME type. -->
             <intent-filter tools:ignore="AppLinkUrlError">
                 <action android:name="android.intent.action.VIEW" />
