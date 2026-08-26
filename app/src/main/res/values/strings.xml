@@ -8,6 +8,8 @@
     <string name="share">Share</string>
     <string name="save_file">Save file</string>
     <string name="open_editor">Open editor</string>
+    <string name="open_file">Open file</string>
+    <string name="return_to_editor">Return to Editor</string>
     <string name="show_pinned_first">Show pinned first</string>
     <string name="settings">Settings</string>
     <string name="previous_match">Previous match</string>
@@ -142,6 +144,8 @@
     <string name="content_saved_to_vault">Content saved to the clipboard vault</string>
     <string name="tap_to_save_clipboard">Tap to save the current clipboard</string>
     <string name="could_not_open_file">Could not open file</string>
+    <string name="could_not_save_open_file">Could not save this file. Choose Save as to create a writable copy.</string>
+    <string name="saved_current_file">Saved current file</string>
     <string name="today">Today</string>
     <string name="yesterday">Yesterday</string>
     <string name="selected">Selected</string>

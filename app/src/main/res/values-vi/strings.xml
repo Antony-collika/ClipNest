@@ -8,6 +8,8 @@
     <string name="share">Chia sẻ</string>
     <string name="save_file">Lưu file</string>
     <string name="open_editor">Mở trình soạn thảo</string>
+    <string name="open_file">Mở file</string>
+    <string name="return_to_editor">Quay lại Editor</string>
     <string name="show_pinned_first">Hiện mục đã ghim trước</string>
     <string name="settings">Cài đặt</string>
     <string name="previous_match">Kết quả trước</string>
@@ -142,6 +144,8 @@
     <string name="content_saved_to_vault">Đã lưu nội dung vào kho clipboard</string>
     <string name="tap_to_save_clipboard">Chạm để lưu clipboard hiện tại</string>
     <string name="could_not_open_file">Không thể mở file</string>
+    <string name="could_not_save_open_file">Không thể lưu file này. Hãy dùng Lưu thành để tạo bản sao có thể ghi.</string>
+    <string name="saved_current_file">Đã lưu file hiện tại</string>
     <string name="today">Hôm nay</string>
     <string name="yesterday">Hôm qua</string>
     <string name="selected">Đã chọn</string>

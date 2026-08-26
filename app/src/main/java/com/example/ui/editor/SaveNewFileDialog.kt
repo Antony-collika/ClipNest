@@ -35,11 +35,12 @@ import com.example.data.local.ExportFormat
 @Composable
 fun SaveNewFileDialog(
     defaultFolderUri: String?,
+    initialFileName: String = "Editor",
     onChooseFolder: () -> Unit,
     onDismiss: () -> Unit,
     onConfirm: (fileName: String, format: ExportFormat) -> Unit
 ) {
-    var fileName by remember { mutableStateOf("Editor") }
+    var fileName by remember(initialFileName) { mutableStateOf(initialFileName.substringBeforeLast('.').ifBlank { "Editor" }) }
     var selectedFormat by remember { mutableStateOf(ExportFormat.MARKDOWN) }
 
     AlertDialog(

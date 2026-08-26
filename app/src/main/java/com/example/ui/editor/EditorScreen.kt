@@ -1,5 +1,7 @@
 package com.example.ui.editor
 
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import android.graphics.Color as AndroidColor
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -20,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,6 +37,7 @@ import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -138,62 +142,58 @@ fun EditorScreen(
         }
     }
 
-    Column(
+    Box(
         modifier = modifier
             .fillMaxSize()
             .imePadding()
     ) {
-        EditorToolbox(
-            isMarkdownToolsExpanded = uiState.isMarkdownToolsExpanded,
-            onPaste = { viewModel.pasteFromClipboard(context) },
-            onCopy = { viewModel.copySelectedText(context) },
-            onSelectAll = viewModel::selectAll,
-            onDelete = viewModel::deleteSelectedText,
-            onUndo = viewModel::undo,
-            onRedo = viewModel::redo,
-            onMoveCursorLeft = viewModel::moveCursorLeft,
-            onMoveCursorRight = viewModel::moveCursorRight,
-            onToggleExpanded = viewModel::toggleMarkdownTools
-        )
-        if (uiState.isMarkdownToolsExpanded) {
-            ExpandedMarkdownToolbox(
-                isPreviewVisible = uiState.showMarkdownPreview,
-                onHeading = viewModel::insertMarkdownHeading,
-                onBold = viewModel::toggleMarkdownStrong,
-                onItalic = viewModel::toggleMarkdownEmphasis,
-                onQuote = viewModel::insertMarkdownQuote,
-                onCode = viewModel::insertMarkdownCodeBlock,
-                onBullets = viewModel::insertMarkdownBullets,
-                onNumbers = viewModel::insertMarkdownNumbers,
-                onHorizontalRule = viewModel::insertMarkdownHorizontalRule,
-                onTogglePreview = viewModel::toggleMarkdownPreview
+        Column(modifier = Modifier.fillMaxSize()) {
+            EditorToolbox(
+                isMarkdownToolsExpanded = uiState.isMarkdownToolsExpanded,
+                onPaste = { viewModel.pasteFromClipboard(context) },
+                onCopy = { viewModel.copySelectedText(context) },
+                onSelectAll = viewModel::selectAll,
+                onDelete = viewModel::deleteSelectedText,
+                onUndo = viewModel::undo,
+                onRedo = viewModel::redo,
+                onMoveCursorLeft = viewModel::moveCursorLeft,
+                onMoveCursorRight = viewModel::moveCursorRight,
+                onToggleExpanded = viewModel::toggleMarkdownTools
             )
-        }
-
-        if (uiState.showMarkdownPreview) {
-            SplitEditorAndPreview(
-                uiState = uiState,
-                previewHtml = previewHtml,
-                onPreviewFractionChange = viewModel::setPreviewSplitFraction,
-                onContentChange = viewModel::onContentChange,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-            )
-        } else {
+            if (uiState.isMarkdownToolsExpanded) {
+                ExpandedMarkdownToolbox(
+                    isPreviewVisible = uiState.showMarkdownPreview,
+                    onHeading = viewModel::insertMarkdownHeading,
+                    onBold = viewModel::toggleMarkdownStrong,
+                    onItalic = viewModel::toggleMarkdownEmphasis,
+                    onQuote = viewModel::insertMarkdownQuote,
+                    onCode = viewModel::insertMarkdownCodeBlock,
+                    onBullets = viewModel::insertMarkdownBullets,
+                    onNumbers = viewModel::insertMarkdownNumbers,
+                    onHorizontalRule = viewModel::insertMarkdownHorizontalRule,
+                    onTogglePreview = viewModel::toggleMarkdownPreview
+                )
+            }
             EditorTextInput(
                 value = uiState.content,
                 onValueChange = viewModel::onContentChange,
                 modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxWidth()
                     .weight(1f)
             )
         }
+        EditorWithPreviewOverlay(
+            uiState = uiState,
+            previewHtml = previewHtml,
+            onPreviewFractionChange = viewModel::setPreviewSplitFraction,
+            modifier = Modifier.fillMaxSize()
+        )
     }
 
     if (uiState.showSaveNewFileDialog) {
         SaveNewFileDialog(
             defaultFolderUri = uiState.defaultSaveFolderUri,
+            initialFileName = uiState.documentName,
             onChooseFolder = onRequestSaveFolder,
             onDismiss = viewModel::dismissSaveNewFileDialog,
             onConfirm = { fileName, format ->
@@ -204,28 +204,35 @@ fun EditorScreen(
 }
 
 @Composable
-private fun SplitEditorAndPreview(
+private fun EditorWithPreviewOverlay(
     uiState: EditorUiState,
     previewHtml: String,
     onPreviewFractionChange: (Float) -> Unit,
-    onContentChange: (TextFieldValue) -> Unit,
     modifier: Modifier = Modifier
 ) {
     BoxWithConstraints(
-        modifier = modifier
-            .testTag("editor_split_view")
+        modifier = modifier.testTag("editor_split_view")
     ) {
         val density = androidx.compose.ui.platform.LocalDensity.current
         val totalHeightPx = with(density) { maxHeight.toPx() }
-        val editorFraction = 1f - uiState.previewSplitFraction
-        Column(modifier = Modifier.fillMaxSize()) {
-            EditorTextInput(
-                value = uiState.content,
-                onValueChange = onContentChange,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(editorFraction)
-            )
+        val targetPreviewHeight = if (uiState.showMarkdownPreview) {
+            maxHeight * uiState.previewSplitFraction
+        } else {
+            0.dp
+        }
+        val previewHeight by animateDpAsState(
+            targetValue = targetPreviewHeight,
+            animationSpec = tween(durationMillis = 180),
+            label = "markdown_preview_height"
+        )
+
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(previewHeight)
+                .testTag("markdown_preview_overlay")
+        ) {
             PreviewDivider(
                 onDrag = { dragAmount ->
                     if (totalHeightPx > 0f) {
@@ -237,7 +244,7 @@ private fun SplitEditorAndPreview(
                 html = previewHtml,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(uiState.previewSplitFraction)
+                    .weight(1f)
             )
         }
     }
@@ -246,49 +253,29 @@ private fun SplitEditorAndPreview(
 @Composable
 private fun PreviewDivider(onDrag: (Float) -> Unit) {
     val latestOnDrag by rememberUpdatedState(onDrag)
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+    Box(
+        contentAlignment = Alignment.Center,
         modifier = Modifier
             .fillMaxWidth()
-            .height(28.dp)
+            .height(22.dp)
             .draggable(
                 orientation = Orientation.Vertical,
                 state = rememberDraggableState { delta -> latestOnDrag(delta) }
             )
             .testTag("markdown_preview_divider")
     ) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-            HorizontalDivider(
-                color = MaterialTheme.colorScheme.outlineVariant,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Surface(
-                color = MaterialTheme.colorScheme.surface,
-                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                shape = RoundedCornerShape(12.dp),
-                tonalElevation = 1.dp,
-                modifier = Modifier
-                    .size(width = 72.dp, height = 22.dp)
-                    .clip(RoundedCornerShape(12.dp))
-            ) {
-                Row(
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.KeyboardArrowUp,
-                        contentDescription = stringResource(com.example.R.string.resize_preview),
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Icon(
-                        imageVector = Icons.Default.KeyboardArrowDown,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-        }
+        HorizontalDivider(
+            color = MaterialTheme.colorScheme.outlineVariant,
+            thickness = 1.dp,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Surface(
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            shape = RoundedCornerShape(6.dp),
+            tonalElevation = 1.dp,
+            modifier = Modifier.size(width = 42.dp, height = 10.dp)
+        ) { }
     }
 }
 
@@ -299,23 +286,24 @@ private fun MarkdownPreviewPane(html: String, modifier: Modifier = Modifier) {
             .fillMaxWidth()
             .testTag("markdown_preview_pane")
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp)
-                    .padding(horizontal = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = stringResource(com.example.R.string.preview_markdown),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(34.dp)
+                .padding(horizontal = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = stringResource(com.example.R.string.preview_markdown),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f)
+            )
         }
+        HorizontalDivider(
+            color = MaterialTheme.colorScheme.outlineVariant,
+            thickness = 1.dp
+        )
         AndroidView(
             factory = { context ->
                 WebView(context).apply {
@@ -326,11 +314,23 @@ private fun MarkdownPreviewPane(html: String, modifier: Modifier = Modifier) {
                     settings.allowContentAccess = false
                     isVerticalScrollBarEnabled = true
                     isHorizontalScrollBarEnabled = false
+                    isNestedScrollingEnabled = true
+                    overScrollMode = android.view.View.OVER_SCROLL_IF_CONTENT_SCROLLS
+                    setOnTouchListener { view, event ->
+                        when (event.actionMasked) {
+                            android.view.MotionEvent.ACTION_DOWN,
+                            android.view.MotionEvent.ACTION_MOVE -> view.parent?.requestDisallowInterceptTouchEvent(true)
+                            android.view.MotionEvent.ACTION_UP,
+                            android.view.MotionEvent.ACTION_CANCEL -> view.parent?.requestDisallowInterceptTouchEvent(false)
+                        }
+                        false
+                    }
                     webViewClient = WebViewClient()
                 }
             },
             update = { webView ->
-                if (html.isNotBlank()) {
+                if (html.isNotBlank() && webView.tag != html) {
+                    webView.tag = html
                     webView.loadDataWithBaseURL(
                         null,
                         html,
@@ -441,36 +441,44 @@ private fun ExpandedMarkdownToolbox(
     onHorizontalRule: () -> Unit,
     onTogglePreview: () -> Unit
 ) {
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f),
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
             .testTag("markdown_expanded_toolbox")
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 2.dp),
-            verticalAlignment = Alignment.CenterVertically
+        val buttonWidth = (maxWidth / 11f).coerceIn(26.dp, 34.dp)
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f),
+            modifier = Modifier.fillMaxWidth()
         ) {
-            MarkdownTextButton("markdown_action_h1", "H1", stringResource(com.example.R.string.markdown_h1), { onHeading(1) }, modifier = Modifier.weight(1f))
-            MarkdownTextButton("markdown_action_h2", "H2", stringResource(com.example.R.string.markdown_h2), { onHeading(2) }, modifier = Modifier.weight(1f))
-            MarkdownTextButton("markdown_action_h3", "H3", stringResource(com.example.R.string.markdown_h3), { onHeading(3) }, modifier = Modifier.weight(1f))
-            MarkdownTextButton("markdown_action_bold", "B", stringResource(com.example.R.string.markdown_bold), onBold, bold = true, modifier = Modifier.weight(1f))
-            MarkdownTextButton("markdown_action_italic", "I", stringResource(com.example.R.string.markdown_italic), onItalic, italic = true, modifier = Modifier.weight(1f))
-            MarkdownTextButton("markdown_action_quote", "❝", stringResource(com.example.R.string.markdown_quote), onQuote, modifier = Modifier.weight(1f))
-            MarkdownTextButton("markdown_action_code", "</>", stringResource(com.example.R.string.markdown_code), onCode, modifier = Modifier.weight(1f))
-            MarkdownTextButton("markdown_action_bullets", "•", stringResource(com.example.R.string.markdown_bullets), onBullets, modifier = Modifier.weight(1f))
-            MarkdownTextButton("markdown_action_numbers", "1.", stringResource(com.example.R.string.markdown_numbers), onNumbers, modifier = Modifier.weight(1f))
-            MarkdownTextButton("markdown_action_rule", "—", stringResource(com.example.R.string.markdown_horizontal_rule), onHorizontalRule, modifier = Modifier.weight(1f))
-            MarkdownTextButton(
-                tag = "markdown_action_view",
-                label = "View",
-                contentDescription = if (isPreviewVisible) stringResource(com.example.R.string.hide_markdown_preview) else stringResource(com.example.R.string.show_markdown_preview),
-                onClick = onTogglePreview,
-                active = isPreviewVisible,
-                modifier = Modifier.weight(1f)
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 1.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                MarkdownTextButton("markdown_action_h1", "H1", stringResource(com.example.R.string.markdown_h1), { onHeading(1) }, modifier = Modifier.width(buttonWidth))
+                MarkdownTextButton("markdown_action_h2", "H2", stringResource(com.example.R.string.markdown_h2), { onHeading(2) }, modifier = Modifier.width(buttonWidth))
+                MarkdownTextButton("markdown_action_h3", "H3", stringResource(com.example.R.string.markdown_h3), { onHeading(3) }, modifier = Modifier.width(buttonWidth))
+                MarkdownTextButton("markdown_action_bold", "B", stringResource(com.example.R.string.markdown_bold), onBold, bold = true, modifier = Modifier.width(buttonWidth))
+                MarkdownTextButton("markdown_action_italic", "I", stringResource(com.example.R.string.markdown_italic), onItalic, italic = true, modifier = Modifier.width(buttonWidth))
+                MarkdownTextButton("markdown_action_quote", "❝", stringResource(com.example.R.string.markdown_quote), onQuote, modifier = Modifier.width(buttonWidth))
+                MarkdownTextButton("markdown_action_code", "</>", stringResource(com.example.R.string.markdown_code), onCode, modifier = Modifier.width(buttonWidth))
+                MarkdownTextButton("markdown_action_bullets", "•", stringResource(com.example.R.string.markdown_bullets), onBullets, modifier = Modifier.width(buttonWidth))
+                MarkdownTextButton("markdown_action_numbers", "1.", stringResource(com.example.R.string.markdown_numbers), onNumbers, modifier = Modifier.width(buttonWidth))
+                MarkdownTextButton("markdown_action_rule", "—", stringResource(com.example.R.string.markdown_horizontal_rule), onHorizontalRule, modifier = Modifier.width(buttonWidth))
+                MarkdownTextButton(
+                    tag = "markdown_action_view",
+                    label = "",
+                    icon = Icons.Default.Visibility,
+                    contentDescription = if (isPreviewVisible) stringResource(com.example.R.string.hide_markdown_preview) else stringResource(com.example.R.string.show_markdown_preview),
+                    onClick = onTogglePreview,
+                    active = isPreviewVisible,
+                    inactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.68f),
+                    modifier = Modifier.width(buttonWidth)
+                )
+            }
         }
     }
 }
@@ -484,11 +492,17 @@ private fun MarkdownTextButton(
     bold: Boolean = false,
     italic: Boolean = false,
     active: Boolean = false,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    inactiveContentColor: Color? = null
 ) {
     Surface(
         color = if (active) MaterialTheme.colorScheme.primary else Color.Transparent,
-        contentColor = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
+        contentColor = if (active) {
+            MaterialTheme.colorScheme.onPrimary
+        } else {
+            inactiveContentColor ?: MaterialTheme.colorScheme.primary
+        },
         shape = RoundedCornerShape(6.dp),
         modifier = Modifier
             .then(modifier)
@@ -504,13 +518,21 @@ private fun MarkdownTextButton(
         tonalElevation = if (active) 1.dp else 0.dp
     ) {
         Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelLarge.copy(
-                    fontWeight = if (bold) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Normal,
-                    fontStyle = if (italic) androidx.compose.ui.text.font.FontStyle.Italic else androidx.compose.ui.text.font.FontStyle.Normal
+            if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
                 )
-            )
+            } else {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = if (bold) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Normal,
+                        fontStyle = if (italic) androidx.compose.ui.text.font.FontStyle.Italic else androidx.compose.ui.text.font.FontStyle.Normal
+                    )
+                )
+            }
         }
     }
 }

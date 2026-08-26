@@ -4,6 +4,7 @@ import android.content.ClipboardManager
 import android.content.Intent
 import android.content.ContentResolver
 import android.content.Context
+import android.provider.OpenableColumns
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import kotlin.math.max
@@ -40,7 +41,9 @@ data class EditorUiState(
     val lastSavedTimestamp: Long = 0L,
     val isMarkdownToolsExpanded: Boolean = false,
     val showMarkdownPreview: Boolean = false,
-    val previewSplitFraction: Float = 0.30f
+    val previewSplitFraction: Float = 0.30f,
+    val documentName: String = "Editor",
+    val externalDocumentUri: String? = null
 )
 
 sealed class EditorEvent {
@@ -116,6 +119,103 @@ class EditorViewModel(
                 editorLoaded = true
             }
         }
+    }
+
+    fun openExternalDocument(uri: android.net.Uri, contentResolver: ContentResolver) {
+        val previousState = _uiState.value
+        editorLoaded = true
+        autoSaveJob?.cancel()
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = runCatching {
+                writeDocumentSnapshot(previousState, contentResolver)
+                val text = contentResolver.openInputStream(uri)?.use { input ->
+                    input.readBytes().toString(Charsets.UTF_8)
+                } ?: error("Unable to open file")
+                val name = queryDisplayName(uri, contentResolver)
+                name to text
+            }
+            withContext(Dispatchers.Main.immediate) {
+                result.onSuccess { (name, text) ->
+                    val value = TextFieldValue(text = text, selection = TextRange(text.length))
+                    undoStack.clear()
+                    redoStack.clear()
+                    resetSearchState()
+                    _uiState.value = _uiState.value.copy(
+                        content = value,
+                        isDirty = false,
+                        documentName = name,
+                        externalDocumentUri = uri.toString(),
+                        showSaveNewFileDialog = false,
+                        lastSavedTimestamp = System.currentTimeMillis()
+                    )
+                }.onFailure {
+                    emitToast(com.example.R.string.could_not_open_file)
+                }
+            }
+        }
+    }
+
+    fun returnToInternalEditor(contentResolver: ContentResolver, onComplete: () -> Unit = {}) {
+        if (_uiState.value.externalDocumentUri == null) return
+        val previousState = _uiState.value
+        autoSaveJob?.cancel()
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = runCatching {
+                writeDocumentSnapshot(previousState, contentResolver)
+                fileManager.readEditor()
+            }
+            withContext(Dispatchers.Main.immediate) {
+                result.onSuccess { text ->
+                    val value = TextFieldValue(text = text, selection = TextRange(text.length))
+                    undoStack.clear()
+                    redoStack.clear()
+                    resetSearchState()
+                    _uiState.value = _uiState.value.copy(
+                        content = value,
+                        isDirty = false,
+                        documentName = "Editor",
+                        externalDocumentUri = null,
+                        showSaveNewFileDialog = false,
+                        lastSavedTimestamp = System.currentTimeMillis()
+                    )
+                    onComplete()
+                }.onFailure {
+                    emitToast(com.example.R.string.could_not_open_file)
+                }
+            }
+        }
+    }
+
+    private fun queryDisplayName(uri: android.net.Uri, contentResolver: ContentResolver): String {
+        val queriedName = runCatching {
+            contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) cursor.getString(0) else null
+            }
+        }.getOrNull()
+        return queriedName?.takeIf { it.isNotBlank() }
+            ?: uri.lastPathSegment?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
+            ?: "Open file"
+    }
+
+    private fun writeDocumentSnapshot(state: EditorUiState, contentResolver: ContentResolver) {
+        val uri = state.externalDocumentUri?.let(android.net.Uri::parse)
+        if (uri == null) {
+            if (state.isDirty) fileManager.writeEditor(state.content.text)
+            return
+        }
+        if (!state.isDirty) return
+        contentResolver.openOutputStream(uri, "wt")?.use { output ->
+            output.write(state.content.text.toByteArray(Charsets.UTF_8))
+            output.flush()
+        } ?: error("Unable to save file")
+    }
+
+    private fun resetSearchState() {
+        _isSearchOpen.value = false
+        _searchQuery.value = ""
+        searchMatchStarts = emptyList()
+        _searchMatchCount.value = 0
+        _activeSearchMatch.value = 0
     }
 
     fun onContentChange(newValue: TextFieldValue) {
@@ -437,11 +537,14 @@ class EditorViewModel(
     }
 
     fun saveCurrentDocumentSilently() {
-        val contentSnapshot = _uiState.value.content.text
+        val stateSnapshot = _uiState.value
+        val contentSnapshot = stateSnapshot.content.text
         viewModelScope.launch(Dispatchers.IO) {
-            fileManager.writeEditor(contentSnapshot)
+            val saved = runCatching {
+                writeDocumentSnapshot(stateSnapshot, appContext.contentResolver)
+            }.isSuccess
             withContext(Dispatchers.Main.immediate) {
-                if (_uiState.value.content.text == contentSnapshot) {
+                if (saved && _uiState.value.content.text == contentSnapshot) {
                     _uiState.value = _uiState.value.copy(
                         isDirty = false,
                         lastSavedTimestamp = System.currentTimeMillis()
@@ -451,8 +554,39 @@ class EditorViewModel(
         }
     }
 
-    fun onSaveClicked() {
-        _uiState.value = _uiState.value.copy(showSaveNewFileDialog = true)
+    fun onSaveClicked(contentResolver: ContentResolver = appContext.contentResolver) {
+        val externalUri = _uiState.value.externalDocumentUri
+        if (externalUri == null) {
+            _uiState.value = _uiState.value.copy(showSaveNewFileDialog = true)
+        } else {
+            saveExternalDocument(android.net.Uri.parse(externalUri), contentResolver)
+        }
+    }
+
+    private fun saveExternalDocument(uri: android.net.Uri, contentResolver: ContentResolver) {
+        val contentSnapshot = _uiState.value.content.text
+        viewModelScope.launch(Dispatchers.IO) {
+            val saved = runCatching {
+                contentResolver.openOutputStream(uri, "wt")?.use { output ->
+                    output.write(contentSnapshot.toByteArray(Charsets.UTF_8))
+                    output.flush()
+                } ?: error("Unable to save file")
+            }.isSuccess
+            withContext(Dispatchers.Main.immediate) {
+                if (saved) {
+                    if (_uiState.value.content.text == contentSnapshot) {
+                        _uiState.value = _uiState.value.copy(
+                            isDirty = false,
+                            lastSavedTimestamp = System.currentTimeMillis()
+                        )
+                    }
+                    emitToast(com.example.R.string.saved_current_file)
+                } else {
+                    _uiState.value = _uiState.value.copy(showSaveNewFileDialog = true)
+                    emitToast(com.example.R.string.could_not_save_open_file)
+                }
+            }
+        }
     }
 
     fun dismissSaveNewFileDialog() {
@@ -529,7 +663,7 @@ class EditorViewModel(
     companion object {
         private const val MAX_HISTORY = 100
         private const val MIN_PREVIEW_FRACTION = 0.18f
-        private const val MAX_PREVIEW_FRACTION = 0.82f
+        private const val MAX_PREVIEW_FRACTION = 1.0f
     }
 }
 

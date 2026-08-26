@@ -95,6 +95,7 @@ import com.example.ui.vault.VaultViewModel
 import com.example.ui.vault.VaultViewModelFactory
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -115,12 +116,30 @@ class MainActivity : ComponentActivity() {
     }
 
     private var pendingFolderSelection: ((Uri) -> Unit)? = null
+    private var pendingOpenFileSelection: ((Uri) -> Unit)? = null
+    private val incomingOpenUri = MutableStateFlow<Uri?>(null)
     private val folderPickerLauncher = registerForActivityResult(
         ActivityResultContracts.OpenDocumentTree()
     ) { uri ->
         val callback = pendingFolderSelection
         pendingFolderSelection = null
         if (uri != null) callback?.invoke(uri)
+    }
+
+    private val openFileLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            runCatching {
+                contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+            }
+            val callback = pendingOpenFileSelection
+            pendingOpenFileSelection = null
+            callback?.invoke(uri)
+        }
     }
 
     private val backupFileLauncher = registerForActivityResult(
@@ -176,6 +195,7 @@ class MainActivity : ComponentActivity() {
             }
 
             val localizedContext = LocalContext.current.withAppLanguage(userSettings.language)
+            val incomingUri by incomingOpenUri.collectAsStateWithLifecycle()
             CompositionLocalProvider(LocalContext provides localizedContext) {
                 ClipboardManagerTheme(
                     themeMode = userSettings.themeMode,
@@ -186,7 +206,10 @@ class MainActivity : ComponentActivity() {
                         editorViewModelFactory = EditorViewModelFactory(fileManager, settingsDataStore, applicationContext),
                         settingsViewModelFactory = SettingsViewModelFactory(settingsDataStore, repository, fileManager, applicationContext),
                         onRequestFolder = ::requestFolderSelection,
+                        onRequestOpenFile = ::requestOpenFile,
                         onShareText = ::shareTextExternally,
+                        incomingOpenUri = incomingUri,
+                        onIncomingOpenUriHandled = { incomingOpenUri.value = null },
                         onRequestBackup = ::requestBackupFile,
                         onRequestRestore = ::requestRestoreFile
                     )
@@ -204,6 +227,11 @@ class MainActivity : ComponentActivity() {
     private fun requestFolderSelection(onSelected: (Uri) -> Unit) {
         pendingFolderSelection = onSelected
         folderPickerLauncher.launch(null)
+    }
+
+    private fun requestOpenFile(onSelected: (Uri) -> Unit) {
+        pendingOpenFileSelection = onSelected
+        openFileLauncher.launch(arrayOf("text/plain", "text/markdown", "text/*", "application/octet-stream"))
     }
 
     private fun requestBackupFile() {
@@ -284,6 +312,9 @@ class MainActivity : ComponentActivity() {
         if (intent?.getBooleanExtra(CaptureNotificationManager.EXTRA_OPEN_CAPTURE, false) == true) {
             vaultViewModel.openInAppCapture()
         }
+        if (intent?.action == Intent.ACTION_VIEW && intent.data != null) {
+            incomingOpenUri.value = intent.data
+        }
     }
 }
 
@@ -294,7 +325,10 @@ fun MainAppContent(
     editorViewModelFactory: ViewModelProvider.Factory,
     settingsViewModelFactory: ViewModelProvider.Factory,
     onRequestFolder: (((Uri) -> Unit) -> Unit),
+    onRequestOpenFile: ((Uri) -> Unit) -> Unit,
     onShareText: (String, String) -> Unit,
+    incomingOpenUri: Uri?,
+    onIncomingOpenUriHandled: () -> Unit,
     onRequestBackup: () -> Unit,
     onRequestRestore: () -> Unit
 ) {
@@ -308,6 +342,7 @@ fun MainAppContent(
     val editorSearchQuery = editorViewModel.searchQuery.collectAsStateWithLifecycle().value
     val editorSearchMatchCount = editorViewModel.searchMatchCount.collectAsStateWithLifecycle().value
     val editorActiveSearchMatch = editorViewModel.activeSearchMatch.collectAsStateWithLifecycle().value
+    val editorUiState by editorViewModel.uiState.collectAsStateWithLifecycle()
     val pagerState = androidx.compose.foundation.pager.rememberPagerState(
         initialPage = 0,
         pageCount = { 2 }
@@ -320,9 +355,31 @@ fun MainAppContent(
     val visibleSelectedCount = selectedCards.size
     val allSelected = vaultState.cards.isNotEmpty() && visibleSelectedCount == vaultState.cards.size
 
-    fun openEditorFromVault() {
-        vaultViewModel.copySelectedCardsThenOpenEditor(context) {
+    LaunchedEffect(incomingOpenUri) {
+        incomingOpenUri?.let { uri ->
+            editorViewModel.openExternalDocument(uri, context.contentResolver)
+            pagerState.animateScrollToPage(1)
+            onIncomingOpenUriHandled()
+        }
+    }
+
+    fun openExternalFile() {
+        onRequestOpenFile { uri ->
+            editorViewModel.openExternalDocument(uri, context.contentResolver)
             scope.launch { pagerState.animateScrollToPage(1) }
+        }
+    }
+
+    fun openEditorFromVault() {
+        val navigate = {
+            vaultViewModel.copySelectedCardsThenOpenEditor(context) {
+                scope.launch { pagerState.animateScrollToPage(1) }
+            }
+        }
+        if (editorUiState.externalDocumentUri != null) {
+            editorViewModel.returnToInternalEditor(context.contentResolver, onComplete = navigate)
+        } else {
+            navigate()
         }
     }
 
@@ -332,7 +389,7 @@ fun MainAppContent(
                     title = when {
                         isSettings -> stringResource(com.example.R.string.settings)
                         selectedTab == 0 -> stringResource(com.example.R.string.vault)
-                        else -> stringResource(com.example.R.string.editor)
+                        else -> if (editorUiState.externalDocumentUri != null) editorUiState.documentName else stringResource(com.example.R.string.editor)
                     },
                     isVault = !isSettings && selectedTab == 0,
                     isEditor = !isSettings && selectedTab == 1,
@@ -344,6 +401,7 @@ fun MainAppContent(
                     isSearchOpen = if (isEditorTab) editorSearchOpen else vaultState.isSearchOpen,
                     searchQuery = if (isEditorTab) editorSearchQuery else vaultState.searchQuery,
                     searchPlaceholder = if (isEditorTab) stringResource(com.example.R.string.search_editor) else stringResource(com.example.R.string.search_vault),
+                    editorDocumentName = if (editorUiState.externalDocumentUri != null) editorUiState.documentName else stringResource(com.example.R.string.editor),
                     editorSearchMatchCount = editorSearchMatchCount,
                     editorActiveSearchMatch = editorActiveSearchMatch,
                     onPreviousSearchMatch = editorViewModel::previousSearchMatch,
@@ -356,7 +414,10 @@ fun MainAppContent(
                     },
                     onShareSelected = { vaultViewModel.shareSelected() },
                     onSaveFile = vaultViewModel::openExportDialog,
-                    onEditorSave = editorViewModel::onSaveClicked,
+                    onEditorSave = { editorViewModel.onSaveClicked(context.contentResolver) },
+                    onOpenFile = ::openExternalFile,
+                    onReturnToEditor = { editorViewModel.returnToInternalEditor(context.contentResolver) },
+                    isExternalDocument = editorUiState.externalDocumentUri != null,
                     onOpenEditor = ::openEditorFromVault,
                     onToggleShowPinnedFirst = vaultViewModel::toggleShowPinnedFirst,
                     onPinSelected = vaultViewModel::togglePinSelected,
@@ -440,6 +501,7 @@ private fun MainTopBar(
     isSearchOpen: Boolean,
     searchQuery: String,
     searchPlaceholder: String,
+    editorDocumentName: String,
     editorSearchMatchCount: Int,
     editorActiveSearchMatch: Int,
     onPreviousSearchMatch: () -> Unit,
@@ -451,6 +513,9 @@ private fun MainTopBar(
     onShareSelected: () -> Unit,
     onSaveFile: () -> Unit,
     onEditorSave: () -> Unit,
+    onOpenFile: () -> Unit,
+    onReturnToEditor: () -> Unit,
+    isExternalDocument: Boolean,
     onOpenEditor: () -> Unit,
     onToggleShowPinnedFirst: () -> Unit,
     onPinSelected: () -> Unit,
@@ -583,8 +648,9 @@ private fun MainTopBar(
                                     .testTag("main_tab_editor")
                             ) {
                                 Text(
-                                    stringResource(com.example.R.string.editor),
-                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+                                    editorDocumentName,
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                                    maxLines = 1
                                 )
                             }
                         }
@@ -720,6 +786,23 @@ private fun MainTopBar(
                             modifier = Modifier.testTag("main_menu_settings")
                         )
                     } else {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(com.example.R.string.open_file)) },
+                            onClick = {
+                                overflowExpanded = false
+                                onOpenFile()
+                            },
+                            modifier = Modifier.testTag("editor_menu_open_file")
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(com.example.R.string.return_to_editor)) },
+                            enabled = isExternalDocument,
+                            onClick = {
+                                overflowExpanded = false
+                                onReturnToEditor()
+                            },
+                            modifier = Modifier.testTag("editor_menu_return_to_editor")
+                        )
                         DropdownMenuItem(
                             text = { Text(stringResource(com.example.R.string.save_file)) },
                             onClick = {
