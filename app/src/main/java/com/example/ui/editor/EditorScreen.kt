@@ -1,5 +1,6 @@
 package com.example.ui.editor
 
+import android.view.ViewConfiguration
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
@@ -9,6 +10,7 @@ import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -35,6 +37,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -80,10 +83,15 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.abs
 
-private const val MIN_PREVIEW_FRACTION = 0.18f
 private const val MAX_PREVIEW_FRACTION = 1.0f
 private const val PREVIEW_RENDER_DEBOUNCE_MS = 140L
+private val PREVIEW_HANDLE_ROW_HEIGHT = 20.dp
+private val PREVIEW_TITLE_ROW_HEIGHT = 36.dp
+private val PREVIEW_HEADER_DIVIDER_HEIGHT = 1.dp
+private val PREVIEW_COLLAPSED_HEIGHT =
+    PREVIEW_HANDLE_ROW_HEIGHT + PREVIEW_TITLE_ROW_HEIGHT + PREVIEW_HEADER_DIVIDER_HEIGHT
 
 @Composable
 fun EditorScreen(
@@ -133,12 +141,10 @@ fun EditorScreen(
         }
     }
 
-    LaunchedEffect(uiState.content.text, previewColors, uiState.showMarkdownPreview) {
-        if (!uiState.showMarkdownPreview) return@LaunchedEffect
-
-        // Coalesce rapid keystrokes so Flexmark and WebView do not process every
-        // intermediate document state. The effect is cancelled by Compose when
-        // the text/theme changes again.
+    LaunchedEffect(uiState.content.text, previewColors) {
+        // Keep the latest HTML warm even while the pane is hidden, so tapping
+        // View can reveal the preview without waiting for its first render.
+        // The effect is cancelled by Compose when text/theme changes again.
         delay(PREVIEW_RENDER_DEBOUNCE_MS)
         previewHtml = withContext(Dispatchers.Default) {
             MarkdownPreviewRenderer.render(uiState.content.text, previewColors)
@@ -218,6 +224,12 @@ private fun EditorWithPreviewOverlay(
     ) {
         val density = androidx.compose.ui.platform.LocalDensity.current
         val totalHeightPx = with(density) { maxHeight.toPx() }
+        val minPreviewFraction = if (totalHeightPx > 0f) {
+            (with(density) { PREVIEW_COLLAPSED_HEIGHT.toPx() } / totalHeightPx)
+                .coerceAtMost(MAX_PREVIEW_FRACTION)
+        } else {
+            0f
+        }
         val latestOnFractionChange by rememberUpdatedState(onPreviewFractionChange)
         var isDragging by remember { mutableStateOf(false) }
         var dragFraction by remember { mutableStateOf(uiState.previewSplitFraction) }
@@ -231,10 +243,10 @@ private fun EditorWithPreviewOverlay(
         val previewDragState = rememberDraggableState { delta ->
             if (totalHeightPx > 0f && latestIsDragging) {
                 dragFraction = (latestDragFraction - delta / totalHeightPx)
-                    .coerceIn(MIN_PREVIEW_FRACTION, MAX_PREVIEW_FRACTION)
+                    .coerceIn(minPreviewFraction, MAX_PREVIEW_FRACTION)
             }
         }
-        val previewFraction = dragFraction
+        val previewFraction = dragFraction.coerceIn(minPreviewFraction, MAX_PREVIEW_FRACTION)
         // Deliberately avoid height animation during resize. A direct layout value is
         // stable at both ends of the gesture; View toggle itself remains instantaneous
         // rather than handing off from an animation to a drag value.
@@ -258,7 +270,7 @@ private fun EditorWithPreviewOverlay(
                     isDragging = true
                 },
                 onDragStopped = {
-                    latestOnFractionChange(latestDragFraction)
+                    latestOnFractionChange(latestDragFraction.coerceIn(minPreviewFraction, MAX_PREVIEW_FRACTION))
                     isDragging = false
                 },
                 modifier = Modifier
@@ -284,15 +296,18 @@ private fun MarkdownPreviewPane(
         onDragStarted = { _ -> onDragStarted() },
         onDragStopped = { _ -> onDragStopped() }
     )
+    val previewShape = RoundedCornerShape(16.dp)
     Surface(
         color = MaterialTheme.colorScheme.surface,
+        shape = previewShape,
         modifier = modifier
             .fillMaxWidth()
+            .clip(previewShape)
             .testTag("markdown_preview_pane")
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             Surface(
-                color = MaterialTheme.colorScheme.surfaceVariant,
+                color = MaterialTheme.colorScheme.surface,
                 modifier = Modifier
                     .fillMaxWidth()
                     .then(resizeModifier)
@@ -303,35 +318,27 @@ private fun MarkdownPreviewPane(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(22.dp)
+                            .height(PREVIEW_HANDLE_ROW_HEIGHT)
                             .padding(horizontal = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         HorizontalDivider(
-                            color = MaterialTheme.colorScheme.outline,
+                            color = MaterialTheme.colorScheme.outlineVariant,
                             thickness = 1.dp,
                             modifier = Modifier.weight(1f)
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterVertically),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.width(28.dp)
-                        ) {
-                            HorizontalDivider(
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                thickness = 2.dp,
-                                modifier = Modifier.width(24.dp)
-                            )
-                            HorizontalDivider(
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                thickness = 2.dp,
-                                modifier = Modifier.width(24.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Box(
+                            modifier = Modifier
+                                .width(40.dp)
+                                .height(20.dp)
+                                .padding(vertical = 8.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.58f))
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
                         HorizontalDivider(
-                            color = MaterialTheme.colorScheme.outline,
+                            color = MaterialTheme.colorScheme.outlineVariant,
                             thickness = 1.dp,
                             modifier = Modifier.weight(1f)
                         )
@@ -339,14 +346,14 @@ private fun MarkdownPreviewPane(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(30.dp)
-                            .padding(start = 12.dp, end = 12.dp, top = 2.dp),
+                            .height(PREVIEW_TITLE_ROW_HEIGHT)
+                            .padding(horizontal = 16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
                             text = stringResource(com.example.R.string.preview_markdown),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -359,6 +366,9 @@ private fun MarkdownPreviewPane(
             AndroidView(
                 factory = { context ->
                     WebView(context).apply {
+                        settings.setSupportZoom(true)
+                        settings.builtInZoomControls = true
+                        settings.displayZoomControls = false
                         setBackgroundColor(previewSurfaceColor)
                         settings.javaScriptEnabled = false
                         settings.domStorageEnabled = false
@@ -368,11 +378,32 @@ private fun MarkdownPreviewPane(
                         isHorizontalScrollBarEnabled = false
                         isNestedScrollingEnabled = true
                         overScrollMode = android.view.View.OVER_SCROLL_IF_CONTENT_SCROLLS
+                        val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+                        var downX = 0f
+                        var downY = 0f
+                        var directionLocked = false
                         setOnTouchListener { view, event ->
                             when (event.actionMasked) {
-                                android.view.MotionEvent.ACTION_DOWN -> view.parent?.requestDisallowInterceptTouchEvent(true)
+                                android.view.MotionEvent.ACTION_DOWN -> {
+                                    downX = event.x
+                                    downY = event.y
+                                    directionLocked = false
+                                }
+                                android.view.MotionEvent.ACTION_MOVE -> {
+                                    val dx = event.x - downX
+                                    val dy = event.y - downY
+                                    if (!directionLocked && maxOf(abs(dx), abs(dy)) > touchSlop) {
+                                        directionLocked = true
+                                        // Keep vertical scrolling inside WebView; let the
+                                        // HorizontalPager consume horizontal swipes.
+                                        view.parent?.requestDisallowInterceptTouchEvent(abs(dy) >= abs(dx))
+                                    }
+                                }
                                 android.view.MotionEvent.ACTION_UP,
-                                android.view.MotionEvent.ACTION_CANCEL -> view.parent?.requestDisallowInterceptTouchEvent(false)
+                                android.view.MotionEvent.ACTION_CANCEL -> {
+                                    view.parent?.requestDisallowInterceptTouchEvent(false)
+                                    directionLocked = false
+                                }
                             }
                             false
                         }
@@ -503,7 +534,6 @@ private fun ExpandedMarkdownToolbox(
             .fillMaxWidth()
             .testTag("markdown_expanded_toolbox")
     ) {
-        val buttonWidth = (maxWidth / 11f).coerceIn(24.dp, 30.dp)
         Surface(
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f),
             modifier = Modifier.fillMaxWidth()
@@ -515,25 +545,24 @@ private fun ExpandedMarkdownToolbox(
                 horizontalArrangement = Arrangement.spacedBy(0.dp, Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                MarkdownTextButton("markdown_action_h1", "H1", stringResource(com.example.R.string.markdown_h1), { onHeading(1) }, modifier = Modifier.width(buttonWidth))
-                MarkdownTextButton("markdown_action_h2", "H2", stringResource(com.example.R.string.markdown_h2), { onHeading(2) }, modifier = Modifier.width(buttonWidth))
-                MarkdownTextButton("markdown_action_h3", "H3", stringResource(com.example.R.string.markdown_h3), { onHeading(3) }, modifier = Modifier.width(buttonWidth))
-                MarkdownTextButton("markdown_action_bold", "B", stringResource(com.example.R.string.markdown_bold), onBold, bold = true, modifier = Modifier.width(buttonWidth))
-                MarkdownTextButton("markdown_action_italic", "I", stringResource(com.example.R.string.markdown_italic), onItalic, italic = true, modifier = Modifier.width(buttonWidth))
-                MarkdownTextButton("markdown_action_quote", "❝", stringResource(com.example.R.string.markdown_quote), onQuote, modifier = Modifier.width(buttonWidth))
-                MarkdownTextButton("markdown_action_code", "</>", stringResource(com.example.R.string.markdown_code), onCode, modifier = Modifier.width(buttonWidth))
-                MarkdownTextButton("markdown_action_bullets", "•", stringResource(com.example.R.string.markdown_bullets), onBullets, modifier = Modifier.width(buttonWidth))
-                MarkdownTextButton("markdown_action_numbers", "1.", stringResource(com.example.R.string.markdown_numbers), onNumbers, modifier = Modifier.width(buttonWidth))
-                MarkdownTextButton("markdown_action_rule", "—", stringResource(com.example.R.string.markdown_horizontal_rule), onHorizontalRule, modifier = Modifier.width(buttonWidth))
+                MarkdownTextButton("markdown_action_h1", "H1", stringResource(com.example.R.string.markdown_h1), { onHeading(1) }, modifier = Modifier.weight(1f))
+                MarkdownTextButton("markdown_action_h2", "H2", stringResource(com.example.R.string.markdown_h2), { onHeading(2) }, modifier = Modifier.weight(1f))
+                MarkdownTextButton("markdown_action_h3", "H3", stringResource(com.example.R.string.markdown_h3), { onHeading(3) }, modifier = Modifier.weight(1f))
+                MarkdownTextButton("markdown_action_bold", "B", stringResource(com.example.R.string.markdown_bold), onBold, bold = true, modifier = Modifier.weight(1f))
+                MarkdownTextButton("markdown_action_italic", "I", stringResource(com.example.R.string.markdown_italic), onItalic, italic = true, modifier = Modifier.weight(1f))
+                MarkdownTextButton("markdown_action_quote", "❝", stringResource(com.example.R.string.markdown_quote), onQuote, modifier = Modifier.weight(1f))
+                MarkdownTextButton("markdown_action_code", "</>", stringResource(com.example.R.string.markdown_code), onCode, modifier = Modifier.weight(1f))
+                MarkdownTextButton("markdown_action_bullets", "•", stringResource(com.example.R.string.markdown_bullets), onBullets, modifier = Modifier.weight(1f))
+                MarkdownTextButton("markdown_action_numbers", "1.", stringResource(com.example.R.string.markdown_numbers), onNumbers, modifier = Modifier.weight(1f))
+                MarkdownTextButton("markdown_action_rule", "—", stringResource(com.example.R.string.markdown_horizontal_rule), onHorizontalRule, modifier = Modifier.weight(1f))
                 MarkdownTextButton(
                     tag = "markdown_action_view",
                     label = "",
-                    icon = Icons.Default.Visibility,
+                    icon = if (isPreviewVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                     contentDescription = if (isPreviewVisible) stringResource(com.example.R.string.hide_markdown_preview) else stringResource(com.example.R.string.show_markdown_preview),
                     onClick = onTogglePreview,
-                    active = isPreviewVisible,
-                    inactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.68f),
-                    modifier = Modifier.width(buttonWidth)
+                    inactiveContentColor = if (isPreviewVisible) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.62f),
+                    modifier = Modifier.weight(1f)
                 )
             }
         }
@@ -548,18 +577,13 @@ private fun MarkdownTextButton(
     onClick: () -> Unit,
     bold: Boolean = false,
     italic: Boolean = false,
-    active: Boolean = false,
     modifier: Modifier = Modifier,
     icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
     inactiveContentColor: Color? = null
 ) {
     Surface(
-        color = if (active) MaterialTheme.colorScheme.primary else Color.Transparent,
-        contentColor = if (active) {
-            MaterialTheme.colorScheme.onPrimary
-        } else {
-            inactiveContentColor ?: MaterialTheme.colorScheme.primary
-        },
+        color = Color.Transparent,
+        contentColor = inactiveContentColor ?: MaterialTheme.colorScheme.primary,
         shape = RoundedCornerShape(6.dp),
         modifier = Modifier
             .then(modifier)
@@ -572,14 +596,14 @@ private fun MarkdownTextButton(
             .pointerInput(Unit) {
                 detectTapGestures(onTap = { onClick() })
             },
-        tonalElevation = if (active) 1.dp else 0.dp
+        tonalElevation = 0.dp
     ) {
         Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
             if (icon != null) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(20.dp)
                 )
             } else {
                 Text(

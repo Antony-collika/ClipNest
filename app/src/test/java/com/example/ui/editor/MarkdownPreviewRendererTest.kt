@@ -35,6 +35,21 @@ class MarkdownPreviewRendererTest {
     }
 
     @Test
+    fun rendersGithubStyleTablesWithResponsivePreviewStyles() {
+        val html = MarkdownPreviewRenderer.render(
+            "| Name | Description |\n| --- | --- |\n| X-board | A very long value that should wrap inside the cell |",
+            colors
+        )
+
+        assertTrue(html.contains("<table>"))
+        assertTrue(html.contains("<thead>"))
+        assertTrue(html.contains("<tbody>"))
+        assertTrue(html.contains("table-layout: fixed"))
+        assertTrue(html.contains("overflow-wrap: anywhere"))
+        assertTrue(html.contains("user-scalable=yes"))
+    }
+
+    @Test
     fun escapesRawHtmlInUserContent() {
         val html = MarkdownPreviewRenderer.render("<script>alert('x')</script>", colors)
 

@@ -751,7 +751,7 @@ class EditorViewModel(
     companion object {
         private const val TAG = "XBoard.Editor"
         private const val MAX_HISTORY = 100
-        private const val MIN_PREVIEW_FRACTION = 0.18f
+        private const val MIN_PREVIEW_FRACTION = 0.0f
         private const val MAX_PREVIEW_FRACTION = 1.0f
     }
 }

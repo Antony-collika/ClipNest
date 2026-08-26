@@ -105,6 +105,7 @@ dependencies {
   implementation(libs.androidx.room.runtime)
   implementation(libs.androidx.recyclerview)
   implementation(libs.flexmark)
+  implementation(libs.flexmark.ext.tables)
   // implementation(libs.coil.compose)
   implementation(libs.converter.moshi)
   implementation(libs.firebase.ai)

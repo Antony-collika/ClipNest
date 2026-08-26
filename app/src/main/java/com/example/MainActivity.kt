@@ -795,14 +795,15 @@ private fun MainTopBar(
                         ) {
                             Icon(Icons.Default.MoreVert, contentDescription = stringResource(com.example.R.string.more_options), modifier = Modifier.size(22.dp))
                         }
-                        DropdownMenu(
-                            expanded = overflowExpanded,
-                            onDismissRequest = { overflowExpanded = false },
-                            containerColor = MaterialTheme.colorScheme.surface,
-                            tonalElevation = 2.dp,
-                            shadowElevation = 2.dp,
-                            modifier = Modifier.testTag("main_overflow_menu")
-                        ) {
+                        if (overflowExpanded) {
+                            DropdownMenu(
+                                expanded = overflowExpanded,
+                                onDismissRequest = { overflowExpanded = false },
+                                containerColor = MaterialTheme.colorScheme.surface,
+                                tonalElevation = 2.dp,
+                                shadowElevation = 2.dp,
+                                modifier = Modifier.testTag("main_overflow_menu")
+                            ) {
                     if (isVault) {
                         DropdownMenuItem(
                             text = { Text(if (allSelected) stringResource(com.example.R.string.clear_selection) else stringResource(com.example.R.string.select_all)) },
@@ -895,6 +896,7 @@ private fun MainTopBar(
                             modifier = Modifier.testTag("main_menu_settings")
                         )
                     }
+                }
                 }
             }
         }

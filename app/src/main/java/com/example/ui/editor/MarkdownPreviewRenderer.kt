@@ -2,6 +2,7 @@ package com.example.ui.editor
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import com.vladsch.flexmark.ext.tables.TablesExtension
 import com.vladsch.flexmark.html.HtmlRenderer
 import com.vladsch.flexmark.parser.Parser
 import com.vladsch.flexmark.util.options.MutableDataSet
@@ -13,13 +14,22 @@ import java.util.Locale
  * and visually consistent with the Compose surface around it.
  */
 object MarkdownPreviewRenderer {
+    private val options: MutableDataSet by lazy {
+        MutableDataSet().apply {
+            set(Parser.EXTENSIONS, listOf(TablesExtension.create()))
+            set(TablesExtension.COLUMN_SPANS, false)
+            set(TablesExtension.APPEND_MISSING_COLUMNS, true)
+            set(TablesExtension.DISCARD_EXTRA_COLUMNS, true)
+            set(TablesExtension.HEADER_SEPARATOR_COLUMN_MATCH, true)
+            set(HtmlRenderer.SUPPRESS_HTML, true)
+        }
+    }
+
     private val parser: Parser by lazy {
-        Parser.builder().build()
+        Parser.builder(options).build()
     }
 
     private val renderer: HtmlRenderer by lazy {
-        val options = MutableDataSet()
-        options.set(HtmlRenderer.SUPPRESS_HTML, true)
         HtmlRenderer.builder(options).build()
     }
 
@@ -29,7 +39,7 @@ object MarkdownPreviewRenderer {
             <!doctype html>
             <html>
             <head>
-              <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+              <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
               <style>
                 :root { color-scheme: ${colors.colorScheme}; }
                 * { box-sizing: border-box; }
@@ -42,6 +52,7 @@ object MarkdownPreviewRenderer {
                   line-height: 1.5;
                   padding: 16px;
                   overflow-wrap: anywhere;
+                  overflow-x: hidden;
                 }
                 h1, h2, h3, h4, h5, h6 {
                   color: ${colors.onSurface};
@@ -80,6 +91,29 @@ object MarkdownPreviewRenderer {
                   white-space: pre-wrap;
                 }
                 pre code { background: transparent; padding: 0; }
+                table {
+                  width: 100%;
+                  max-width: 100%;
+                  table-layout: fixed;
+                  border-collapse: collapse;
+                  margin: 14px 0;
+                  overflow-wrap: anywhere;
+                  word-break: break-word;
+                }
+                thead { background: ${colors.surfaceVariant}; }
+                th, td {
+                  border: 1px solid ${colors.outlineVariant};
+                  padding: 8px 6px;
+                  vertical-align: top;
+                  text-align: left;
+                  white-space: normal;
+                  overflow-wrap: anywhere;
+                  word-break: break-word;
+                  min-width: 0;
+                  max-width: 0;
+                }
+                th { color: ${colors.onSurface}; font-weight: 700; }
+                td { color: ${colors.onSurface}; }
               </style>
             </head>
             <body>$body</body>

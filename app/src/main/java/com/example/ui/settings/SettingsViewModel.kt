@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.yield
 import java.io.File
 
 data class SettingsUiState(
@@ -59,7 +60,12 @@ class SettingsViewModel(
     )
 
     init {
-        refreshExportedFiles()
+        // Let Settings render its primary content first; exported files are a
+        // secondary section and can be refreshed after the first frame.
+        viewModelScope.launch {
+            yield()
+            refreshExportedFiles()
+        }
     }
 
     fun refreshExportedFiles() {
