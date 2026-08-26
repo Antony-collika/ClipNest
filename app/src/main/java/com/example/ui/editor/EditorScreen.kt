@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.WindowInsets
@@ -236,6 +237,7 @@ private fun EditorWithPreviewOverlay(
         val totalHeightPx = with(density) { maxHeight.toPx() }
         val topBarHeightPx = with(density) { 52.dp.toPx() } + WindowInsets.statusBars.getTop(density)
         val topBarHeight = with(density) { topBarHeightPx.toDp() }
+        val dragRangeHeightPx = totalHeightPx + topBarHeightPx
         val minPreviewFraction = if (totalHeightPx > 0f) {
             (with(density) { PREVIEW_COLLAPSED_HEIGHT.toPx() } / totalHeightPx)
                 .coerceAtMost(MAX_PREVIEW_FRACTION)
@@ -254,7 +256,7 @@ private fun EditorWithPreviewOverlay(
         val latestIsDragging by rememberUpdatedState(isDragging)
         val previewDragState = rememberDraggableState { delta ->
             if (totalHeightPx > 0f && latestIsDragging) {
-                dragFraction = (latestDragFraction - delta / totalHeightPx)
+                dragFraction = (latestDragFraction - delta / dragRangeHeightPx)
                     .coerceIn(minPreviewFraction, MAX_PREVIEW_FRACTION)
             }
         }
@@ -275,7 +277,9 @@ private fun EditorWithPreviewOverlay(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .height(previewHeight)
+                // The sheet must be allowed to measure beyond the Scaffold body
+                // when it covers the top bar; height() would coerce it to maxHeight.
+                .requiredHeight(previewHeight)
                 .zIndex(2f)
                 .testTag("markdown_preview_overlay")
         ) {
