@@ -21,8 +21,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -56,6 +58,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.toArgb
@@ -224,6 +227,8 @@ private fun EditorWithPreviewOverlay(
     ) {
         val density = androidx.compose.ui.platform.LocalDensity.current
         val totalHeightPx = with(density) { maxHeight.toPx() }
+        val topBarHeightPx = with(density) { 52.dp.toPx() } + WindowInsets.statusBars.getTop(density)
+        val topBarHeight = with(density) { topBarHeightPx.toDp() }
         val minPreviewFraction = if (totalHeightPx > 0f) {
             (with(density) { PREVIEW_COLLAPSED_HEIGHT.toPx() } / totalHeightPx)
                 .coerceAtMost(MAX_PREVIEW_FRACTION)
@@ -251,7 +256,10 @@ private fun EditorWithPreviewOverlay(
         // stable at both ends of the gesture; View toggle itself remains instantaneous
         // rather than handing off from an animation to a drag value.
         val previewHeight = if (uiState.showMarkdownPreview) {
-            maxHeight * previewFraction
+            // Preserve the existing proportions until the user approaches the
+            // maximum; the final 10% of the drag progressively covers the app bar.
+            val topBarOverflowProgress = ((previewFraction - 0.9f) / 0.1f).coerceIn(0f, 1f)
+            maxHeight * previewFraction + topBarHeight * topBarOverflowProgress
         } else {
             0.dp
         }
@@ -323,7 +331,7 @@ private fun MarkdownPreviewPane(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         HorizontalDivider(
-                            color = MaterialTheme.colorScheme.outlineVariant,
+                            color = MaterialTheme.colorScheme.outline,
                             thickness = 1.dp,
                             modifier = Modifier.weight(1f)
                         )
@@ -332,13 +340,14 @@ private fun MarkdownPreviewPane(
                             modifier = Modifier
                                 .width(40.dp)
                                 .height(20.dp)
+                                .offset(y = 2.dp)
                                 .padding(vertical = 8.dp)
                                 .clip(RoundedCornerShape(4.dp))
                                 .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.58f))
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         HorizontalDivider(
-                            color = MaterialTheme.colorScheme.outlineVariant,
+                            color = MaterialTheme.colorScheme.outline,
                             thickness = 1.dp,
                             modifier = Modifier.weight(1f)
                         )
@@ -360,8 +369,9 @@ private fun MarkdownPreviewPane(
                 }
             }
             HorizontalDivider(
-                color = MaterialTheme.colorScheme.outlineVariant,
-                thickness = 1.dp
+                color = MaterialTheme.colorScheme.outline,
+                thickness = 1.dp,
+                modifier = Modifier.padding(horizontal = 12.dp)
             )
             AndroidView(
                 factory = { context ->
