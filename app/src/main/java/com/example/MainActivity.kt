@@ -7,6 +7,7 @@ import android.net.Uri
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -316,14 +317,27 @@ class MainActivity : ComponentActivity() {
             vaultViewModel.openInAppCapture()
         }
         if (intent?.action == Intent.ACTION_VIEW || intent?.action == Intent.ACTION_EDIT) {
-            val uri = intent.data ?: intent.clipData?.getItemAt(0)?.uri
+            val clipUri = intent.clipData?.getItemAt(0)?.uri
+            val uri = intent.data ?: clipUri
+            Log.d(
+                "XBoard.OpenWith",
+                "action=${intent.action}, type=${intent.type}, data=${intent.data}, " +
+                    "clipData=$clipUri, flags=0x${intent.flags.toString(16)}"
+            )
             if (uri != null) {
-                val takeFlags = intent.flags and
+                val grantedFlags = intent.flags and
                     (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-                if (takeFlags != 0) {
-                    runCatching { contentResolver.takePersistableUriPermission(uri, takeFlags) }
+                if (grantedFlags != 0 &&
+                    intent.flags and Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION != 0
+                ) {
+                    runCatching { contentResolver.takePersistableUriPermission(uri, grantedFlags) }
+                        .onFailure { error ->
+                            Log.d("XBoard.OpenWith", "Persistable permission unavailable for $uri", error)
+                        }
                 }
                 incomingOpenUri.value = uri
+            } else {
+                Log.w("XBoard.OpenWith", "Open intent did not contain a data or ClipData URI")
             }
         }
     }

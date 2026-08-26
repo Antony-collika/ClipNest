@@ -20,6 +20,7 @@
             android:exported="true"
             android:launchMode="singleTop"
             android:label="@string/app_name"
+            android:grantUriPermissions="true"
             android:theme="@style/Theme.MyApplication"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>

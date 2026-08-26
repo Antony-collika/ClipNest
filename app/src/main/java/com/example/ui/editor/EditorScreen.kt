@@ -1,7 +1,5 @@
 package com.example.ui.editor
 
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
 import android.graphics.Color as AndroidColor
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -82,6 +80,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+private const val MIN_PREVIEW_FRACTION = 0.18f
+private const val MAX_PREVIEW_FRACTION = 1.0f
 
 @Composable
 fun EditorScreen(
@@ -211,26 +212,30 @@ private fun EditorWithPreviewOverlay(
         val density = androidx.compose.ui.platform.LocalDensity.current
         val totalHeightPx = with(density) { maxHeight.toPx() }
         val latestOnFractionChange by rememberUpdatedState(onPreviewFractionChange)
-        val latestPreviewFraction by rememberUpdatedState(uiState.previewSplitFraction)
         var isDragging by remember { mutableStateOf(false) }
+        var dragFraction by remember { mutableStateOf(uiState.previewSplitFraction) }
+
+        // The ViewModel fraction is the settled value. During a gesture, keep a local
+        // fraction so the pane follows every pointer delta without waiting for a
+        // StateFlow round-trip. Keep this local value after release as well: the
+        // StateFlow update is asynchronous and must not briefly restore the old height.
+        val latestDragFraction by rememberUpdatedState(dragFraction)
+        val latestIsDragging by rememberUpdatedState(isDragging)
         val previewDragState = rememberDraggableState { delta ->
-            if (totalHeightPx > 0f) {
-                latestOnFractionChange(latestPreviewFraction - delta / totalHeightPx)
+            if (totalHeightPx > 0f && latestIsDragging) {
+                dragFraction = (latestDragFraction - delta / totalHeightPx)
+                    .coerceIn(MIN_PREVIEW_FRACTION, MAX_PREVIEW_FRACTION)
             }
         }
-        val targetPreviewHeight = if (uiState.showMarkdownPreview) {
-            maxHeight * uiState.previewSplitFraction
+        val previewFraction = dragFraction
+        // Deliberately avoid height animation during resize. A direct layout value is
+        // stable at both ends of the gesture; View toggle itself remains instantaneous
+        // rather than handing off from an animation to a drag value.
+        val previewHeight = if (uiState.showMarkdownPreview) {
+            maxHeight * previewFraction
         } else {
             0.dp
         }
-        val animatedPreviewHeight by animateDpAsState(
-            targetValue = targetPreviewHeight,
-            animationSpec = tween(durationMillis = 180),
-            label = "markdown_preview_height"
-        )
-        // During a drag the pane follows the finger directly. Animation is used only
-        // for deliberate open/close transitions, so the divider cannot lag behind.
-        val previewHeight = if (isDragging) targetPreviewHeight else animatedPreviewHeight
 
         Column(
             modifier = Modifier
@@ -242,8 +247,13 @@ private fun EditorWithPreviewOverlay(
             MarkdownPreviewPane(
                 html = previewHtml,
                 dragState = previewDragState,
-                onDragStarted = { isDragging = true },
-                onDragStopped = { isDragging = false },
+                onDragStarted = {
+                    isDragging = true
+                },
+                onDragStopped = {
+                    latestOnFractionChange(latestDragFraction)
+                    isDragging = false
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
@@ -274,7 +284,7 @@ private fun MarkdownPreviewPane(
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             Surface(
-                color = MaterialTheme.colorScheme.surface,
+                color = MaterialTheme.colorScheme.surfaceVariant,
                 modifier = Modifier
                     .fillMaxWidth()
                     .then(resizeModifier)
@@ -282,18 +292,23 @@ private fun MarkdownPreviewPane(
                 contentColor = MaterialTheme.colorScheme.onSurfaceVariant
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    Box(
-                        contentAlignment = Alignment.Center,
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(16.dp)
+                            .height(22.dp)
+                            .padding(horizontal = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outline,
+                            thickness = 1.dp,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
                         Column(
                             verticalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterVertically),
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier
-                                .width(40.dp)
-                                .height(14.dp)
+                            modifier = Modifier.width(28.dp)
                         ) {
                             HorizontalDivider(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -306,12 +321,18 @@ private fun MarkdownPreviewPane(
                                 modifier = Modifier.width(24.dp)
                             )
                         }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outline,
+                            thickness = 1.dp,
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(32.dp)
-                            .padding(horizontal = 10.dp),
+                            .height(30.dp)
+                            .padding(start = 12.dp, end = 12.dp, top = 2.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(

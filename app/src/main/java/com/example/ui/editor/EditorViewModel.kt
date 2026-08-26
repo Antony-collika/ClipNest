@@ -4,7 +4,10 @@ import android.content.ClipboardManager
 import android.content.Intent
 import android.content.ContentResolver
 import android.content.Context
+import android.net.Uri
 import android.provider.OpenableColumns
+import android.util.Log
+import java.io.File
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import kotlin.math.max
@@ -128,9 +131,7 @@ class EditorViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             val result = runCatching {
                 writeDocumentSnapshot(previousState, contentResolver)
-                val text = contentResolver.openInputStream(uri)?.use { input ->
-                    input.readBytes().toString(Charsets.UTF_8)
-                } ?: error("Unable to open file")
+                val text = readExternalDocument(uri, contentResolver)
                 val name = queryDisplayName(uri, contentResolver)
                 name to text
             }
@@ -148,7 +149,8 @@ class EditorViewModel(
                         showSaveNewFileDialog = false,
                         lastSavedTimestamp = System.currentTimeMillis()
                     )
-                }.onFailure {
+                }.onFailure { error ->
+                    Log.e(TAG, "Could not open external document: $uri", error)
                     emitToast(com.example.R.string.could_not_open_file)
                 }
             }
@@ -186,7 +188,67 @@ class EditorViewModel(
         }
     }
 
-    private fun queryDisplayName(uri: android.net.Uri, contentResolver: ContentResolver): String {
+    private fun readExternalDocument(uri: Uri, contentResolver: ContentResolver): String {
+        val bytes = when (uri.scheme?.lowercase()) {
+            ContentResolver.SCHEME_CONTENT -> {
+                runCatching { contentResolver.openInputStream(uri)?.use { it.readBytes() } }
+                    .getOrNull()
+                    ?: readFromAssetFileDescriptor(uri, contentResolver)
+            }
+            ContentResolver.SCHEME_FILE -> {
+                val path = uri.path?.takeIf { it.isNotBlank() }
+                    ?: error("File URI has no path")
+                File(path).inputStream().use { it.readBytes() }
+            }
+            else -> {
+                runCatching { contentResolver.openInputStream(uri)?.use { it.readBytes() } }
+                    .getOrNull()
+                    ?: readFromAssetFileDescriptor(uri, contentResolver)
+            }
+        } ?: error("Unable to open file")
+        return decodeUtf8(bytes)
+    }
+
+    private fun readFromAssetFileDescriptor(uri: Uri, contentResolver: ContentResolver): ByteArray? {
+        return runCatching {
+            contentResolver.openAssetFileDescriptor(uri, "r")?.use { descriptor ->
+                descriptor.createInputStream().use { it.readBytes() }
+            }
+        }.getOrNull()
+    }
+
+    private fun decodeUtf8(bytes: ByteArray): String {
+        val offset = if (bytes.size >= 3 &&
+            bytes[0] == 0xEF.toByte() &&
+            bytes[1] == 0xBB.toByte() &&
+            bytes[2] == 0xBF.toByte()
+        ) 3 else 0
+        return bytes.copyOfRange(offset, bytes.size).toString(Charsets.UTF_8)
+    }
+
+    private fun writeExternalDocument(uri: Uri, contentResolver: ContentResolver, text: String) {
+        when (uri.scheme?.lowercase()) {
+            ContentResolver.SCHEME_FILE -> {
+                val path = uri.path?.takeIf { it.isNotBlank() }
+                    ?: error("File URI has no path")
+                File(path).outputStream().use { output ->
+                    output.write(text.toByteArray(Charsets.UTF_8))
+                    output.flush()
+                }
+            }
+            else -> {
+                val output = runCatching { contentResolver.openOutputStream(uri, "wt") }.getOrNull()
+                    ?: runCatching { contentResolver.openOutputStream(uri) }.getOrNull()
+                    ?: error("Unable to save file")
+                output.use {
+                    it.write(text.toByteArray(Charsets.UTF_8))
+                    it.flush()
+                }
+            }
+        }
+    }
+
+    private fun queryDisplayName(uri: Uri, contentResolver: ContentResolver): String {
         val queriedName = runCatching {
             contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
                 if (cursor.moveToFirst()) cursor.getString(0) else null
@@ -207,10 +269,7 @@ class EditorViewModel(
             return
         }
         if (!state.isDirty) return
-        contentResolver.openOutputStream(uri, "wt")?.use { output ->
-            output.write(state.content.text.toByteArray(Charsets.UTF_8))
-            output.flush()
-        } ?: error("Unable to save file")
+        writeExternalDocument(uri, contentResolver, state.content.text)
     }
 
     private fun resetSearchState() {
@@ -569,12 +628,10 @@ class EditorViewModel(
     private fun saveExternalDocument(uri: android.net.Uri, contentResolver: ContentResolver) {
         val contentSnapshot = _uiState.value.content.text
         viewModelScope.launch(Dispatchers.IO) {
-            val saved = runCatching {
-                contentResolver.openOutputStream(uri, "wt")?.use { output ->
-                    output.write(contentSnapshot.toByteArray(Charsets.UTF_8))
-                    output.flush()
-                } ?: error("Unable to save file")
-            }.isSuccess
+            val saveResult = runCatching {
+                writeExternalDocument(uri, contentResolver, contentSnapshot)
+            }
+            val saved = saveResult.isSuccess
             withContext(Dispatchers.Main.immediate) {
                 if (saved) {
                     if (_uiState.value.content.text == contentSnapshot) {
@@ -585,6 +642,7 @@ class EditorViewModel(
                     }
                     emitToast(com.example.R.string.saved_current_file)
                 } else {
+                    Log.e(TAG, "Could not save external document: $uri", saveResult.exceptionOrNull())
                     _uiState.value = _uiState.value.copy(showSaveNewFileDialog = true)
                     emitToast(com.example.R.string.could_not_save_open_file)
                 }
@@ -664,6 +722,7 @@ class EditorViewModel(
     }
 
     companion object {
+        private const val TAG = "XBoard.Editor"
         private const val MAX_HISTORY = 100
         private const val MIN_PREVIEW_FRACTION = 0.18f
         private const val MAX_PREVIEW_FRACTION = 1.0f
