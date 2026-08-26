@@ -13,6 +13,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -28,6 +29,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -308,12 +310,21 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    @SuppressLint("WrongConstant")
     private fun handleIntent(intent: Intent?) {
         if (intent?.getBooleanExtra(CaptureNotificationManager.EXTRA_OPEN_CAPTURE, false) == true) {
             vaultViewModel.openInAppCapture()
         }
-        if (intent?.action == Intent.ACTION_VIEW && intent.data != null) {
-            incomingOpenUri.value = intent.data
+        if (intent?.action == Intent.ACTION_VIEW || intent?.action == Intent.ACTION_EDIT) {
+            val uri = intent.data ?: intent.clipData?.getItemAt(0)?.uri
+            if (uri != null) {
+                val takeFlags = intent.flags and
+                    (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                if (takeFlags != 0) {
+                    runCatching { contentResolver.takePersistableUriPermission(uri, takeFlags) }
+                }
+                incomingOpenUri.value = uri
+            }
         }
     }
 }
@@ -427,7 +438,9 @@ fun MainAppContent(
                         navController.navigate(Screen.Settings.route) { launchSingleTop = true }
                     },
                     onTabSelected = { page ->
-                        scope.launch { pagerState.animateScrollToPage(page) }
+                        scope.launch {
+                            pagerState.animateScrollToPage(page, animationSpec = tween(durationMillis = 180))
+                        }
                     }
                 )
         },
@@ -441,7 +454,7 @@ fun MainAppContent(
             composable(Screen.Vault.route) {
                 androidx.compose.foundation.pager.HorizontalPager(
                     state = pagerState,
-                    beyondViewportPageCount = 1,
+                    beyondViewportPageCount = 0,
                     modifier = Modifier
                         .fillMaxSize()
                         .testTag("main_content_pager")
@@ -702,7 +715,11 @@ private fun MainTopBar(
                             onClick = onSearchClose,
                             modifier = Modifier.size(36.dp).testTag("main_close_search_button")
                         ) {
-                            Text("×", style = MaterialTheme.typography.headlineSmall)
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = stringResource(com.example.R.string.close_search),
+                                modifier = Modifier.size(22.dp)
+                            )
                         }
                     } else {
                         IconButton(

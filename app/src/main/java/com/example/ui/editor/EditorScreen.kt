@@ -131,12 +131,7 @@ fun EditorScreen(
         }
     }
 
-    LaunchedEffect(uiState.showMarkdownPreview, uiState.content.text, previewColors) {
-        if (!uiState.showMarkdownPreview) {
-            previewHtml = ""
-            return@LaunchedEffect
-        }
-        delay(120)
+    LaunchedEffect(uiState.content.text, previewColors) {
         previewHtml = withContext(Dispatchers.Default) {
             MarkdownPreviewRenderer.render(uiState.content.text, previewColors)
         }
@@ -215,16 +210,27 @@ private fun EditorWithPreviewOverlay(
     ) {
         val density = androidx.compose.ui.platform.LocalDensity.current
         val totalHeightPx = with(density) { maxHeight.toPx() }
+        val latestOnFractionChange by rememberUpdatedState(onPreviewFractionChange)
+        val latestPreviewFraction by rememberUpdatedState(uiState.previewSplitFraction)
+        var isDragging by remember { mutableStateOf(false) }
+        val previewDragState = rememberDraggableState { delta ->
+            if (totalHeightPx > 0f) {
+                latestOnFractionChange(latestPreviewFraction - delta / totalHeightPx)
+            }
+        }
         val targetPreviewHeight = if (uiState.showMarkdownPreview) {
             maxHeight * uiState.previewSplitFraction
         } else {
             0.dp
         }
-        val previewHeight by animateDpAsState(
+        val animatedPreviewHeight by animateDpAsState(
             targetValue = targetPreviewHeight,
             animationSpec = tween(durationMillis = 180),
             label = "markdown_preview_height"
         )
+        // During a drag the pane follows the finger directly. Animation is used only
+        // for deliberate open/close transitions, so the divider cannot lag behind.
+        val previewHeight = if (isDragging) targetPreviewHeight else animatedPreviewHeight
 
         Column(
             modifier = Modifier
@@ -233,15 +239,11 @@ private fun EditorWithPreviewOverlay(
                 .height(previewHeight)
                 .testTag("markdown_preview_overlay")
         ) {
-            PreviewDivider(
-                onDrag = { dragAmount ->
-                    if (totalHeightPx > 0f) {
-                        onPreviewFractionChange(uiState.previewSplitFraction - dragAmount / totalHeightPx)
-                    }
-                }
-            )
             MarkdownPreviewPane(
                 html = previewHtml,
+                dragState = previewDragState,
+                onDragStarted = { isDragging = true },
+                onDragStopped = { isDragging = false },
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
@@ -251,100 +253,125 @@ private fun EditorWithPreviewOverlay(
 }
 
 @Composable
-private fun PreviewDivider(onDrag: (Float) -> Unit) {
-    val latestOnDrag by rememberUpdatedState(onDrag)
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(22.dp)
-            .draggable(
-                orientation = Orientation.Vertical,
-                state = rememberDraggableState { delta -> latestOnDrag(delta) }
-            )
-            .testTag("markdown_preview_divider")
-    ) {
-        HorizontalDivider(
-            color = MaterialTheme.colorScheme.outlineVariant,
-            thickness = 1.dp,
-            modifier = Modifier.fillMaxWidth()
-        )
-        Surface(
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
-            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            shape = RoundedCornerShape(6.dp),
-            tonalElevation = 1.dp,
-            modifier = Modifier.size(width = 42.dp, height = 10.dp)
-        ) { }
-    }
-}
-
-@Composable
-private fun MarkdownPreviewPane(html: String, modifier: Modifier = Modifier) {
-    Column(
+private fun MarkdownPreviewPane(
+    html: String,
+    dragState: androidx.compose.foundation.gestures.DraggableState,
+    onDragStarted: () -> Unit,
+    onDragStopped: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val resizeModifier = Modifier.draggable(
+        orientation = Orientation.Vertical,
+        state = dragState,
+        onDragStarted = { _ -> onDragStarted() },
+        onDragStopped = { _ -> onDragStopped() }
+    )
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
         modifier = modifier
             .fillMaxWidth()
             .testTag("markdown_preview_pane")
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(34.dp)
-                .padding(horizontal = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = stringResource(com.example.R.string.preview_markdown),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.weight(1f)
+        Column(modifier = Modifier.fillMaxSize()) {
+            Surface(
+                color = MaterialTheme.colorScheme.surface,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .then(resizeModifier)
+                    .testTag("markdown_preview_resize_band"),
+                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(16.dp)
+                    ) {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterVertically),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier
+                                .width(40.dp)
+                                .height(14.dp)
+                        ) {
+                            HorizontalDivider(
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                thickness = 2.dp,
+                                modifier = Modifier.width(24.dp)
+                            )
+                            HorizontalDivider(
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                thickness = 2.dp,
+                                modifier = Modifier.width(24.dp)
+                            )
+                        }
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(32.dp)
+                            .padding(horizontal = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(com.example.R.string.preview_markdown),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant,
+                thickness = 1.dp
+            )
+            AndroidView(
+                factory = { context ->
+                    WebView(context).apply {
+                        setBackgroundColor(AndroidColor.TRANSPARENT)
+                        settings.javaScriptEnabled = false
+                        settings.domStorageEnabled = false
+                        settings.allowFileAccess = false
+                        settings.allowContentAccess = false
+                        isVerticalScrollBarEnabled = true
+                        isHorizontalScrollBarEnabled = false
+                        isNestedScrollingEnabled = true
+                        overScrollMode = android.view.View.OVER_SCROLL_IF_CONTENT_SCROLLS
+                        setOnTouchListener { view, event ->
+                            when (event.actionMasked) {
+                                android.view.MotionEvent.ACTION_DOWN -> view.parent?.requestDisallowInterceptTouchEvent(true)
+                                android.view.MotionEvent.ACTION_UP,
+                                android.view.MotionEvent.ACTION_CANCEL -> view.parent?.requestDisallowInterceptTouchEvent(false)
+                            }
+                            false
+                        }
+                        webViewClient = WebViewClient()
+                    }
+                },
+                update = { webView ->
+                    if (html.isNotBlank() && webView.tag != html) {
+                        val previousScrollY = webView.scrollY
+                        webView.tag = html
+                        webView.loadDataWithBaseURL(
+                            null,
+                            html,
+                            "text/html",
+                            "UTF-8",
+                            null
+                        )
+                        webView.post {
+                            if (webView.tag == html) webView.scrollTo(0, previousScrollY)
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .testTag("markdown_preview_content")
             )
         }
-        HorizontalDivider(
-            color = MaterialTheme.colorScheme.outlineVariant,
-            thickness = 1.dp
-        )
-        AndroidView(
-            factory = { context ->
-                WebView(context).apply {
-                    setBackgroundColor(AndroidColor.TRANSPARENT)
-                    settings.javaScriptEnabled = false
-                    settings.domStorageEnabled = false
-                    settings.allowFileAccess = false
-                    settings.allowContentAccess = false
-                    isVerticalScrollBarEnabled = true
-                    isHorizontalScrollBarEnabled = false
-                    isNestedScrollingEnabled = true
-                    overScrollMode = android.view.View.OVER_SCROLL_IF_CONTENT_SCROLLS
-                    setOnTouchListener { view, event ->
-                        when (event.actionMasked) {
-                            android.view.MotionEvent.ACTION_DOWN,
-                            android.view.MotionEvent.ACTION_MOVE -> view.parent?.requestDisallowInterceptTouchEvent(true)
-                            android.view.MotionEvent.ACTION_UP,
-                            android.view.MotionEvent.ACTION_CANCEL -> view.parent?.requestDisallowInterceptTouchEvent(false)
-                        }
-                        false
-                    }
-                    webViewClient = WebViewClient()
-                }
-            },
-            update = { webView ->
-                if (html.isNotBlank() && webView.tag != html) {
-                    webView.tag = html
-                    webView.loadDataWithBaseURL(
-                        null,
-                        html,
-                        "text/html",
-                        "UTF-8",
-                        null
-                    )
-                }
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .testTag("markdown_preview_content")
-        )
     }
 }
 
@@ -446,7 +473,7 @@ private fun ExpandedMarkdownToolbox(
             .fillMaxWidth()
             .testTag("markdown_expanded_toolbox")
     ) {
-        val buttonWidth = (maxWidth / 11f).coerceIn(26.dp, 34.dp)
+        val buttonWidth = (maxWidth / 11f).coerceIn(24.dp, 30.dp)
         Surface(
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f),
             modifier = Modifier.fillMaxWidth()
@@ -455,7 +482,7 @@ private fun ExpandedMarkdownToolbox(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 1.dp),
-                horizontalArrangement = Arrangement.Center,
+                horizontalArrangement = Arrangement.spacedBy(0.dp, Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 MarkdownTextButton("markdown_action_h1", "H1", stringResource(com.example.R.string.markdown_h1), { onHeading(1) }, modifier = Modifier.width(buttonWidth))

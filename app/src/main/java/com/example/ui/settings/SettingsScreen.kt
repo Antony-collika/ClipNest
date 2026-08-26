@@ -11,12 +11,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BrightnessMedium
 import androidx.compose.material.icons.filled.Check
@@ -38,7 +39,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -90,18 +90,15 @@ fun SettingsScreen(
         }
     }
 
-    Scaffold(
-        modifier = modifier.fillMaxSize()
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
+    LazyColumn(
+            modifier = modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 12.dp),
+            contentPadding = PaddingValues(bottom = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            SettingsSectionHeader(title = stringResource(com.example.R.string.language), icon = Icons.Default.Language)
+            item {
+                SettingsSectionHeader(title = stringResource(com.example.R.string.language), icon = Icons.Default.Language)
 
             OutlinedCard(
                 shape = RoundedCornerShape(16.dp),
@@ -128,9 +125,11 @@ fun SettingsScreen(
                     )
                 }
             }
+            }
 
             // 1. Appearance Section
-            SettingsSectionHeader(title = stringResource(com.example.R.string.appearance), icon = Icons.Default.BrightnessMedium)
+            item {
+                SettingsSectionHeader(title = stringResource(com.example.R.string.appearance), icon = Icons.Default.BrightnessMedium)
 
             OutlinedCard(
                 shape = RoundedCornerShape(16.dp),
@@ -215,9 +214,11 @@ fun SettingsScreen(
                     }
                 }
             }
+            }
 
             // 2. Vault Preferences Section
-            SettingsSectionHeader(title = stringResource(com.example.R.string.vault_preferences), icon = Icons.Default.PushPin)
+            item {
+                SettingsSectionHeader(title = stringResource(com.example.R.string.vault_preferences), icon = Icons.Default.PushPin)
 
             OutlinedCard(
                 shape = RoundedCornerShape(16.dp),
@@ -251,9 +252,11 @@ fun SettingsScreen(
 
                 }
             }
+            }
 
             // 3. File export location
-            SettingsSectionHeader(title = stringResource(com.example.R.string.file_storage), icon = Icons.Default.Folder)
+            item {
+                SettingsSectionHeader(title = stringResource(com.example.R.string.file_storage), icon = Icons.Default.Folder)
 
             OutlinedCard(
                 shape = RoundedCornerShape(16.dp),
@@ -286,9 +289,11 @@ fun SettingsScreen(
                     }
                 }
             }
+            }
 
             // 4. Backup & Restore Section
-            SettingsSectionHeader(title = stringResource(com.example.R.string.backup_restore), icon = Icons.Default.Folder)
+            item {
+                SettingsSectionHeader(title = stringResource(com.example.R.string.backup_restore), icon = Icons.Default.Folder)
 
             OutlinedCard(
                 shape = RoundedCornerShape(16.dp),
@@ -320,9 +325,11 @@ fun SettingsScreen(
                     }
                 }
             }
+            }
 
             // 5. Capture & Notifications Section
-            SettingsSectionHeader(title = stringResource(com.example.R.string.capture_shortcuts), icon = Icons.Default.Notifications)
+            item {
+                SettingsSectionHeader(title = stringResource(com.example.R.string.capture_shortcuts), icon = Icons.Default.Notifications)
 
             OutlinedCard(
                 shape = RoundedCornerShape(16.dp),
@@ -381,9 +388,11 @@ fun SettingsScreen(
                     }
                 }
             }
+            }
 
             // 6. Exported Documents Section
-            if (exportedFiles.isNotEmpty()) {
+            item {
+                if (exportedFiles.isNotEmpty()) {
                 SettingsSectionHeader(title = stringResource(com.example.R.string.exported_documents), icon = Icons.Default.Folder)
 
                 OutlinedCard(
@@ -420,9 +429,11 @@ fun SettingsScreen(
                     }
                 }
             }
+            }
 
             // 7. Privacy & Security Notice
-            SettingsSectionHeader(title = stringResource(com.example.R.string.privacy_security), icon = Icons.Default.Security)
+            item {
+                SettingsSectionHeader(title = stringResource(com.example.R.string.privacy_security), icon = Icons.Default.Security)
 
             Card(
                 shape = RoundedCornerShape(16.dp),
@@ -455,12 +466,12 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
         }
-    }
+            }
 }
 
 private fun folderLabel(context: Context, uri: String): String {
     val segment = android.net.Uri.parse(uri).lastPathSegment.orEmpty()
-    return context.getString(com.example.R.string.selected_folder, segment.substringAfterLast(':').ifBlank { context.getString(com.example.R.string.folder) })
+    return context.getString(com.example.R.string.selected_folder, segment.substringAfterLast(':').ifBlank { context.getString(com.example.R.string.selected_folder_fallback) })
 }
 
 private fun shareFile(context: Context, file: File) {

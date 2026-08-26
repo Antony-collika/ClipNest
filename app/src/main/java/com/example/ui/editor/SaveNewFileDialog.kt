@@ -40,7 +40,11 @@ fun SaveNewFileDialog(
     onDismiss: () -> Unit,
     onConfirm: (fileName: String, format: ExportFormat) -> Unit
 ) {
-    var fileName by remember(initialFileName) { mutableStateOf(initialFileName.substringBeforeLast('.').ifBlank { "Editor" }) }
+    val defaultDocumentName = stringResource(com.example.R.string.editor)
+    val selectedFolderFallback = stringResource(com.example.R.string.selected_folder_fallback)
+    var fileName by remember(initialFileName, defaultDocumentName) {
+        mutableStateOf(initialFileName.substringBeforeLast('.').ifBlank { defaultDocumentName })
+    }
     var selectedFormat by remember { mutableStateOf(ExportFormat.MARKDOWN) }
 
     AlertDialog(
@@ -114,7 +118,7 @@ fun SaveNewFileDialog(
                     text = if (defaultFolderUri.isNullOrBlank()) {
                         stringResource(com.example.R.string.save_location_not_set)
                     } else {
-                        stringResource(com.example.R.string.save_location, folderLabel(defaultFolderUri))
+                        stringResource(com.example.R.string.save_location, folderLabel(defaultFolderUri, selectedFolderFallback))
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -155,7 +159,7 @@ fun SaveNewFileDialog(
     )
 }
 
-private fun folderLabel(uri: String): String {
+private fun folderLabel(uri: String, fallback: String): String {
     val segment = Uri.parse(uri).lastPathSegment.orEmpty()
-    return segment.substringAfterLast(':').ifBlank { "Selected folder" }
+    return segment.substringAfterLast(':').ifBlank { fallback }
 }

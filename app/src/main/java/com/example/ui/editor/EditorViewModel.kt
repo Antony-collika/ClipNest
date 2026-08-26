@@ -173,7 +173,7 @@ class EditorViewModel(
                     _uiState.value = _uiState.value.copy(
                         content = value,
                         isDirty = false,
-                        documentName = "Editor",
+                        documentName = internalDocumentName(),
                         externalDocumentUri = null,
                         showSaveNewFileDialog = false,
                         lastSavedTimestamp = System.currentTimeMillis()
@@ -194,8 +194,11 @@ class EditorViewModel(
         }.getOrNull()
         return queriedName?.takeIf { it.isNotBlank() }
             ?: uri.lastPathSegment?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
-            ?: "Open file"
+            ?: appContext.withAppLanguage(settings.value.language).getString(com.example.R.string.open_file)
     }
+
+    private fun internalDocumentName(): String =
+        appContext.withAppLanguage(settings.value.language).getString(com.example.R.string.editor)
 
     private fun writeDocumentSnapshot(state: EditorUiState, contentResolver: ContentResolver) {
         val uri = state.externalDocumentUri?.let(android.net.Uri::parse)

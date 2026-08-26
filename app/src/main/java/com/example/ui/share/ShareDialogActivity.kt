@@ -271,7 +271,7 @@ fun ShareDialogOverlay(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = stringResource(com.example.R.string.save_to_clipboard),
+                    text = stringResource(com.example.R.string.save_to_vault),
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.Bold,
                         fontSize = 20.sp
@@ -397,7 +397,13 @@ fun ShareDialogOverlay(
 
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = stringResource(com.example.R.string.shared_content),
+                                    text = stringResource(
+                                        if (sharedText.trim().startsWith("http://") || sharedText.trim().startsWith("https://")) {
+                                            com.example.R.string.shared_url
+                                        } else {
+                                            com.example.R.string.shared_content
+                                        }
+                                    ),
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                         fontWeight = FontWeight.Bold,

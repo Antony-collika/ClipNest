@@ -92,9 +92,12 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
         callbacks: VaultRecyclerCallbacks
     ) {
         this.callbacks = callbacks
+        val decorationChanged = currentColors.outlineVariant != colors.outlineVariant
         this.currentColors = colors
-        spacingDecoration.setDividerColor(colors.outlineVariant)
-        invalidateItemDecorations()
+        if (decorationChanged) {
+            spacingDecoration.setDividerColor(colors.outlineVariant)
+            invalidateItemDecorations()
+        }
         this.showPinnedFirst = showPinnedFirst
         this.searchActive = searchQuery.isNotBlank()
         listAdapter.setVisualState(selectedIds, revealedSensitiveIds, isMaskingEnabled, colors, showPinnedFirst)
@@ -104,6 +107,7 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
             return
         }
 
+        if (listAdapter.isSameData(cards)) return
         if (listAdapter.ids() == cards.map { it.id }) {
             listAdapter.replaceDataWithoutChangingOrder(cards)
         } else {
@@ -213,6 +217,8 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
                 dragHelper = dragHelper
             )
         }
+
+        fun isSameData(value: List<ClipboardCardProjection>): Boolean = cards == value
 
         fun replace(value: List<ClipboardCardProjection>) {
             cards.clear()
