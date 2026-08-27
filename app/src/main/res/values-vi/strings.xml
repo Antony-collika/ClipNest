@@ -148,13 +148,16 @@
     <string name="could_not_open_file">Không thể mở file</string>
     <string name="open_with_diagnostic_title">Chẩn đoán Open With</string>
     <string name="open_with_fallback_title">Không thể mở file này</string>
-    <string name="open_with_fallback_message">Ứng dụng đã chia sẻ file này có thể đang dùng cách chia sẻ file cũ. Bạn có thể thử mở file bằng trình chọn file của X-board. Nếu lỗi thường xuyên xảy ra, hãy cập nhật hoặc đổi ứng dụng quản lý file để có trải nghiệm ổn định hơn.</string>
+    <string name="open_with_fallback_message">Trình quản lý file hoặc phiên bản Android có thể đang dùng cách mở file cũ. Bạn vẫn có thể chọn file từ X-board. Nếu lỗi lặp lại, hãy thử dùng chức năng Chia sẻ file của trình quản lý file thay vì Mở bằng.</string>
     <string name="open_with_fallback_open_file">Mở file</string>
     <string name="open_with_fallback_details">Chi tiết</string>
     <string name="open_with_fallback_hide_details">Ẩn chi tiết</string>
     <string name="copy_diagnostic_report">Sao chép báo cáo</string>
     <string name="diagnostic_copied">Đã sao chép báo cáo chẩn đoán</string>
     <string name="close">Đóng</string>
+    <string name="opened_files_with_failures">Đã mở %1$d/%2$d file. Một số file không thể đọc.</string>
+    <string name="merged_document_name">Tài liệu gộp (%1$d file)</string>
+    <string name="external_file_number">File %1$d</string>
     <string name="could_not_save_open_file">Không thể lưu file này. Hãy dùng Lưu thành để tạo bản sao có thể ghi.</string>
     <string name="saved_current_file">Đã lưu file hiện tại</string>
     <string name="today">Hôm nay</string>

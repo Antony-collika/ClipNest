@@ -50,7 +50,9 @@ data class EditorUiState(
     val showMarkdownPreview: Boolean = false,
     val previewSplitFraction: Float = 0.30f,
     val documentName: String = "Editor",
-    val externalDocumentUri: String? = null
+    val externalDocumentUri: String? = null,
+    val externalDocumentSaveAsOnly: Boolean = false,
+    val externalDocumentFileCount: Int = 0
 )
 
 sealed class EditorEvent {
@@ -146,33 +148,60 @@ class EditorViewModel(
                 val candidateUris = candidates.ifEmpty {
                     listOf(IncomingDocumentUri(uri, openContext?.source ?: com.example.IncomingUriSource.FILE_PICKER))
                 }
-                val loaded = candidateUris.firstNotNullOfOrNull { candidate ->
+                val loaded = candidateUris.mapNotNull { candidate ->
                     runCatching {
                         candidate to readExternalDocument(candidate.uri, contentResolver)
                     }.onFailure { error ->
                         failedCandidates += ExternalDocumentReadFailure(candidate, error)
                     }.getOrNull()
-                } ?: throw IllegalStateException(
-                    "Unable to read any incoming document URI",
-                    failedCandidates.firstOrNull()?.error
-                )
-                val name = queryDisplayName(loaded.first.uri, contentResolver)
-                Triple(loaded.first, name, loaded.second)
+                }
+                if (loaded.isEmpty()) {
+                    throw IllegalStateException(
+                        "Unable to read any incoming document URI",
+                        failedCandidates.firstOrNull()?.error
+                    )
+                }
+                val merged = if (loaded.size > 1) {
+                    mergeExternalDocuments(loaded, contentResolver)
+                } else {
+                    loaded.first().second
+                }
+                val name = queryDisplayName(loaded.first().first.uri, contentResolver)
+                Triple(loaded, name, merged)
             }
             withContext(Dispatchers.Main.immediate) {
-                result.onSuccess { (candidate, name, text) ->
+                result.onSuccess { (loadedDocuments, name, text) ->
+                    val candidate = loadedDocuments.first().first
                     val value = TextFieldValue(text = text, selection = TextRange(text.length))
                     undoStack.clear()
                     redoStack.clear()
                     resetSearchState()
+                    val isMergedDocument = candidates.size > 1
+                    val firstCandidate = loadedDocuments.firstOrNull()?.first ?: candidate
                     _uiState.value = _uiState.value.copy(
-                        content = value,
+                        content = value.copy(text = text, selection = TextRange(text.length)),
                         isDirty = false,
-                        documentName = name,
-                        externalDocumentUri = candidate.uri.toString(),
+                        documentName = if (isMergedDocument) {
+                            appContext.withAppLanguage(settings.value.language).getString(
+                                com.example.R.string.merged_document_name,
+                                loadedDocuments.size
+                            )
+                        } else name,
+
+                        externalDocumentUri = firstCandidate.uri.toString(),
+                        externalDocumentSaveAsOnly = isMergedDocument,
+                        externalDocumentFileCount = loadedDocuments.size,
                         showSaveNewFileDialog = false,
                         lastSavedTimestamp = System.currentTimeMillis()
                     )
+                    _openWithDiagnostic.value = null
+                    if (failedCandidates.isNotEmpty()) {
+                        emitToast(
+                            com.example.R.string.opened_files_with_failures,
+                            loadedDocuments.size,
+                            candidates.size
+                        )
+                    }
                     viewModelScope.launch(Dispatchers.IO) {
                         runCatching { writeDocumentSnapshot(previousState, contentResolver) }
                             .onFailure { error ->
@@ -222,6 +251,8 @@ class EditorViewModel(
                         isDirty = false,
                         documentName = internalDocumentName(),
                         externalDocumentUri = null,
+                        externalDocumentSaveAsOnly = false,
+                        externalDocumentFileCount = 0,
                         showSaveNewFileDialog = false,
                         lastSavedTimestamp = System.currentTimeMillis()
                     )
@@ -231,6 +262,27 @@ class EditorViewModel(
                 }
             }
         }
+    }
+
+    private fun mergeExternalDocuments(
+        loaded: List<Pair<IncomingDocumentUri, String>>,
+        contentResolver: ContentResolver
+    ): String {
+        val blocks = loaded.mapIndexed { index, (candidate, content) ->
+            val queriedName = queryDisplayName(candidate.uri, contentResolver)
+            val openFileLabel = appContext.withAppLanguage(settings.value.language)
+                .getString(com.example.R.string.open_file)
+            val displayName = queriedName.takeUnless { it == openFileLabel }
+                ?: appContext.withAppLanguage(settings.value.language).getString(
+                    com.example.R.string.external_file_number,
+                    index + 1
+                )
+            ExternalDocumentBlock(
+                displayName = displayName,
+                content = content
+            )
+        }
+        return mergeExternalDocumentBlocks(blocks)
     }
 
     private fun readExternalDocument(uri: Uri, contentResolver: ContentResolver): String {
@@ -352,6 +404,7 @@ class EditorViewModel(
         appContext.withAppLanguage(settings.value.language).getString(com.example.R.string.editor)
 
     private fun writeDocumentSnapshot(state: EditorUiState, contentResolver: ContentResolver) {
+        if (state.externalDocumentSaveAsOnly) return
         val uri = state.externalDocumentUri?.let(android.net.Uri::parse)
         if (uri == null) {
             if (state.isDirty) fileManager.writeEditor(state.content.text)
@@ -717,8 +770,9 @@ class EditorViewModel(
     }
 
     fun onSaveClicked(contentResolver: ContentResolver = appContext.contentResolver) {
-        val externalUri = _uiState.value.externalDocumentUri
-        if (externalUri == null) {
+        val state = _uiState.value
+        val externalUri = state.externalDocumentUri
+        if (state.externalDocumentSaveAsOnly || externalUri == null) {
             _uiState.value = _uiState.value.copy(showSaveNewFileDialog = true)
         } else {
             saveExternalDocument(android.net.Uri.parse(externalUri), contentResolver)
@@ -801,7 +855,11 @@ class EditorViewModel(
                 if (saved == null) {
                     emitToast(com.example.R.string.could_not_save_file)
                 } else {
-                    _uiState.value = _uiState.value.copy(showSaveNewFileDialog = false)
+                    _uiState.value = _uiState.value.copy(
+                        showSaveNewFileDialog = false,
+                        isDirty = false,
+                        lastSavedTimestamp = System.currentTimeMillis()
+                    )
                     emitToast(com.example.R.string.saved_file, fileName, format.extension)
                 }
             }

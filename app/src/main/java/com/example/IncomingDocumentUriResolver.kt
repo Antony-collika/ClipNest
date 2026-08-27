@@ -52,11 +52,11 @@ data class IncomingStreamInfo(
 )
 
 /**
- * Resolves document URI candidates according to the incoming Intent action.
+ * Resolves all document URI candidates from an incoming Intent.
  *
  * VIEW and EDIT describe a resource directly, so data is the primary candidate.
- * SEND and SEND_MULTIPLE describe payloads, so stream payloads are primary;
- * data is retained as a fallback because some senders populate both fields.
+ * SEND and SEND_MULTIPLE describe payloads, so every stream/ClipData URI is
+ * retained in sender order; data is only a fallback for senders that populate it.
  */
 fun resolveIncomingDocumentUris(intent: Intent): List<IncomingDocumentUri> {
     val candidates = mutableListOf<IncomingDocumentUri>()
@@ -70,25 +70,31 @@ fun resolveIncomingDocumentUris(intent: Intent): List<IncomingDocumentUri> {
         }
     }
 
+    fun addAll(uris: List<Uri>, source: IncomingUriSource) {
+        val itemCount = uris.size.coerceAtLeast(1)
+        uris.forEach { add(it, source, itemCount) }
+    }
+
     if (!payloadFirst) {
         add(intent.data, IncomingUriSource.DATA)
     }
 
     val streamUris = documentStreamUris(intent)
+    val clipUris = clipDataDocumentUris(intent.clipData)
     if (payloadFirst) {
         if (streamUris.size == 1) {
             add(streamUris.first(), IncomingUriSource.EXTRA_STREAM)
         } else if (streamUris.size > 1) {
-            add(streamUris.first(), IncomingUriSource.EXTRA_STREAM_MULTIPLE, streamUris.size)
+            addAll(streamUris, IncomingUriSource.EXTRA_STREAM_MULTIPLE)
         }
-        add(clipDataDocumentUri(intent.clipData), IncomingUriSource.CLIP_DATA)
-        add(intent.data, IncomingUriSource.DATA)
+        addAll(clipUris, IncomingUriSource.CLIP_DATA)
+        if (streamUris.isEmpty() && clipUris.isEmpty()) {
+            add(intent.data, IncomingUriSource.DATA)
+        }
     } else {
-        add(clipDataDocumentUri(intent.clipData), IncomingUriSource.CLIP_DATA)
-        if (streamUris.size == 1) {
+        addAll(clipUris.take(1), IncomingUriSource.CLIP_DATA)
+        if (streamUris.isNotEmpty()) {
             add(streamUris.first(), IncomingUriSource.EXTRA_STREAM)
-        } else if (streamUris.size > 1) {
-            add(streamUris.first(), IncomingUriSource.EXTRA_STREAM_MULTIPLE, streamUris.size)
         }
     }
 
@@ -104,11 +110,7 @@ fun resolveIncomingDocumentUri(intent: Intent): IncomingDocumentUri? =
 
 fun inspectIncomingExtraStream(intent: Intent): IncomingStreamInfo {
     val raw = runCatching { intent.extras?.get(Intent.EXTRA_STREAM) }.getOrNull()
-    val rawValues = when (raw) {
-        is ArrayList<*> -> raw
-        null -> emptyList()
-        else -> listOf(raw)
-    }
+    val rawValues = rawStreamValues(raw)
     return IncomingStreamInfo(
         present = intent.hasExtra(Intent.EXTRA_STREAM),
         valueType = raw?.javaClass?.simpleName,
@@ -118,12 +120,14 @@ fun inspectIncomingExtraStream(intent: Intent): IncomingStreamInfo {
 
 private fun documentStreamUris(intent: Intent): List<Uri> {
     val raw = runCatching { intent.extras?.get(Intent.EXTRA_STREAM) }.getOrNull()
-    val rawValues = when (raw) {
-        is ArrayList<*> -> raw
-        null -> emptyList()
-        else -> listOf(raw)
-    }
-    return rawValues.mapNotNull(::streamValueToDocumentUri)
+    return rawStreamValues(raw).mapNotNull(::streamValueToDocumentUri)
+}
+
+private fun rawStreamValues(raw: Any?): List<Any?> = when (raw) {
+    is ArrayList<*> -> raw
+    is List<*> -> raw
+    null -> emptyList()
+    else -> listOf(raw)
 }
 
 private fun streamValueToDocumentUri(value: Any?): Uri? {
@@ -134,12 +138,11 @@ private fun streamValueToDocumentUri(value: Any?): Uri? {
     }
 }
 
-private fun clipDataDocumentUri(clipData: ClipData?): Uri? {
-    if (clipData == null) return null
-    for (index in 0 until clipData.itemCount) {
-        documentUri(clipData.getItemAt(index).uri)?.let { return it }
+private fun clipDataDocumentUris(clipData: ClipData?): List<Uri> {
+    if (clipData == null) return emptyList()
+    return (0 until clipData.itemCount).mapNotNull { index ->
+        documentUri(clipData.getItemAt(index).uri)
     }
-    return null
 }
 
 private fun documentUri(uri: Uri?): Uri? {
@@ -154,7 +157,12 @@ fun buildOpenWithDiagnostic(
     context: ExternalDocumentOpenContext?,
     error: Throwable
 ): String = buildOpenWithDiagnostic(
-    failures = listOf(ExternalDocumentReadFailure(IncomingDocumentUri(uri, context?.source ?: IncomingUriSource.FILE_PICKER), error)),
+    failures = listOf(
+        ExternalDocumentReadFailure(
+            IncomingDocumentUri(uri, context?.source ?: IncomingUriSource.FILE_PICKER),
+            error
+        )
+    ),
     context = context
 )
 

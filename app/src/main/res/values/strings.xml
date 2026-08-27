@@ -148,13 +148,16 @@
     <string name="could_not_open_file">Could not open file</string>
     <string name="open_with_diagnostic_title">Open With diagnostic</string>
     <string name="open_with_fallback_title">Couldn’t open this file</string>
-    <string name="open_with_fallback_message">The app that shared this file may be using an older file-sharing method. You can try opening it with X-board’s file picker. If this happens often, updating or changing the file manager may provide a smoother experience.</string>
+    <string name="open_with_fallback_message">The file manager or Android version may be using an older file-opening method. You can still choose the file from X-board. If this happens again, try using the file manager’s Share file option instead of Open with.</string>
     <string name="open_with_fallback_open_file">Open file</string>
     <string name="open_with_fallback_details">Details</string>
     <string name="open_with_fallback_hide_details">Hide details</string>
     <string name="copy_diagnostic_report">Copy report</string>
     <string name="diagnostic_copied">Diagnostic report copied</string>
     <string name="close">Close</string>
+    <string name="opened_files_with_failures">Opened %1$d of %2$d files. Some files could not be read.</string>
+    <string name="merged_document_name">Merged document (%1$d files)</string>
+    <string name="external_file_number">File %1$d</string>
     <string name="could_not_save_open_file">Could not save this file. Choose Save as to create a writable copy.</string>
     <string name="saved_current_file">Saved current file</string>
     <string name="today">Today</string>

@@ -3,6 +3,8 @@ package com.example
 import android.content.ClipData
 import android.content.Intent
 import android.net.Uri
+import com.example.ui.editor.ExternalDocumentBlock
+import com.example.ui.editor.mergeExternalDocumentBlocks
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -67,18 +69,18 @@ class IncomingDocumentUriResolverTest {
     }
 
     @Test
-    fun sendMultiplePrefersParcelableArrayListAndReportsCount() {
+    fun sendMultipleReturnsAllParcelableUrisAndReportsCount() {
         val secondUri = Uri.parse("content://provider/second.md")
         val intent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
             putParcelableArrayListExtra(Intent.EXTRA_STREAM, arrayListOf(streamUri, secondUri))
             data = dataUri
         }
 
-        val resolved = resolveIncomingDocumentUri(intent)
+        val resolved = resolveIncomingDocumentUris(intent)
 
-        assertEquals(streamUri, resolved?.uri)
-        assertEquals(IncomingUriSource.EXTRA_STREAM_MULTIPLE, resolved?.source)
-        assertEquals(2, resolved?.itemCount)
+        assertEquals(listOf(streamUri, secondUri), resolved.map { it.uri })
+        assertTrue(resolved.all { it.source == IncomingUriSource.EXTRA_STREAM_MULTIPLE })
+        assertTrue(resolved.all { it.itemCount == 2 })
     }
 
     @Test
@@ -117,6 +119,33 @@ class IncomingDocumentUriResolverTest {
         assertFalse(report.contains("secret/path.md"))
         assertFalse(report.contains("do-not-copy"))
         assertFalse(report.contains("Permission denied for $uri"))
+    }
+
+    @Test
+    fun sendMultipleClipDataReturnsAllDocumentUris() {
+        val secondUri = Uri.parse("content://provider/second.txt")
+        val intent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+            clipData = ClipData.newRawUri("first", streamUri).apply {
+                addItem(ClipData.Item(secondUri))
+            }
+        }
+
+        val resolved = resolveIncomingDocumentUris(intent)
+
+        assertEquals(listOf(streamUri, secondUri), resolved.map { it.uri })
+        assertTrue(resolved.all { it.source == IncomingUriSource.CLIP_DATA })
+    }
+
+    @Test
+    fun mergeUsesHeadingBlankLinesAndSeparators() {
+        val merged = mergeExternalDocumentBlocks(
+            listOf(
+                ExternalDocumentBlock("one.md", "alpha\n"),
+                ExternalDocumentBlock("two.txt", "beta")
+            )
+        )
+
+        assertEquals("# one.md\n\nalpha\n\n---\n\n# two.txt\n\nbeta", merged)
     }
 
     @Test

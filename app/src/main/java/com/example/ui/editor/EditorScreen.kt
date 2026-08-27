@@ -215,81 +215,27 @@ fun EditorScreen(
         )
     }
 
-    openWithDiagnostic?.let { report ->
-        var showDiagnosticDetails by remember(report) { mutableStateOf(false) }
+    openWithDiagnostic?.let {
         AlertDialog(
             onDismissRequest = viewModel::dismissOpenWithDiagnostic,
-            title = {
-                Text(
-                    stringResource(
-                        if (showDiagnosticDetails) {
-                            com.example.R.string.open_with_diagnostic_title
-                        } else {
-                            com.example.R.string.open_with_fallback_title
-                        }
-                    )
-                )
-            },
-            text = {
-                if (showDiagnosticDetails) {
-                    SelectionContainer {
-                        Text(
-                            text = report,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                } else {
-                    Text(stringResource(com.example.R.string.open_with_fallback_message))
-                }
-            },
+            title = { Text(stringResource(com.example.R.string.open_with_fallback_title)) },
+            text = { Text(stringResource(com.example.R.string.open_with_fallback_message)) },
+            // Material AlertDialog places dismissButton on the left and
+            // confirmButton on the right. Keep the requested release order:
+            // Open file (left), Close (right).
             confirmButton = {
-                if (showDiagnosticDetails) {
-                    TextButton(
-                        onClick = {
-                            val clipboard = context.getSystemService(ClipboardManager::class.java)
-                            clipboard?.setPrimaryClip(
-                                ClipData.newPlainText(
-                                    context.getString(com.example.R.string.open_with_diagnostic_title),
-                                    report
-                                )
-                            )
-                            Toast.makeText(
-                                context,
-                                context.getString(com.example.R.string.diagnostic_copied),
-                                Toast.LENGTH_SHORT
-                            ).show()
-                            viewModel.dismissOpenWithDiagnostic()
-                        }
-                    ) {
-                        Text(stringResource(com.example.R.string.copy_diagnostic_report))
-                    }
-                } else {
-                    TextButton(
-                        onClick = {
-                            viewModel.dismissOpenWithDiagnostic()
-                            onRequestOpenFile()
-                        }
-                    ) {
-                        Text(stringResource(com.example.R.string.open_with_fallback_open_file))
-                    }
+                TextButton(onClick = viewModel::dismissOpenWithDiagnostic) {
+                    Text(stringResource(com.example.R.string.close))
                 }
             },
             dismissButton = {
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    TextButton(onClick = { showDiagnosticDetails = !showDiagnosticDetails }) {
-                        Text(
-                            stringResource(
-                                if (showDiagnosticDetails) {
-                                    com.example.R.string.open_with_fallback_hide_details
-                                } else {
-                                    com.example.R.string.open_with_fallback_details
-                                }
-                            )
-                        )
+                TextButton(
+                    onClick = {
+                        viewModel.dismissOpenWithDiagnostic()
+                        onRequestOpenFile()
                     }
-                    TextButton(onClick = viewModel::dismissOpenWithDiagnostic) {
-                        Text(stringResource(com.example.R.string.close))
-                    }
+                ) {
+                    Text(stringResource(com.example.R.string.open_with_fallback_open_file))
                 }
             }
         )
