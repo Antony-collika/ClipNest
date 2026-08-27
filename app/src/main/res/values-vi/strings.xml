@@ -146,6 +146,10 @@
     <string name="content_saved_to_vault">Đã lưu nội dung vào Vault</string>
     <string name="tap_to_save_clipboard">Chạm để lưu clipboard hiện tại</string>
     <string name="could_not_open_file">Không thể mở file</string>
+    <string name="open_with_diagnostic_title">Chẩn đoán Open With</string>
+    <string name="copy_diagnostic_report">Sao chép báo cáo</string>
+    <string name="diagnostic_copied">Đã sao chép báo cáo chẩn đoán</string>
+    <string name="close">Đóng</string>
     <string name="could_not_save_open_file">Không thể lưu file này. Hãy dùng Lưu thành để tạo bản sao có thể ghi.</string>
     <string name="saved_current_file">Đã lưu file hiện tại</string>
     <string name="today">Hôm nay</string>

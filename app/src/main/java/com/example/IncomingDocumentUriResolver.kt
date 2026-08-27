@@ -4,15 +4,32 @@ import android.content.ClipData
 import android.content.Intent
 import android.net.Uri
 
-internal enum class IncomingUriSource {
+enum class IncomingUriSource {
     DATA,
     CLIP_DATA,
     EXTRA_STREAM,
     EXTRA_STREAM_MULTIPLE,
-    EXTRA_TEXT
+    EXTRA_TEXT,
+    FILE_PICKER
 }
 
-internal data class IncomingDocumentUri(
+data class ExternalDocumentOpenContext(
+    val action: String?,
+    val mimeType: String?,
+    val source: IncomingUriSource,
+    val clipDataItemCount: Int,
+    val payloadItemCount: Int,
+    val flags: Int,
+    val hasReadGrant: Boolean,
+    val hasPersistableGrant: Boolean
+)
+
+data class IncomingOpenRequest(
+    val uri: Uri,
+    val openContext: ExternalDocumentOpenContext
+)
+
+data class IncomingDocumentUri(
     val uri: Uri,
     val source: IncomingUriSource,
     val itemCount: Int = 1
@@ -102,5 +119,53 @@ private fun documentUri(uri: Uri?): Uri? {
     return uri?.takeIf { current ->
         current.scheme.equals("content", ignoreCase = true) ||
             current.scheme.equals("file", ignoreCase = true)
+    }
+}
+
+internal fun buildOpenWithDiagnostic(
+    uri: Uri,
+    context: ExternalDocumentOpenContext?,
+    error: Throwable
+): String {
+    val rootCause = generateSequence(error) { it.cause }.last()
+    val source = context?.source?.name ?: IncomingUriSource.FILE_PICKER.name
+    val attempts = if (uri.scheme.equals("file", ignoreCase = true)) {
+        "java.io.FileInputStream"
+    } else {
+        "openInputStream, openFileDescriptor, openAssetFileDescriptor, " +
+            "openTypedAssetFileDescriptor"
+    }
+    val reason = when (rootCause) {
+        is SecurityException -> "Permission denied by provider"
+        is java.io.FileNotFoundException -> "File not found or provider rejected access"
+        is IllegalArgumentException -> "Invalid or unsupported URI"
+        else -> rootCause.message?.substringBefore("\n")?.take(240)
+            ?.takeIf { it.isNotBlank() }
+            ?: "Provider could not open the resource"
+    }
+    val redactedUri = buildString {
+        append(uri.scheme ?: "unknown")
+        append("://")
+        append(uri.authority ?: "[no-authority]")
+        append("/[redacted]")
+    }
+    return buildString {
+        appendLine("X-board Open With diagnostic")
+        appendLine()
+        appendLine("action: ${context?.action ?: "FILE_PICKER"}")
+        appendLine("mimeType: ${context?.mimeType ?: "unknown"}")
+        appendLine("uriSource: $source")
+        appendLine("uriScheme: ${uri.scheme ?: "unknown"}")
+        appendLine("uriAuthority: ${uri.authority ?: "[none]"}")
+        appendLine("uriPath: [redacted]")
+        appendLine("clipDataItemCount: ${context?.clipDataItemCount ?: 0}")
+        appendLine("extraStreamItemCount: ${context?.payloadItemCount ?: 0}")
+        appendLine("readGrantFlag: ${if (context?.hasReadGrant == true) "present" else "absent"}")
+        appendLine("persistableGrantFlag: ${if (context?.hasPersistableGrant == true) "present" else "absent"}")
+        appendLine("selectedUri: $redactedUri")
+        appendLine("readAttempts: $attempts")
+        appendLine("failureType: ${rootCause::class.java.simpleName}")
+        appendLine("reason: $reason")
+        appendLine("flags: 0x${Integer.toHexString(context?.flags ?: 0)}")
     }
 }

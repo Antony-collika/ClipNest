@@ -4,6 +4,8 @@ import android.content.ClipData
 import android.content.Intent
 import android.net.Uri
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.junit.Assert.assertNull
@@ -74,6 +76,34 @@ class IncomingDocumentUriResolverTest {
 
         assertEquals(dataUri, resolved?.uri)
         assertEquals(IncomingUriSource.DATA, resolved?.source)
+    }
+
+    @Test
+    fun diagnosticRedactsPathAndExplainsPermissionFailure() {
+        val uri = Uri.parse("content://private.provider/secret/path.md?token=do-not-copy")
+        val context = ExternalDocumentOpenContext(
+            action = Intent.ACTION_SEND,
+            mimeType = "text/markdown",
+            source = IncomingUriSource.EXTRA_STREAM,
+            clipDataItemCount = 0,
+            payloadItemCount = 1,
+            flags = Intent.FLAG_GRANT_READ_URI_PERMISSION,
+            hasReadGrant = true,
+            hasPersistableGrant = false
+        )
+
+        val report = buildOpenWithDiagnostic(
+            uri,
+            context,
+            SecurityException("Permission denied for $uri")
+        )
+
+        assertTrue(report.contains("uriSource: EXTRA_STREAM"))
+        assertTrue(report.contains("reason: Permission denied by provider"))
+        assertTrue(report.contains("uriAuthority: private.provider"))
+        assertFalse(report.contains("secret/path.md"))
+        assertFalse(report.contains("do-not-copy"))
+        assertFalse(report.contains("Permission denied for $uri"))
     }
 
     @Test

@@ -121,7 +121,7 @@ class MainActivity : ComponentActivity() {
 
     private var pendingFolderSelection: ((Uri) -> Unit)? = null
     private var pendingOpenFileSelection: ((Uri) -> Unit)? = null
-    private val incomingOpenUri = MutableStateFlow<Uri?>(null)
+    private val incomingOpenRequest = MutableStateFlow<IncomingOpenRequest?>(null)
     private val folderPickerLauncher = registerForActivityResult(
         ActivityResultContracts.OpenDocumentTree()
     ) { uri ->
@@ -199,7 +199,7 @@ class MainActivity : ComponentActivity() {
             }
 
             val localizedContext = LocalContext.current.withAppLanguage(userSettings.language)
-            val incomingUri by incomingOpenUri.collectAsStateWithLifecycle()
+            val incomingRequest by incomingOpenRequest.collectAsStateWithLifecycle()
             CompositionLocalProvider(LocalContext provides localizedContext) {
                 ClipboardManagerTheme(
                     themeMode = userSettings.themeMode,
@@ -212,8 +212,8 @@ class MainActivity : ComponentActivity() {
                         onRequestFolder = ::requestFolderSelection,
                         onRequestOpenFile = ::requestOpenFile,
                         onShareText = ::shareTextExternally,
-                        incomingOpenUri = incomingUri,
-                        onIncomingOpenUriHandled = { incomingOpenUri.value = null },
+                        incomingOpenRequest = incomingRequest,
+                        onIncomingOpenRequestHandled = { incomingOpenRequest.value = null },
                         onRequestBackup = ::requestBackupFile,
                         onRequestRestore = ::requestRestoreFile
                     )
@@ -361,7 +361,17 @@ class MainActivity : ComponentActivity() {
                     Log.d("XBoard.OpenWith", "Persistable permission unavailable for $uri", error)
                 }
         }
-        incomingOpenUri.value = uri
+        val openContext = ExternalDocumentOpenContext(
+            action = action,
+            mimeType = intent.type,
+            source = resolvedUri?.source ?: IncomingUriSource.DATA,
+            clipDataItemCount = intent.clipData?.itemCount ?: 0,
+            payloadItemCount = resolvedUri?.itemCount ?: 0,
+            flags = intent.flags,
+            hasReadGrant = grantedFlags and Intent.FLAG_GRANT_READ_URI_PERMISSION != 0,
+            hasPersistableGrant = intent.flags and Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION != 0
+        )
+        incomingOpenRequest.value = IncomingOpenRequest(uri, openContext)
     }
 }
 
@@ -374,8 +384,8 @@ fun MainAppContent(
     onRequestFolder: (((Uri) -> Unit) -> Unit),
     onRequestOpenFile: ((Uri) -> Unit) -> Unit,
     onShareText: (String, String) -> Unit,
-    incomingOpenUri: Uri?,
-    onIncomingOpenUriHandled: () -> Unit,
+    incomingOpenRequest: IncomingOpenRequest?,
+    onIncomingOpenRequestHandled: () -> Unit,
     onRequestBackup: () -> Unit,
     onRequestRestore: () -> Unit
 ) {
@@ -401,11 +411,15 @@ fun MainAppContent(
     val selectedCards = vaultState.cards.filter { vaultState.selectedIds.contains(it.id) }
     val visibleSelectedCount = selectedCards.size
     val allSelected = vaultState.cards.isNotEmpty() && visibleSelectedCount == vaultState.cards.size
-    LaunchedEffect(incomingOpenUri) {
-        incomingOpenUri?.let { uri ->
-            editorViewModel.openExternalDocument(uri, context.contentResolver)
+    LaunchedEffect(incomingOpenRequest) {
+        incomingOpenRequest?.let { request ->
+            editorViewModel.openExternalDocument(
+                request.uri,
+                context.contentResolver,
+                request.openContext
+            )
             pagerState.animateScrollToPage(1)
-            onIncomingOpenUriHandled()
+            onIncomingOpenRequestHandled()
         }
     }
 

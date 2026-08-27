@@ -16,6 +16,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.annotation.StringRes
 import androidx.lifecycle.viewModelScope
+import com.example.ExternalDocumentOpenContext
+import com.example.buildOpenWithDiagnostic
 import com.example.data.local.ExportFormat
 import com.example.ui.localization.withAppLanguage
 import com.example.data.local.FileManager
@@ -65,7 +67,8 @@ class EditorViewModel(
 
     private val _eventFlow = MutableSharedFlow<EditorEvent>()
     val eventFlow: SharedFlow<EditorEvent> = _eventFlow.asSharedFlow()
-
+    private val _openWithDiagnostic = MutableStateFlow<String?>(null)
+    val openWithDiagnostic: StateFlow<String?> = _openWithDiagnostic.asStateFlow()
     private val _isSearchOpen = MutableStateFlow(false)
     val isSearchOpen: StateFlow<Boolean> = _isSearchOpen.asStateFlow()
 
@@ -124,7 +127,11 @@ class EditorViewModel(
         }
     }
 
-    fun openExternalDocument(uri: android.net.Uri, contentResolver: ContentResolver) {
+    fun openExternalDocument(
+        uri: android.net.Uri,
+        contentResolver: ContentResolver,
+        openContext: ExternalDocumentOpenContext? = null
+    ) {
         val previousState = _uiState.value
         editorLoaded = true
         autoSaveJob?.cancel()
@@ -164,9 +171,13 @@ class EditorViewModel(
                         error
                     )
                     emitToast(com.example.R.string.could_not_open_file)
+                    _openWithDiagnostic.value = buildOpenWithDiagnostic(uri, openContext, error)
                 }
             }
         }
+    }
+    fun dismissOpenWithDiagnostic() {
+        _openWithDiagnostic.value = null
     }
 
     fun returnToInternalEditor(contentResolver: ContentResolver, onComplete: () -> Unit = {}) {

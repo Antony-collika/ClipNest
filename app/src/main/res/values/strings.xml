@@ -146,6 +146,10 @@
     <string name="content_saved_to_vault">Content saved to Vault</string>
     <string name="tap_to_save_clipboard">Tap to save the current clipboard</string>
     <string name="could_not_open_file">Could not open file</string>
+    <string name="open_with_diagnostic_title">Open With diagnostic</string>
+    <string name="copy_diagnostic_report">Copy report</string>
+    <string name="diagnostic_copied">Diagnostic report copied</string>
+    <string name="close">Close</string>
     <string name="could_not_save_open_file">Could not save this file. Choose Save as to create a writable copy.</string>
     <string name="saved_current_file">Saved current file</string>
     <string name="today">Today</string>

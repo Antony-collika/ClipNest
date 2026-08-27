@@ -1,5 +1,7 @@
 package com.example.ui.editor
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.view.ViewConfiguration
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -26,6 +28,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -39,8 +42,10 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.SelectAll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -105,6 +110,7 @@ fun EditorScreen(
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val openWithDiagnostic by viewModel.openWithDiagnostic.collectAsStateWithLifecycle()
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     val colorScheme = MaterialTheme.colorScheme
     val isDark = colorScheme.background.red < 0.5f
@@ -205,6 +211,47 @@ fun EditorScreen(
             previewBackground = previewBackground,
             previewTextColor = previewTextColor,
             modifier = Modifier.fillMaxSize()
+        )
+    }
+
+    openWithDiagnostic?.let { report ->
+        AlertDialog(
+            onDismissRequest = viewModel::dismissOpenWithDiagnostic,
+            title = { Text(stringResource(com.example.R.string.open_with_diagnostic_title)) },
+            text = {
+                SelectionContainer {
+                    Text(
+                        text = report,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val clipboard = context.getSystemService(ClipboardManager::class.java)
+                        clipboard?.setPrimaryClip(
+                            ClipData.newPlainText(
+                                context.getString(com.example.R.string.open_with_diagnostic_title),
+                                report
+                            )
+                        )
+                        Toast.makeText(
+                            context,
+                            context.getString(com.example.R.string.diagnostic_copied),
+                            Toast.LENGTH_SHORT
+                        ).show()
+                        viewModel.dismissOpenWithDiagnostic()
+                    }
+                ) {
+                    Text(stringResource(com.example.R.string.copy_diagnostic_report))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::dismissOpenWithDiagnostic) {
+                    Text(stringResource(com.example.R.string.close))
+                }
+            }
         )
     }
 
