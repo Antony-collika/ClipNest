@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -89,10 +90,13 @@ import kotlin.math.abs
 
 private const val MAX_PREVIEW_FRACTION = 1.0f
 private const val PREVIEW_RENDER_DEBOUNCE_MS = 140L
-private val PREVIEW_HANDLE_ROW_HEIGHT = 30.dp
-private val PREVIEW_TITLE_ROW_HEIGHT = 44.dp
+private val PREVIEW_HANDLE_ROW_HEIGHT = 24.dp
+private val PREVIEW_HANDLE_TOUCH_HEIGHT = 48.dp
+private val PREVIEW_TITLE_ROW_HEIGHT = 34.dp
+private val PREVIEW_HEADER_HEIGHT =
+    PREVIEW_HANDLE_ROW_HEIGHT + PREVIEW_TITLE_ROW_HEIGHT
 private val PREVIEW_COLLAPSED_HEIGHT =
-    PREVIEW_HANDLE_ROW_HEIGHT + PREVIEW_TITLE_ROW_HEIGHT + 1.dp
+    PREVIEW_HEADER_HEIGHT + 1.dp
 
 @Composable
 fun EditorScreen(
@@ -303,7 +307,7 @@ private fun MarkdownPreviewPane(
     modifier: Modifier = Modifier
 ) {
     val previewSurfaceColor = backgroundColor.toArgb()
-    val headerDragModifier = Modifier.draggable(
+    val handleDragModifier = Modifier.draggable(
         orientation = Orientation.Vertical,
         state = dragState,
         onDragStarted = { _ -> onDragStarted() },
@@ -322,41 +326,53 @@ private fun MarkdownPreviewPane(
             .testTag("markdown_preview_pane")
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            Column(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .then(headerDragModifier)
+                    .height(PREVIEW_HEADER_HEIGHT)
                     .testTag("markdown_preview_header")
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(PREVIEW_HANDLE_ROW_HEIGHT)
-                        .testTag("markdown_preview_resize_band"),
-                    contentAlignment = Alignment.TopCenter
-                ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
                     Box(
                         modifier = Modifier
-                            .offset(y = 8.dp)
-                            .width(48.dp)
-                            .height(6.dp)
-                            .clip(RoundedCornerShape(50))
-                            .background(Color(0xFF8B8B8B))
-                    )
+                            .fillMaxWidth()
+                            .height(PREVIEW_HANDLE_ROW_HEIGHT)
+                            .testTag("markdown_preview_resize_band"),
+                        contentAlignment = Alignment.TopCenter
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .offset(y = 7.dp)
+                                .width(40.dp)
+                                .height(5.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(Color(0xFF8B8B8B))
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(PREVIEW_TITLE_ROW_HEIGHT)
+                            .padding(horizontal = 16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = stringResource(com.example.R.string.preview_markdown),
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
+                            color = contentColor
+                        )
+                    }
                 }
+                // The transparent hitbox is larger than the visible handle but stays
+                // inside the measured header container, so it never adds layout height.
                 Box(
                     modifier = Modifier
+                        .align(Alignment.TopCenter)
                         .fillMaxWidth()
-                        .height(PREVIEW_TITLE_ROW_HEIGHT)
-                        .padding(horizontal = 16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = stringResource(com.example.R.string.preview_markdown),
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
-                        color = contentColor
-                    )
-                }
+                        .height(PREVIEW_HANDLE_TOUCH_HEIGHT)
+                        .then(handleDragModifier)
+                        .testTag("markdown_preview_handle_hitbox")
+                )
             }
             androidx.compose.material3.HorizontalDivider(
                 color = contentColor.copy(alpha = 0.18f),
