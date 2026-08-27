@@ -59,6 +59,8 @@
     <string name="copy_item">Copy item</string>
     <string name="drag_handle">Drag handle</string>
     <string name="close_preview">Close preview</string>
+    <string name="enter_fullscreen_preview">Expand preview</string>
+    <string name="exit_fullscreen_preview">Exit fullscreen preview</string>
     <string name="copy_content">Copy content</string>
     <string name="no_matching_content">No matching content found</string>
     <string name="try_another_search">Try another search term or clear the search filter.</string>

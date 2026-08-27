@@ -59,6 +59,8 @@
     <string name="copy_item">Sao chép mục</string>
     <string name="drag_handle">Tay nắm di chuyển</string>
     <string name="close_preview">Đóng xem trước</string>
+    <string name="enter_fullscreen_preview">Mở rộng bản xem trước</string>
+    <string name="exit_fullscreen_preview">Thoát chế độ toàn màn hình của bản xem trước</string>
     <string name="copy_content">Sao chép nội dung</string>
     <string name="no_matching_content">Không tìm thấy nội dung phù hợp</string>
     <string name="try_another_search">Thử từ khóa khác hoặc xóa bộ lọc tìm kiếm.</string>
