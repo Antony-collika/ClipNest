@@ -43,7 +43,6 @@
                 <action android:name="android.intent.action.SEND" />
                 <action android:name="android.intent.action.SEND_MULTIPLE" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="text/plain" />
                 <data android:mimeType="text/markdown" />
                 <data android:mimeType="text/x-markdown" />
                 <data android:mimeType="text/plain+md" />
@@ -69,12 +68,18 @@
         <!-- Translucent Overlay Share Dialog (Does NOT switch app, appears on top of calling app) -->
         <activity
             android:name=".ui.share.ShareDialogActivity"
-            android:exported="false"
+            android:exported="true"
             android:theme="@style/Theme.TransparentDialog"
             android:excludeFromRecents="true"
             android:noHistory="true"
             android:taskAffinity=""
             android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
         </activity>
 
         <!-- Translucent 0ms Capture Activity for Quick Tile and Notification click -->

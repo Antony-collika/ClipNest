@@ -86,7 +86,6 @@ import com.example.data.repository.ClipboardRepositoryImpl
 import com.example.data.repository.VaultBackupCodec
 import com.example.service.CaptureNotificationManager
 import com.example.ui.editor.EditorScreen
-import com.example.ui.share.ShareDialogActivity
 import com.example.ui.editor.EditorViewModel
 import com.example.ui.editor.EditorViewModelFactory
 import com.example.ui.localization.withAppLanguage
@@ -322,15 +321,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun startTextShareFlow(sourceIntent: Intent) {
-        val shareIntent = Intent(sourceIntent).apply {
-            setClass(this@MainActivity, ShareDialogActivity::class.java)
-        }
-        runCatching { startActivity(shareIntent) }
-            .onFailure { error ->
-                Log.e("XBoard.OpenWith", "Could not route text share to Save-to-Vault", error)
-            }
-    }
 
     private fun handleIntent(intent: Intent?) {
         if (intent?.getBooleanExtra(CaptureNotificationManager.EXTRA_OPEN_CAPTURE, false) == true) {
@@ -344,12 +334,6 @@ class MainActivity : ComponentActivity() {
         if (!isOpenAction) return
 
         val candidates = resolveIncomingDocumentUris(intent)
-        if (action == Intent.ACTION_SEND && candidates.isEmpty()) {
-            // Keep the existing Share-to-Vault/capture-clipboard UX for plain
-            // text. File shares are distinguished by their URI payload.
-            startTextShareFlow(intent)
-            return
-        }
         if (action == Intent.ACTION_SEND_MULTIPLE && candidates.isEmpty()) {
             Log.w("XBoard.OpenWith", "Multiple-send intent did not contain document URIs")
             return

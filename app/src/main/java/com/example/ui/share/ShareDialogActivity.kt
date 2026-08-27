@@ -58,6 +58,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.lifecycleScope
+import com.example.MainActivity
 import com.example.data.local.AppDatabase
 import com.example.data.local.SettingsDataStore
 import com.example.data.model.ContentType
@@ -82,6 +83,14 @@ class ShareDialogActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         overridePendingTransition(0, 0)
+
+        // text/plain is used by both clipboard capture and file sharing. Keep
+        // the fast capture dialog for text-only shares, but forward a real
+        // document payload to the Editor path.
+        if (com.example.resolveIncomingDocumentUris(intent).isNotEmpty()) {
+            forwardDocumentShareToEditor()
+            return
+        }
 
         // The shared payload is safe to snapshot from the user-initiated Intent.
         // The system clipboard is intentionally not read here: on Android 10+
@@ -124,6 +133,15 @@ class ShareDialogActivity : ComponentActivity() {
             clipboardText = readCurrentClipboard()
             clipboardReady = true
         }
+    }
+
+    private fun forwardDocumentShareToEditor() {
+        val editorIntent = Intent(intent).apply {
+            setClass(this@ShareDialogActivity, MainActivity::class.java)
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        }
+        startActivity(editorIntent)
+        finishActivity()
     }
 
     private fun readCurrentClipboard(): String {
