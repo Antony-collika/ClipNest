@@ -24,7 +24,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
@@ -35,8 +34,6 @@ import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Fullscreen
-import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Visibility
@@ -108,10 +105,6 @@ fun EditorScreen(
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    var isPreviewFullscreen by remember { mutableStateOf(false) }
-    LaunchedEffect(uiState.showMarkdownPreview) {
-        if (!uiState.showMarkdownPreview) isPreviewFullscreen = false
-    }
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     val colorScheme = MaterialTheme.colorScheme
     val isDark = colorScheme.background.red < 0.5f
@@ -209,8 +202,6 @@ fun EditorScreen(
             uiState = uiState,
             previewHtml = previewHtml,
             onPreviewFractionChange = viewModel::setPreviewSplitFraction,
-            isFullscreen = isPreviewFullscreen,
-            onToggleFullscreen = { isPreviewFullscreen = !isPreviewFullscreen },
             previewBackground = previewBackground,
             previewTextColor = previewTextColor,
             modifier = Modifier.fillMaxSize()
@@ -235,8 +226,6 @@ private fun EditorWithPreviewOverlay(
     uiState: EditorUiState,
     previewHtml: String,
         onPreviewFractionChange: (Float) -> Unit,
-        isFullscreen: Boolean,
-        onToggleFullscreen: () -> Unit,
         previewBackground: Color,
         previewTextColor: Color,
         modifier: Modifier = Modifier
@@ -275,7 +264,7 @@ private fun EditorWithPreviewOverlay(
         // stable at both ends of the gesture; View toggle itself remains instantaneous
         // rather than handing off from an animation to a drag value.
         val previewHeight = if (uiState.showMarkdownPreview) {
-            if (isFullscreen) maxHeight else maxHeight * previewFraction
+            maxHeight * previewFraction
         } else {
             0.dp
         }
@@ -292,8 +281,6 @@ private fun EditorWithPreviewOverlay(
                 html = previewHtml,
                 backgroundColor = previewBackground,
                 contentColor = previewTextColor,
-                isFullscreen = isFullscreen,
-                onToggleFullscreen = onToggleFullscreen,
                 dragState = previewDragState,
                 onDragStarted = {
                     isDragging = true
@@ -315,21 +302,12 @@ private fun MarkdownPreviewPane(
     html: String,
     backgroundColor: Color,
     contentColor: Color,
-    isFullscreen: Boolean,
-    onToggleFullscreen: () -> Unit,
     dragState: androidx.compose.foundation.gestures.DraggableState,
     onDragStarted: () -> Unit,
     onDragStopped: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val previewSurfaceColor = backgroundColor.toArgb()
-    val fullscreenContentDescription = stringResource(
-        if (isFullscreen) {
-            com.example.R.string.exit_fullscreen_preview
-        } else {
-            com.example.R.string.enter_fullscreen_preview
-        }
-    )
     val handleDragModifier = Modifier.draggable(
         orientation = Orientation.Vertical,
         state = dragState,
@@ -478,30 +456,6 @@ private fun MarkdownPreviewPane(
                     .padding(top = PREVIEW_HEADER_HEIGHT + 1.dp)
                     .testTag("markdown_preview_content")
             )
-            IconButton(
-                onClick = onToggleFullscreen,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(8.dp)
-                    .size(40.dp)
-                    .background(
-                        color = backgroundColor.copy(alpha = 0.94f),
-                        shape = CircleShape
-                    )
-                    .zIndex(2f)
-                    .testTag("markdown_preview_fullscreen_button")
-                    .semantics {
-                        contentDescription = fullscreenContentDescription
-                        role = Role.Button
-                    }
-            ) {
-                Icon(
-                    imageVector = if (isFullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
-                    contentDescription = null,
-                    tint = contentColor,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
         }
     }
 }
