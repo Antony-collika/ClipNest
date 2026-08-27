@@ -321,34 +321,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun resolveIncomingDocumentUri(intent: Intent): Uri? {
-        intent.data?.let { return it }
-        intent.clipData?.let { clipData ->
-            for (index in 0 until clipData.itemCount) {
-                clipData.getItemAt(index).uri?.let { return it }
-            }
-        }
-        val streamUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
-        } else {
-            @Suppress("DEPRECATION")
-            intent.getParcelableExtra(Intent.EXTRA_STREAM) as? Uri
-        }
-        streamUri?.let { return it }
-        @Suppress("DEPRECATION")
-        intent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM)
-            ?.firstOrNull()
-            ?.let { return it }
-
-        // A few senders put a content/file URI in EXTRA_TEXT instead of
-        // EXTRA_STREAM. Do not treat ordinary shared text as a document.
-        intent.getStringExtra(Intent.EXTRA_TEXT)
-            ?.let(Uri::parse)
-            ?.takeIf { it.scheme == ContentResolver.SCHEME_CONTENT || it.scheme == ContentResolver.SCHEME_FILE }
-            ?.let { return it }
-        return null
-    }
-
     private fun handleIntent(intent: Intent?) {
         if (intent?.getBooleanExtra(CaptureNotificationManager.EXTRA_OPEN_CAPTURE, false) == true) {
             vaultViewModel.openInAppCapture()
@@ -360,11 +332,14 @@ class MainActivity : ComponentActivity() {
             action == Intent.ACTION_SEND_MULTIPLE
         if (!isOpenAction) return
 
-        val uri = resolveIncomingDocumentUri(intent)
+        val resolvedUri = resolveIncomingDocumentUri(intent)
+        val uri = resolvedUri?.uri
         Log.d(
             "XBoard.OpenWith",
             "action=$action, type=${intent.type}, data=${intent.data}, " +
-                "clipData=${intent.clipData?.itemCount}, uri=$uri, flags=0x${intent.flags.toString(16)}"
+                "clipData=${intent.clipData?.itemCount}, uri=$uri, " +
+                "source=${resolvedUri?.source}, sourceItemCount=${resolvedUri?.itemCount}, " +
+                "flags=0x${intent.flags.toString(16)}"
         )
         if (uri == null) {
             Log.w("XBoard.OpenWith", "Open intent did not contain a supported document URI")
@@ -373,6 +348,11 @@ class MainActivity : ComponentActivity() {
 
         val grantedFlags = intent.flags and
             (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+        if (uri.scheme.equals(ContentResolver.SCHEME_CONTENT, ignoreCase = true) &&
+            grantedFlags and Intent.FLAG_GRANT_READ_URI_PERMISSION == 0
+        ) {
+            Log.w("XBoard.OpenWith", "Content URI has no explicit read grant: $uri")
+        }
         if (grantedFlags != 0 &&
             intent.flags and Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION != 0
         ) {

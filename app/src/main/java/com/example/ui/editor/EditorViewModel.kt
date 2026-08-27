@@ -155,7 +155,14 @@ class EditorViewModel(
                             }
                     }
                 }.onFailure { error ->
-                    Log.e(TAG, "Could not open external document: $uri", error)
+                    val rootCause = generateSequence(error) { it.cause }.last()
+                    Log.e(
+                        TAG,
+                        "Could not open external document: uri=$uri, " +
+                            "error=${error::class.java.simpleName}, " +
+                            "root=${rootCause::class.java.simpleName}: ${rootCause.message}",
+                        error
+                    )
                     emitToast(com.example.R.string.could_not_open_file)
                 }
             }
@@ -195,53 +202,52 @@ class EditorViewModel(
 
     private fun readExternalDocument(uri: Uri, contentResolver: ContentResolver): String {
         val bytes = when (uri.scheme?.lowercase()) {
-            ContentResolver.SCHEME_CONTENT -> {
-                runCatching { contentResolver.openInputStream(uri)?.use { it.readBytes() } }
-                    .getOrNull()
-                    ?: readFromFileDescriptor(uri, contentResolver)
-                    ?: readFromAssetFileDescriptor(uri, contentResolver)
-                    ?: readFromTypedAssetFileDescriptor(uri, contentResolver)
-            }
+            ContentResolver.SCHEME_CONTENT -> readContentUri(uri, contentResolver)
             ContentResolver.SCHEME_FILE -> {
                 val path = uri.path?.takeIf { it.isNotBlank() }
-                    ?: error("File URI has no path")
+                    ?: throw IllegalArgumentException("File URI has no path: $uri")
                 File(path).inputStream().use { it.readBytes() }
             }
-            else -> {
-                runCatching { contentResolver.openInputStream(uri)?.use { it.readBytes() } }
-                    .getOrNull()
-                    ?: readFromFileDescriptor(uri, contentResolver)
-                    ?: readFromAssetFileDescriptor(uri, contentResolver)
-                    ?: readFromTypedAssetFileDescriptor(uri, contentResolver)
-            }
-        } ?: error("Unable to open file")
+            else -> throw IllegalArgumentException("Unsupported URI scheme for document: $uri")
+        }
         return decodeUtf8(bytes)
     }
 
-    private fun readFromFileDescriptor(uri: Uri, contentResolver: ContentResolver): ByteArray? {
-        return runCatching {
+    private fun readContentUri(uri: Uri, contentResolver: ContentResolver): ByteArray {
+        var lastFailure: Throwable? = null
+
+        fun attempt(method: String, reader: () -> ByteArray?): ByteArray? {
+            return try {
+                reader()
+            } catch (error: Exception) {
+                lastFailure = error
+                Log.w(TAG, "Open With read failed: method=$method, uri=$uri", error)
+                null
+            }
+        }
+
+        val bytes = attempt("openInputStream") {
+            contentResolver.openInputStream(uri)?.use { it.readBytes() }
+        } ?: attempt("openFileDescriptor") {
             contentResolver.openFileDescriptor(uri, "r")?.let { descriptor ->
                 android.os.ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { it.readBytes() }
             }
-        }.getOrNull()
-    }
-
-    private fun readFromAssetFileDescriptor(uri: Uri, contentResolver: ContentResolver): ByteArray? {
-        return runCatching {
+        } ?: attempt("openAssetFileDescriptor") {
             contentResolver.openAssetFileDescriptor(uri, "r")?.use { descriptor ->
                 descriptor.createInputStream().use { it.readBytes() }
             }
-        }.getOrNull()
-    }
-
-    private fun readFromTypedAssetFileDescriptor(uri: Uri, contentResolver: ContentResolver): ByteArray? {
-        return listOf("*/*", "text/markdown", "text/plain", "text/*").firstNotNullOfOrNull { mimeType ->
-            runCatching {
+        } ?: listOf("*/*", "text/markdown", "text/plain", "text/*").firstNotNullOfOrNull { mimeType ->
+            attempt("openTypedAssetFileDescriptor($mimeType)") {
                 contentResolver.openTypedAssetFileDescriptor(uri, mimeType, null)?.use { descriptor ->
                     descriptor.createInputStream().use { it.readBytes() }
                 }
-            }.getOrNull()
+            }
         }
+
+        return bytes ?: throw IllegalStateException(
+            "Unable to read content URI: $uri",
+            lastFailure
+        )
     }
 
     private fun decodeUtf8(bytes: ByteArray): String {
