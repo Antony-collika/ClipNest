@@ -453,7 +453,18 @@ class EditorViewModel(
     }
 
     fun toggleMarkdownPreview() {
-        _uiState.value = _uiState.value.copy(showMarkdownPreview = !_uiState.value.showMarkdownPreview)
+        val currentState = _uiState.value
+        val openingPreview = !currentState.showMarkdownPreview
+        _uiState.value = currentState.copy(
+            showMarkdownPreview = openingPreview,
+            // Do not reopen a previously collapsed Preview at zero height.
+            // The header must have a measured area before any pointer input.
+            previewSplitFraction = if (openingPreview && currentState.previewSplitFraction <= 0f) {
+                DEFAULT_PREVIEW_FRACTION
+            } else {
+                currentState.previewSplitFraction
+            }
+        )
     }
 
     fun setPreviewSplitFraction(fraction: Float) {
@@ -753,6 +764,7 @@ class EditorViewModel(
         private const val MAX_HISTORY = 100
         private const val MIN_PREVIEW_FRACTION = 0.0f
         private const val MAX_PREVIEW_FRACTION = 1.0f
+        private const val DEFAULT_PREVIEW_FRACTION = 0.30f
     }
 }
 

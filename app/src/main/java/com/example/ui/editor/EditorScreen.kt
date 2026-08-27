@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -244,7 +243,9 @@ private fun EditorWithPreviewOverlay(
         }
         val latestOnFractionChange by rememberUpdatedState(onPreviewFractionChange)
         var isDragging by remember { mutableStateOf(false) }
-        var dragFraction by remember { mutableStateOf(uiState.previewSplitFraction) }
+        var dragFraction by remember(uiState.showMarkdownPreview, uiState.previewSplitFraction) {
+            mutableStateOf(uiState.previewSplitFraction)
+        }
 
         // The ViewModel fraction is the settled value. During a gesture, keep a local
         // fraction so the pane follows every pointer delta without waiting for a
