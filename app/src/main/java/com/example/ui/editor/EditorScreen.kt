@@ -106,6 +106,7 @@ private val PREVIEW_COLLAPSED_HEIGHT =
 fun EditorScreen(
     viewModel: EditorViewModel,
     onRequestSaveFolder: () -> Unit,
+    onRequestOpenFile: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -215,41 +216,80 @@ fun EditorScreen(
     }
 
     openWithDiagnostic?.let { report ->
+        var showDiagnosticDetails by remember(report) { mutableStateOf(false) }
         AlertDialog(
             onDismissRequest = viewModel::dismissOpenWithDiagnostic,
-            title = { Text(stringResource(com.example.R.string.open_with_diagnostic_title)) },
-            text = {
-                SelectionContainer {
-                    Text(
-                        text = report,
-                        style = MaterialTheme.typography.bodySmall
+            title = {
+                Text(
+                    stringResource(
+                        if (showDiagnosticDetails) {
+                            com.example.R.string.open_with_diagnostic_title
+                        } else {
+                            com.example.R.string.open_with_fallback_title
+                        }
                     )
+                )
+            },
+            text = {
+                if (showDiagnosticDetails) {
+                    SelectionContainer {
+                        Text(
+                            text = report,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                } else {
+                    Text(stringResource(com.example.R.string.open_with_fallback_message))
                 }
             },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        val clipboard = context.getSystemService(ClipboardManager::class.java)
-                        clipboard?.setPrimaryClip(
-                            ClipData.newPlainText(
-                                context.getString(com.example.R.string.open_with_diagnostic_title),
-                                report
+                if (showDiagnosticDetails) {
+                    TextButton(
+                        onClick = {
+                            val clipboard = context.getSystemService(ClipboardManager::class.java)
+                            clipboard?.setPrimaryClip(
+                                ClipData.newPlainText(
+                                    context.getString(com.example.R.string.open_with_diagnostic_title),
+                                    report
+                                )
                             )
-                        )
-                        Toast.makeText(
-                            context,
-                            context.getString(com.example.R.string.diagnostic_copied),
-                            Toast.LENGTH_SHORT
-                        ).show()
-                        viewModel.dismissOpenWithDiagnostic()
+                            Toast.makeText(
+                                context,
+                                context.getString(com.example.R.string.diagnostic_copied),
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            viewModel.dismissOpenWithDiagnostic()
+                        }
+                    ) {
+                        Text(stringResource(com.example.R.string.copy_diagnostic_report))
                     }
-                ) {
-                    Text(stringResource(com.example.R.string.copy_diagnostic_report))
+                } else {
+                    TextButton(
+                        onClick = {
+                            viewModel.dismissOpenWithDiagnostic()
+                            onRequestOpenFile()
+                        }
+                    ) {
+                        Text(stringResource(com.example.R.string.open_with_fallback_open_file))
+                    }
                 }
             },
             dismissButton = {
-                TextButton(onClick = viewModel::dismissOpenWithDiagnostic) {
-                    Text(stringResource(com.example.R.string.close))
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    TextButton(onClick = { showDiagnosticDetails = !showDiagnosticDetails }) {
+                        Text(
+                            stringResource(
+                                if (showDiagnosticDetails) {
+                                    com.example.R.string.open_with_fallback_hide_details
+                                } else {
+                                    com.example.R.string.open_with_fallback_details
+                                }
+                            )
+                        )
+                    }
+                    TextButton(onClick = viewModel::dismissOpenWithDiagnostic) {
+                        Text(stringResource(com.example.R.string.close))
+                    }
                 }
             }
         )

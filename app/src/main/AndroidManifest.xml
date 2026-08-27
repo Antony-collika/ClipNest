@@ -55,6 +55,12 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="application/octet-stream" />
                 <data android:mimeType="*/*" android:pathPattern=".*\\.md" />
+                <data android:mimeType="*/*" android:pathPattern=".*\\.markdown" />
+                <data android:mimeType="*/*" android:pathPattern=".*\\.mdown" />
+                <data android:mimeType="*/*" android:pathPattern=".*\\.mkdn" />
+                <data android:mimeType="*/*" android:pathPattern=".*\\.mkd" />
+                <data android:mimeType="*/*" android:pathPattern=".*\\.mdwn" />
+                <data android:mimeType="*/*" android:pathPattern=".*\\.mdtxt" />
                 <data android:mimeType="*/*" android:pathPattern=".*\\.txt" />
             </intent-filter>
         </activity>

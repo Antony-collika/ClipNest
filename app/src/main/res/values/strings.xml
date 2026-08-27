@@ -147,6 +147,11 @@
     <string name="tap_to_save_clipboard">Tap to save the current clipboard</string>
     <string name="could_not_open_file">Could not open file</string>
     <string name="open_with_diagnostic_title">Open With diagnostic</string>
+    <string name="open_with_fallback_title">Couldn’t open this file</string>
+    <string name="open_with_fallback_message">The app that shared this file may be using an older file-sharing method. You can try opening it with X-board’s file picker. If this happens often, updating or changing the file manager may provide a smoother experience.</string>
+    <string name="open_with_fallback_open_file">Open file</string>
+    <string name="open_with_fallback_details">Details</string>
+    <string name="open_with_fallback_hide_details">Hide details</string>
     <string name="copy_diagnostic_report">Copy report</string>
     <string name="diagnostic_copied">Diagnostic report copied</string>
     <string name="close">Close</string>

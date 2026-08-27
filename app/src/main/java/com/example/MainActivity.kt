@@ -421,7 +421,8 @@ fun MainAppContent(
             editorViewModel.openExternalDocument(
                 request.uri,
                 context.contentResolver,
-                request.openContext
+                request.openContext,
+                request.candidates
             )
             pagerState.animateScrollToPage(1)
             onIncomingOpenRequestHandled()
@@ -534,6 +535,7 @@ fun MainAppContent(
                                     editorViewModel.setDefaultSaveFolder(uri, context.contentResolver)
                                 }
                             },
+                            onRequestOpenFile = ::openExternalFile,
                             modifier = Modifier.fillMaxSize()
                         )
                     }
