@@ -19,6 +19,8 @@ data class ExternalDocumentOpenContext(
     val source: IncomingUriSource,
     val clipDataItemCount: Int,
     val payloadItemCount: Int,
+    val extraStreamPresent: Boolean = false,
+    val extraStreamValueType: String? = null,
     val flags: Int,
     val hasReadGrant: Boolean,
     val hasPersistableGrant: Boolean
@@ -41,6 +43,12 @@ data class IncomingOpenRequest(
 data class ExternalDocumentReadFailure(
     val candidate: IncomingDocumentUri,
     val error: Throwable
+)
+
+data class IncomingStreamInfo(
+    val present: Boolean,
+    val valueType: String?,
+    val documentUriCount: Int
 )
 
 /**
@@ -66,20 +74,21 @@ fun resolveIncomingDocumentUris(intent: Intent): List<IncomingDocumentUri> {
         add(intent.data, IncomingUriSource.DATA)
     }
 
+    val streamUris = documentStreamUris(intent)
     if (payloadFirst) {
-        add(documentStreamUri(intent), IncomingUriSource.EXTRA_STREAM)
-        val multiple = documentStreamUris(intent)
-        if (multiple.isNotEmpty()) {
-            add(multiple.first(), IncomingUriSource.EXTRA_STREAM_MULTIPLE, multiple.size)
+        if (streamUris.size == 1) {
+            add(streamUris.first(), IncomingUriSource.EXTRA_STREAM)
+        } else if (streamUris.size > 1) {
+            add(streamUris.first(), IncomingUriSource.EXTRA_STREAM_MULTIPLE, streamUris.size)
         }
         add(clipDataDocumentUri(intent.clipData), IncomingUriSource.CLIP_DATA)
         add(intent.data, IncomingUriSource.DATA)
     } else {
         add(clipDataDocumentUri(intent.clipData), IncomingUriSource.CLIP_DATA)
-        add(documentStreamUri(intent), IncomingUriSource.EXTRA_STREAM)
-        val multiple = documentStreamUris(intent)
-        if (multiple.isNotEmpty()) {
-            add(multiple.first(), IncomingUriSource.EXTRA_STREAM_MULTIPLE, multiple.size)
+        if (streamUris.size == 1) {
+            add(streamUris.first(), IncomingUriSource.EXTRA_STREAM)
+        } else if (streamUris.size > 1) {
+            add(streamUris.first(), IncomingUriSource.EXTRA_STREAM_MULTIPLE, streamUris.size)
         }
     }
 
@@ -93,20 +102,36 @@ fun resolveIncomingDocumentUris(intent: Intent): List<IncomingDocumentUri> {
 fun resolveIncomingDocumentUri(intent: Intent): IncomingDocumentUri? =
     resolveIncomingDocumentUris(intent).firstOrNull()
 
-private fun documentStreamUri(intent: Intent): Uri? {
-    return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-        intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
-    } else {
-        @Suppress("DEPRECATION")
-        intent.getParcelableExtra(Intent.EXTRA_STREAM) as? Uri
+fun inspectIncomingExtraStream(intent: Intent): IncomingStreamInfo {
+    val raw = runCatching { intent.extras?.get(Intent.EXTRA_STREAM) }.getOrNull()
+    val rawValues = when (raw) {
+        is ArrayList<*> -> raw
+        null -> emptyList()
+        else -> listOf(raw)
     }
+    return IncomingStreamInfo(
+        present = intent.hasExtra(Intent.EXTRA_STREAM),
+        valueType = raw?.javaClass?.simpleName,
+        documentUriCount = rawValues.count { streamValueToDocumentUri(it) != null }
+    )
 }
 
 private fun documentStreamUris(intent: Intent): List<Uri> {
-    @Suppress("DEPRECATION")
-    return intent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM)
-        .orEmpty()
-        .mapNotNull(::documentUri)
+    val raw = runCatching { intent.extras?.get(Intent.EXTRA_STREAM) }.getOrNull()
+    val rawValues = when (raw) {
+        is ArrayList<*> -> raw
+        null -> emptyList()
+        else -> listOf(raw)
+    }
+    return rawValues.mapNotNull(::streamValueToDocumentUri)
+}
+
+private fun streamValueToDocumentUri(value: Any?): Uri? {
+    return when (value) {
+        is Uri -> documentUri(value)
+        is String -> documentUri(Uri.parse(value))
+        else -> null
+    }
 }
 
 private fun clipDataDocumentUri(clipData: ClipData?): Uri? {
@@ -145,7 +170,7 @@ fun buildOpenWithDiagnostic(
         ?: context?.source?.name
         ?: IncomingUriSource.FILE_PICKER.name
     val attempts = if (primaryUri?.scheme.equals("file", ignoreCase = true)) {
-        "java.io.FileInputStream"
+        "ContentResolver.openInputStream, java.io.FileInputStream"
     } else {
         "openInputStream, openFileDescriptor, openAssetFileDescriptor, " +
             "openTypedAssetFileDescriptor"
@@ -176,6 +201,8 @@ fun buildOpenWithDiagnostic(
         appendLine("uriAuthority: ${primaryUri?.authority ?: "[none]"}")
         appendLine("uriPath: [redacted]")
         appendLine("clipDataItemCount: ${context?.clipDataItemCount ?: 0}")
+        appendLine("extraStreamPresent: ${if (context?.extraStreamPresent == true) "yes" else "no"}")
+        appendLine("extraStreamValueType: ${context?.extraStreamValueType ?: "none"}")
         appendLine("extraStreamItemCount: ${context?.payloadItemCount ?: 0}")
         appendLine("readGrantFlag: ${if (context?.hasReadGrant == true) "present" else "absent"}")
         appendLine("persistableGrantFlag: ${if (context?.hasPersistableGrant == true) "present" else "absent"}")

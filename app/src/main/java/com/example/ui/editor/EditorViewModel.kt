@@ -236,14 +236,37 @@ class EditorViewModel(
     private fun readExternalDocument(uri: Uri, contentResolver: ContentResolver): String {
         val bytes = when (uri.scheme?.lowercase()) {
             ContentResolver.SCHEME_CONTENT -> readContentUri(uri, contentResolver)
-            ContentResolver.SCHEME_FILE -> {
-                val path = uri.path?.takeIf { it.isNotBlank() }
-                    ?: throw IllegalArgumentException("File URI has no path: $uri")
-                File(path).inputStream().use { it.readBytes() }
-            }
+            ContentResolver.SCHEME_FILE -> readFileUri(uri, contentResolver)
             else -> throw IllegalArgumentException("Unsupported URI scheme for document: $uri")
         }
         return decodeUtf8(bytes)
+    }
+
+    private fun readFileUri(uri: Uri, contentResolver: ContentResolver): ByteArray {
+        var lastFailure: Throwable? = null
+
+        fun attempt(method: String, reader: () -> ByteArray?): ByteArray? {
+            return try {
+                reader()
+            } catch (error: Exception) {
+                lastFailure = error
+                Log.w(TAG, "Open With file URI read failed: method=$method, uri=$uri", error)
+                null
+            }
+        }
+
+        val bytes = attempt("ContentResolver.openInputStream") {
+            contentResolver.openInputStream(uri)?.use { it.readBytes() }
+        } ?: attempt("java.io.FileInputStream") {
+            val path = uri.path?.takeIf { it.isNotBlank() }
+                ?: throw IllegalArgumentException("File URI has no path")
+            File(path).inputStream().use { it.readBytes() }
+        }
+
+        return bytes ?: throw IllegalStateException(
+            "Unable to read file URI",
+            lastFailure
+        )
     }
 
     private fun readContentUri(uri: Uri, contentResolver: ContentResolver): ByteArray {

@@ -363,12 +363,15 @@ class MainActivity : ComponentActivity() {
                     Log.d("XBoard.OpenWith", "Persistable permission unavailable for $uri", error)
                 }
         }
+        val streamInfo = inspectIncomingExtraStream(intent)
         val openContext = ExternalDocumentOpenContext(
             action = action,
             mimeType = intent.type,
             source = resolvedUri?.source ?: IncomingUriSource.DATA,
             clipDataItemCount = intent.clipData?.itemCount ?: 0,
-            payloadItemCount = resolvedUri?.itemCount ?: 0,
+            payloadItemCount = streamInfo.documentUriCount,
+            extraStreamPresent = streamInfo.present,
+            extraStreamValueType = streamInfo.valueType,
             flags = intent.flags,
             hasReadGrant = grantedFlags and Intent.FLAG_GRANT_READ_URI_PERMISSION != 0,
             hasPersistableGrant = intent.flags and Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION != 0
