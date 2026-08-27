@@ -19,12 +19,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -95,7 +92,7 @@ private const val PREVIEW_RENDER_DEBOUNCE_MS = 140L
 private val PREVIEW_HANDLE_ROW_HEIGHT = 30.dp
 private val PREVIEW_TITLE_ROW_HEIGHT = 44.dp
 private val PREVIEW_COLLAPSED_HEIGHT =
-    PREVIEW_HANDLE_ROW_HEIGHT + PREVIEW_TITLE_ROW_HEIGHT
+    PREVIEW_HANDLE_ROW_HEIGHT + PREVIEW_TITLE_ROW_HEIGHT + 1.dp
 
 @Composable
 fun EditorScreen(
@@ -235,9 +232,6 @@ private fun EditorWithPreviewOverlay(
     ) {
         val density = androidx.compose.ui.platform.LocalDensity.current
         val totalHeightPx = with(density) { maxHeight.toPx() }
-        val topBarHeightPx = with(density) { 52.dp.toPx() } + WindowInsets.statusBars.getTop(density)
-        val topBarHeight = with(density) { topBarHeightPx.toDp() }
-        val dragRangeHeightPx = totalHeightPx + topBarHeightPx
         val minPreviewFraction = if (totalHeightPx > 0f) {
             (with(density) { PREVIEW_COLLAPSED_HEIGHT.toPx() } / totalHeightPx)
                 .coerceAtMost(MAX_PREVIEW_FRACTION)
@@ -256,7 +250,7 @@ private fun EditorWithPreviewOverlay(
         val latestIsDragging by rememberUpdatedState(isDragging)
         val previewDragState = rememberDraggableState { delta ->
             if (totalHeightPx > 0f && latestIsDragging) {
-                dragFraction = (latestDragFraction - delta / dragRangeHeightPx)
+                dragFraction = (latestDragFraction - delta / totalHeightPx)
                     .coerceIn(minPreviewFraction, MAX_PREVIEW_FRACTION)
             }
         }
@@ -265,10 +259,7 @@ private fun EditorWithPreviewOverlay(
         // stable at both ends of the gesture; View toggle itself remains instantaneous
         // rather than handing off from an animation to a drag value.
         val previewHeight = if (uiState.showMarkdownPreview) {
-            // Preserve the existing proportions until the user approaches the
-            // maximum; the final 10% of the drag progressively covers the app bar.
-            val topBarOverflowProgress = ((previewFraction - 0.9f) / 0.1f).coerceIn(0f, 1f)
-            maxHeight * previewFraction + topBarHeight * topBarOverflowProgress
+            maxHeight * previewFraction
         } else {
             0.dp
         }
@@ -277,9 +268,7 @@ private fun EditorWithPreviewOverlay(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                // The sheet must be allowed to measure beyond the Scaffold body
-                // when it covers the top bar; height() would coerce it to maxHeight.
-                .requiredHeight(previewHeight)
+                .height(previewHeight)
                 .zIndex(2f)
                 .testTag("markdown_preview_overlay")
         ) {
@@ -314,7 +303,7 @@ private fun MarkdownPreviewPane(
     modifier: Modifier = Modifier
 ) {
     val previewSurfaceColor = backgroundColor.toArgb()
-    val resizeModifier = Modifier.draggable(
+    val headerDragModifier = Modifier.draggable(
         orientation = Orientation.Vertical,
         state = dragState,
         onDragStarted = { _ -> onDragStarted() },
@@ -333,37 +322,46 @@ private fun MarkdownPreviewPane(
             .testTag("markdown_preview_pane")
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            Box(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(PREVIEW_HANDLE_ROW_HEIGHT)
-                    .then(resizeModifier)
-                    .testTag("markdown_preview_resize_band"),
-                contentAlignment = Alignment.TopCenter
+                    .then(headerDragModifier)
+                    .testTag("markdown_preview_header")
             ) {
                 Box(
                     modifier = Modifier
-                        .offset(y = 8.dp)
-                        .width(48.dp)
-                        .height(6.dp)
-                        .clip(RoundedCornerShape(50))
-                        .background(Color(0xFF8B8B8B))
-                )
+                        .fillMaxWidth()
+                        .height(PREVIEW_HANDLE_ROW_HEIGHT)
+                        .testTag("markdown_preview_resize_band"),
+                    contentAlignment = Alignment.TopCenter
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .offset(y = 8.dp)
+                            .width(48.dp)
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(Color(0xFF8B8B8B))
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(PREVIEW_TITLE_ROW_HEIGHT)
+                        .padding(horizontal = 16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = stringResource(com.example.R.string.preview_markdown),
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
+                        color = contentColor
+                    )
+                }
             }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(PREVIEW_TITLE_ROW_HEIGHT)
-                    .padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = stringResource(com.example.R.string.preview_markdown),
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
-                    color = contentColor,
-                    modifier = Modifier.weight(1f)
-                )
-            }
+            androidx.compose.material3.HorizontalDivider(
+                color = contentColor.copy(alpha = 0.18f),
+                thickness = 1.dp
+            )
             AndroidView(
                 factory = { context ->
                     WebView(context).apply {

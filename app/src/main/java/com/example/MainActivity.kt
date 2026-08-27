@@ -421,10 +421,6 @@ fun MainAppContent(
     val selectedCards = vaultState.cards.filter { vaultState.selectedIds.contains(it.id) }
     val visibleSelectedCount = selectedCards.size
     val allSelected = vaultState.cards.isNotEmpty() && visibleSelectedCount == vaultState.cards.size
-    val previewCoversTopBar = isEditorTab &&
-        editorUiState.showMarkdownPreview &&
-        editorUiState.previewSplitFraction >= 0.99f
-
     LaunchedEffect(incomingOpenUri) {
         incomingOpenUri?.let { uri ->
             editorViewModel.openExternalDocument(uri, context.contentResolver)
@@ -455,8 +451,7 @@ fun MainAppContent(
 
     Scaffold(
         topBar = {
-            if (!previewCoversTopBar) {
-                MainTopBar(
+            MainTopBar(
                     title = when {
                         isSettings -> stringResource(com.example.R.string.settings)
                         selectedTab == 0 -> stringResource(com.example.R.string.vault)
@@ -503,7 +498,6 @@ fun MainAppContent(
                         }
                     }
                 )
-            }
         },
         modifier = Modifier.fillMaxSize()
     ) { innerPadding ->
