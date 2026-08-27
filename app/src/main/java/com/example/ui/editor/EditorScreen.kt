@@ -326,11 +326,14 @@ private fun MarkdownPreviewPane(
             .clip(previewShape)
             .testTag("markdown_preview_pane")
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
+        Box(modifier = Modifier.fillMaxSize()) {
             Box(
                 modifier = Modifier
+                    .align(Alignment.TopCenter)
                     .fillMaxWidth()
                     .height(PREVIEW_HEADER_HEIGHT)
+                    .background(backgroundColor)
+                    .zIndex(1f)
                     .testTag("markdown_preview_header")
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
@@ -376,6 +379,11 @@ private fun MarkdownPreviewPane(
                 )
             }
             androidx.compose.material3.HorizontalDivider(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .padding(top = PREVIEW_HEADER_HEIGHT)
+                    .zIndex(1f),
                 color = contentColor.copy(alpha = 0.18f),
                 thickness = 1.dp
             )
@@ -444,8 +452,8 @@ private fun MarkdownPreviewPane(
                     }
                 },
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
+                    .fillMaxSize()
+                    .padding(top = PREVIEW_HEADER_HEIGHT + 1.dp)
                     .testTag("markdown_preview_content")
             )
         }
