@@ -7,11 +7,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.data.local.AppLanguage
+import com.example.data.local.EditorTextSize
 import com.example.data.local.FileManager
 import com.example.data.local.RetentionPolicy
 import com.example.data.local.SettingsDataStore
 import com.example.data.local.ThemeMode
 import com.example.data.local.ThemePreset
+import com.example.data.local.ViewerTextSize
 import com.example.data.local.UserSettings
 import com.example.data.repository.ClipboardRepository
 import com.example.service.CaptureNotificationManager
@@ -92,6 +94,18 @@ class SettingsViewModel(
     fun setThemePreset(themePreset: ThemePreset) {
         viewModelScope.launch {
             settingsDataStore.setThemePreset(themePreset)
+        }
+    }
+
+    fun setEditorTextSize(size: EditorTextSize) {
+        viewModelScope.launch {
+            settingsDataStore.setEditorTextSize(size)
+        }
+    }
+
+    fun setViewerTextSize(size: ViewerTextSize) {
+        viewModelScope.launch {
+            settingsDataStore.setViewerTextSize(size)
         }
     }
 

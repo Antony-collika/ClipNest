@@ -84,6 +84,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.data.local.EditorTextSize
+import com.example.data.local.ViewerTextSize
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -105,6 +107,8 @@ private val PREVIEW_COLLAPSED_HEIGHT =
 @Composable
 fun EditorScreen(
     viewModel: EditorViewModel,
+    editorTextSize: EditorTextSize = EditorTextSize.DEFAULT,
+    viewerTextSize: ViewerTextSize = ViewerTextSize.DEFAULT,
     onRequestSaveFolder: () -> Unit,
     onRequestOpenFile: () -> Unit,
     modifier: Modifier = Modifier
@@ -155,13 +159,13 @@ fun EditorScreen(
         }
     }
 
-    LaunchedEffect(uiState.content.text, previewColors) {
+    LaunchedEffect(uiState.content.text, previewColors, viewerTextSize) {
         // Keep the latest HTML warm even while the pane is hidden, so tapping
         // View can reveal the preview without waiting for its first render.
         // The effect is cancelled by Compose when text/theme changes again.
         delay(PREVIEW_RENDER_DEBOUNCE_MS)
         previewHtml = withContext(Dispatchers.Default) {
-            MarkdownPreviewRenderer.render(uiState.content.text, previewColors)
+            MarkdownPreviewRenderer.render(uiState.content.text, previewColors, viewerTextSize.px)
         }
     }
 
@@ -200,6 +204,7 @@ fun EditorScreen(
             EditorTextInput(
                 value = uiState.content,
                 onValueChange = viewModel::onContentChange,
+                editorTextSize = editorTextSize,
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
@@ -497,6 +502,7 @@ private fun MarkdownPreviewPane(
 private fun EditorTextInput(
     value: TextFieldValue,
     onValueChange: (TextFieldValue) -> Unit,
+    editorTextSize: EditorTextSize,
     modifier: Modifier = Modifier
 ) {
     BasicTextField(
@@ -504,8 +510,8 @@ private fun EditorTextInput(
         onValueChange = onValueChange,
         textStyle = TextStyle(
             fontFamily = FontFamily.Monospace,
-            fontSize = 14.sp,
-            lineHeight = 17.sp,
+            fontSize = editorTextSize.sp.sp,
+            lineHeight = editorTextSize.lineHeightSp.sp,
             color = MaterialTheme.colorScheme.onSurface
         ),
         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),

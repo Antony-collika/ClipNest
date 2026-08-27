@@ -23,7 +23,30 @@ enum class ThemePreset {
     OCEAN,
     VIOLET,
     SUNSET,
-    GRAPHITE
+    GRAPHITE,
+    NORD,
+    SOLARIZED,
+    SOFT_PAPER_CREAM,
+    MIDNIGHT_OLED,
+    SAGE_SLATE
+}
+
+enum class EditorTextSize(val sp: Int, val lineHeightSp: Int) {
+    VERY_SMALL(12, 15),
+    SMALL(13, 16),
+    DEFAULT(14, 17),
+    LARGE(16, 20),
+    VERY_LARGE(18, 22),
+    HUGE(20, 25)
+}
+
+enum class ViewerTextSize(val px: Int) {
+    VERY_SMALL(14),
+    SMALL(15),
+    DEFAULT(16),
+    LARGE(18),
+    VERY_LARGE(20),
+    HUGE(22)
 }
 
 enum class AppLanguage {
@@ -44,6 +67,8 @@ data class UserSettings(
     val isSensitivePreviewMasked: Boolean = true,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val themePreset: ThemePreset = ThemePreset.EMERALD,
+    val editorTextSize: EditorTextSize = EditorTextSize.DEFAULT,
+    val viewerTextSize: ViewerTextSize = ViewerTextSize.DEFAULT,
     val notificationEnabled: Boolean = true,
     val firstRunEducationShown: Boolean = false,
     val retentionPolicy: RetentionPolicy = RetentionPolicy.NEVER,
@@ -58,6 +83,8 @@ class SettingsDataStore(private val context: Context) {
         val SENSITIVE_PREVIEW_MASKED = booleanPreferencesKey("sensitive_preview_masked")
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val THEME_PRESET = stringPreferencesKey("theme_preset")
+        val EDITOR_TEXT_SIZE = stringPreferencesKey("editor_text_size")
+        val VIEWER_TEXT_SIZE = stringPreferencesKey("viewer_text_size")
         val NOTIFICATION_ENABLED = booleanPreferencesKey("notification_enabled")
         val FIRST_RUN_EDUCATION_SHOWN = booleanPreferencesKey("first_run_education_shown")
         val RETENTION_POLICY = stringPreferencesKey("retention_policy")
@@ -74,6 +101,12 @@ class SettingsDataStore(private val context: Context) {
         val themePreset = runCatching {
             ThemePreset.valueOf(preferences[PreferencesKeys.THEME_PRESET] ?: ThemePreset.EMERALD.name)
         }.getOrDefault(ThemePreset.EMERALD)
+        val editorTextSize = runCatching {
+            EditorTextSize.valueOf(preferences[PreferencesKeys.EDITOR_TEXT_SIZE] ?: EditorTextSize.DEFAULT.name)
+        }.getOrDefault(EditorTextSize.DEFAULT)
+        val viewerTextSize = runCatching {
+            ViewerTextSize.valueOf(preferences[PreferencesKeys.VIEWER_TEXT_SIZE] ?: ViewerTextSize.DEFAULT.name)
+        }.getOrDefault(ViewerTextSize.DEFAULT)
         val retention = runCatching {
             RetentionPolicy.valueOf(preferences[PreferencesKeys.RETENTION_POLICY] ?: RetentionPolicy.NEVER.name)
         }.getOrDefault(RetentionPolicy.NEVER)
@@ -84,6 +117,8 @@ class SettingsDataStore(private val context: Context) {
             isSensitivePreviewMasked = preferences[PreferencesKeys.SENSITIVE_PREVIEW_MASKED] ?: true,
             themeMode = themeMode,
             themePreset = themePreset,
+            editorTextSize = editorTextSize,
+            viewerTextSize = viewerTextSize,
             notificationEnabled = preferences[PreferencesKeys.NOTIFICATION_ENABLED] ?: true,
             firstRunEducationShown = preferences[PreferencesKeys.FIRST_RUN_EDUCATION_SHOWN] ?: false,
             retentionPolicy = retention,
@@ -109,6 +144,14 @@ class SettingsDataStore(private val context: Context) {
 
     suspend fun setThemePreset(preset: ThemePreset) {
         context.dataStore.edit { it[PreferencesKeys.THEME_PRESET] = preset.name }
+    }
+
+    suspend fun setEditorTextSize(size: EditorTextSize) {
+        context.dataStore.edit { it[PreferencesKeys.EDITOR_TEXT_SIZE] = size.name }
+    }
+
+    suspend fun setViewerTextSize(size: ViewerTextSize) {
+        context.dataStore.edit { it[PreferencesKeys.VIEWER_TEXT_SIZE] = size.name }
     }
 
     suspend fun setNotificationEnabled(enabled: Boolean) {

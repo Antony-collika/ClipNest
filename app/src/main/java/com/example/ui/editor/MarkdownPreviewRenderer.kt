@@ -33,7 +33,11 @@ object MarkdownPreviewRenderer {
         HtmlRenderer.builder(options).build()
     }
 
-    fun render(markdown: String, colors: MarkdownPreviewColors): String {
+    fun render(
+        markdown: String,
+        colors: MarkdownPreviewColors,
+        viewerTextSizePx: Int = 16
+    ): String {
         val body = renderer.render(parser.parse(markdown))
         return """
             <!doctype html>
@@ -48,7 +52,7 @@ object MarkdownPreviewRenderer {
                   background: ${colors.background};
                   color: ${colors.onSurface};
                   font-family: sans-serif;
-                  font-size: 16px;
+                  font-size: ${viewerTextSizePx.coerceIn(10, 32)}px;
                   line-height: 1.5;
                   padding: 16px;
                   overflow-wrap: anywhere;

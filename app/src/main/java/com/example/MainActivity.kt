@@ -10,6 +10,8 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
+import com.example.data.local.EditorTextSize
+import com.example.data.local.ViewerTextSize
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -209,6 +211,8 @@ class MainActivity : ComponentActivity() {
                         vaultViewModel = vaultViewModel,
                         editorViewModelFactory = EditorViewModelFactory(fileManager, settingsDataStore, applicationContext),
                         settingsViewModelFactory = SettingsViewModelFactory(settingsDataStore, repository, fileManager, applicationContext),
+                        editorTextSize = userSettings.editorTextSize,
+                        viewerTextSize = userSettings.viewerTextSize,
                         onRequestFolder = ::requestFolderSelection,
                         onRequestOpenFile = ::requestOpenFile,
                         onShareText = ::shareTextExternally,
@@ -391,6 +395,8 @@ fun MainAppContent(
     vaultViewModel: VaultViewModel,
     editorViewModelFactory: ViewModelProvider.Factory,
     settingsViewModelFactory: ViewModelProvider.Factory,
+    editorTextSize: EditorTextSize,
+    viewerTextSize: ViewerTextSize,
     onRequestFolder: (((Uri) -> Unit) -> Unit),
     onRequestOpenFile: ((Uri) -> Unit) -> Unit,
     onShareText: (String, String) -> Unit,
@@ -535,6 +541,8 @@ fun MainAppContent(
                         )
                         1 -> EditorScreen(
                             viewModel = editorViewModel,
+                            editorTextSize = editorTextSize,
+                            viewerTextSize = viewerTextSize,
                             onRequestSaveFolder = {
                                 onRequestFolder { uri ->
                                     editorViewModel.setDefaultSaveFolder(uri, context.contentResolver)

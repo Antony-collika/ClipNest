@@ -60,8 +60,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.local.AppLanguage
+import com.example.data.local.EditorTextSize
 import com.example.data.local.ThemeMode
 import com.example.data.local.ThemePreset
+import com.example.data.local.ViewerTextSize
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -181,36 +183,66 @@ fun SettingsScreen(
                             .padding(top = 10.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        ThemeChip(
-                            label = stringResource(com.example.R.string.theme_emerald),
-                            selected = userSettings.themePreset == ThemePreset.EMERALD,
-                            onClick = { viewModel.setThemePreset(ThemePreset.EMERALD) },
-                            modifier = Modifier.testTag("theme_preset_emerald")
-                        )
-                        ThemeChip(
-                            label = stringResource(com.example.R.string.theme_ocean),
-                            selected = userSettings.themePreset == ThemePreset.OCEAN,
-                            onClick = { viewModel.setThemePreset(ThemePreset.OCEAN) },
-                            modifier = Modifier.testTag("theme_preset_ocean")
-                        )
-                        ThemeChip(
-                            label = stringResource(com.example.R.string.theme_violet),
-                            selected = userSettings.themePreset == ThemePreset.VIOLET,
-                            onClick = { viewModel.setThemePreset(ThemePreset.VIOLET) },
-                            modifier = Modifier.testTag("theme_preset_violet")
-                        )
-                        ThemeChip(
-                            label = stringResource(com.example.R.string.theme_sunset),
-                            selected = userSettings.themePreset == ThemePreset.SUNSET,
-                            onClick = { viewModel.setThemePreset(ThemePreset.SUNSET) },
-                            modifier = Modifier.testTag("theme_preset_sunset")
-                        )
-                        ThemeChip(
-                            label = stringResource(com.example.R.string.theme_graphite),
-                            selected = userSettings.themePreset == ThemePreset.GRAPHITE,
-                            onClick = { viewModel.setThemePreset(ThemePreset.GRAPHITE) },
-                            modifier = Modifier.testTag("theme_preset_graphite")
-                        )
+                        ThemePreset.entries.forEach { preset ->
+                            ThemeChip(
+                                label = themePresetLabel(preset),
+                                selected = userSettings.themePreset == preset,
+                                onClick = { viewModel.setThemePreset(preset) },
+                                modifier = Modifier.testTag("theme_preset_${preset.name.lowercase(Locale.ROOT)}")
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(18.dp))
+                    Text(
+                        text = stringResource(com.example.R.string.editor_text_size),
+                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)
+                    )
+                    Text(
+                        text = stringResource(com.example.R.string.editor_text_size_description),
+                        style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(top = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        EditorTextSize.entries.forEach { size ->
+                            TextSizeChip(
+                                label = "${size.sp}sp",
+                                selected = userSettings.editorTextSize == size,
+                                onClick = { viewModel.setEditorTextSize(size) },
+                                modifier = Modifier.testTag("editor_text_size_${size.name.lowercase(Locale.ROOT)}")
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Text(
+                        text = stringResource(com.example.R.string.viewer_text_size),
+                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)
+                    )
+                    Text(
+                        text = stringResource(com.example.R.string.viewer_text_size_description),
+                        style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(top = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        ViewerTextSize.entries.forEach { size ->
+                            TextSizeChip(
+                                label = "${size.px}px",
+                                selected = userSettings.viewerTextSize == size,
+                                onClick = { viewModel.setViewerTextSize(size) },
+                                modifier = Modifier.testTag("viewer_text_size_${size.name.lowercase(Locale.ROOT)}")
+                            )
+                        }
                     }
                 }
             }
@@ -516,6 +548,42 @@ private fun SettingsSectionHeader(
             )
         )
     }
+}
+
+@Composable
+private fun themePresetLabel(preset: ThemePreset): String = when (preset) {
+    ThemePreset.EMERALD -> stringResource(com.example.R.string.theme_emerald)
+    ThemePreset.OCEAN -> stringResource(com.example.R.string.theme_ocean)
+    ThemePreset.VIOLET -> stringResource(com.example.R.string.theme_violet)
+    ThemePreset.SUNSET -> stringResource(com.example.R.string.theme_sunset)
+    ThemePreset.GRAPHITE -> stringResource(com.example.R.string.theme_graphite)
+    ThemePreset.NORD -> stringResource(com.example.R.string.theme_nord)
+    ThemePreset.SOLARIZED -> stringResource(com.example.R.string.theme_solarized)
+    ThemePreset.SOFT_PAPER_CREAM -> stringResource(com.example.R.string.theme_soft_paper_cream)
+    ThemePreset.MIDNIGHT_OLED -> stringResource(com.example.R.string.theme_midnight_oled)
+    ThemePreset.SAGE_SLATE -> stringResource(com.example.R.string.theme_sage_slate)
+}
+
+@Composable
+private fun TextSizeChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = { Text(label) },
+        leadingIcon = if (selected) {
+            { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+        } else null,
+        colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+        ),
+        modifier = modifier
+    )
 }
 
 @Composable

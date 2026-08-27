@@ -104,6 +104,15 @@
     <string name="theme_violet">Violet</string>
     <string name="theme_sunset">Sunset</string>
     <string name="theme_graphite">Graphite</string>
+    <string name="theme_nord">Nord</string>
+    <string name="theme_solarized">Solarized</string>
+    <string name="theme_soft_paper_cream">Giấy mềm / Kem</string>
+    <string name="theme_midnight_oled">Midnight OLED</string>
+    <string name="theme_sage_slate">Xanh sage &amp; Slate</string>
+    <string name="editor_text_size">Cỡ chữ Editor</string>
+    <string name="editor_text_size_description">Chọn cỡ chữ khi soạn Markdown. Toolbox và bố cục không thay đổi.</string>
+    <string name="viewer_text_size">Cỡ chữ Preview</string>
+    <string name="viewer_text_size_description">Chọn cỡ chữ Markdown đã render. Bảng và bố cục khác không thay đổi.</string>
     <string name="appearance">Giao diện</string>
     <string name="system">Hệ thống</string>
     <string name="light">Sáng</string>
