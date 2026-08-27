@@ -24,76 +24,76 @@ data class ExternalDocumentOpenContext(
     val hasPersistableGrant: Boolean
 )
 
-data class IncomingOpenRequest(
-    val uri: Uri,
-    val openContext: ExternalDocumentOpenContext
-)
-
 data class IncomingDocumentUri(
     val uri: Uri,
     val source: IncomingUriSource,
     val itemCount: Int = 1
 )
 
+data class IncomingOpenRequest(
+    val uri: Uri,
+    val openContext: ExternalDocumentOpenContext,
+    val candidates: List<IncomingDocumentUri> = listOf(
+        IncomingDocumentUri(uri, openContext.source)
+    )
+)
+
+data class ExternalDocumentReadFailure(
+    val candidate: IncomingDocumentUri,
+    val error: Throwable
+)
+
 /**
- * Resolves the document URI from an external open/share intent.
+ * Resolves document URI candidates according to the incoming Intent action.
  *
- * VIEW and EDIT describe a resource directly, so their data URI is preferred.
- * SEND and SEND_MULTIPLE describe payloads, so their stream payload is preferred
- * over data (which may contain unrelated metadata such as a thumbnail URI).
+ * VIEW and EDIT describe a resource directly, so data is the primary candidate.
+ * SEND and SEND_MULTIPLE describe payloads, so stream payloads are primary;
+ * data is retained as a fallback because some senders populate both fields.
  */
-internal fun resolveIncomingDocumentUri(intent: Intent): IncomingDocumentUri? {
-    val action = intent.action
-    val payloadFirst = action == Intent.ACTION_SEND || action == Intent.ACTION_SEND_MULTIPLE
+fun resolveIncomingDocumentUris(intent: Intent): List<IncomingDocumentUri> {
+    val candidates = mutableListOf<IncomingDocumentUri>()
+    val payloadFirst = intent.action == Intent.ACTION_SEND ||
+        intent.action == Intent.ACTION_SEND_MULTIPLE
+
+    fun add(uri: Uri?, source: IncomingUriSource, itemCount: Int = 1) {
+        val validUri = documentUri(uri) ?: return
+        if (candidates.none { it.uri == validUri }) {
+            candidates += IncomingDocumentUri(validUri, source, itemCount)
+        }
+    }
 
     if (!payloadFirst) {
-        documentUri(intent.data)?.let { return IncomingDocumentUri(it, IncomingUriSource.DATA) }
+        add(intent.data, IncomingUriSource.DATA)
     }
 
     if (payloadFirst) {
-        val singleStream = documentUri(parcelableStreamUri(intent))
-        if (singleStream != null) {
-            return IncomingDocumentUri(singleStream, IncomingUriSource.EXTRA_STREAM)
+        add(documentStreamUri(intent), IncomingUriSource.EXTRA_STREAM)
+        val multiple = documentStreamUris(intent)
+        if (multiple.isNotEmpty()) {
+            add(multiple.first(), IncomingUriSource.EXTRA_STREAM_MULTIPLE, multiple.size)
         }
-
-        val multipleStream = parcelableStreamUris(intent).mapNotNull(::documentUri)
-        if (multipleStream.isNotEmpty()) {
-            return IncomingDocumentUri(
-                uri = multipleStream.first(),
-                source = IncomingUriSource.EXTRA_STREAM_MULTIPLE,
-                itemCount = multipleStream.size
-            )
-        }
-    }
-
-    clipDataUri(intent.clipData)?.let { return IncomingDocumentUri(it, IncomingUriSource.CLIP_DATA) }
-
-    if (payloadFirst) {
-        documentUri(intent.data)?.let { return IncomingDocumentUri(it, IncomingUriSource.DATA) }
+        add(clipDataDocumentUri(intent.clipData), IncomingUriSource.CLIP_DATA)
+        add(intent.data, IncomingUriSource.DATA)
     } else {
-        val singleStream = documentUri(parcelableStreamUri(intent))
-        if (singleStream != null) {
-            return IncomingDocumentUri(singleStream, IncomingUriSource.EXTRA_STREAM)
-        }
-
-        val multipleStream = parcelableStreamUris(intent).mapNotNull(::documentUri)
-        if (multipleStream.isNotEmpty()) {
-            return IncomingDocumentUri(
-                uri = multipleStream.first(),
-                source = IncomingUriSource.EXTRA_STREAM_MULTIPLE,
-                itemCount = multipleStream.size
-            )
+        add(clipDataDocumentUri(intent.clipData), IncomingUriSource.CLIP_DATA)
+        add(documentStreamUri(intent), IncomingUriSource.EXTRA_STREAM)
+        val multiple = documentStreamUris(intent)
+        if (multiple.isNotEmpty()) {
+            add(multiple.first(), IncomingUriSource.EXTRA_STREAM_MULTIPLE, multiple.size)
         }
     }
 
     intent.getStringExtra(Intent.EXTRA_TEXT)
         ?.let { text -> documentUri(Uri.parse(text)) }
-        ?.let { documentUri -> return IncomingDocumentUri(documentUri, IncomingUriSource.EXTRA_TEXT) }
+        ?.let { add(it, IncomingUriSource.EXTRA_TEXT) }
 
-    return null
+    return candidates
 }
 
-private fun parcelableStreamUri(intent: Intent): Uri? {
+fun resolveIncomingDocumentUri(intent: Intent): IncomingDocumentUri? =
+    resolveIncomingDocumentUris(intent).firstOrNull()
+
+private fun documentStreamUri(intent: Intent): Uri? {
     return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
         intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
     } else {
@@ -102,12 +102,14 @@ private fun parcelableStreamUri(intent: Intent): Uri? {
     }
 }
 
-private fun parcelableStreamUris(intent: Intent): List<Uri> {
+private fun documentStreamUris(intent: Intent): List<Uri> {
     @Suppress("DEPRECATION")
-    return intent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM).orEmpty()
+    return intent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM)
+        .orEmpty()
+        .mapNotNull(::documentUri)
 }
 
-private fun clipDataUri(clipData: ClipData?): Uri? {
+private fun clipDataDocumentUri(clipData: ClipData?): Uri? {
     if (clipData == null) return null
     for (index in 0 until clipData.itemCount) {
         documentUri(clipData.getItemAt(index).uri)?.let { return it }
@@ -122,14 +124,27 @@ private fun documentUri(uri: Uri?): Uri? {
     }
 }
 
-internal fun buildOpenWithDiagnostic(
+fun buildOpenWithDiagnostic(
     uri: Uri,
     context: ExternalDocumentOpenContext?,
     error: Throwable
+): String = buildOpenWithDiagnostic(
+    failures = listOf(ExternalDocumentReadFailure(IncomingDocumentUri(uri, context?.source ?: IncomingUriSource.FILE_PICKER), error)),
+    context = context
+)
+
+fun buildOpenWithDiagnostic(
+    failures: List<ExternalDocumentReadFailure>,
+    context: ExternalDocumentOpenContext?
 ): String {
-    val rootCause = generateSequence(error) { it.cause }.last()
-    val source = context?.source?.name ?: IncomingUriSource.FILE_PICKER.name
-    val attempts = if (uri.scheme.equals("file", ignoreCase = true)) {
+    val primaryFailure = failures.firstOrNull()
+    val primaryUri = primaryFailure?.candidate?.uri
+    val error = primaryFailure?.error
+    val rootCause = error?.let { generateSequence(it) { cause -> cause.cause }.last() }
+    val source = primaryFailure?.candidate?.source?.name
+        ?: context?.source?.name
+        ?: IncomingUriSource.FILE_PICKER.name
+    val attempts = if (primaryUri?.scheme.equals("file", ignoreCase = true)) {
         "java.io.FileInputStream"
     } else {
         "openInputStream, openFileDescriptor, openAssetFileDescriptor, " +
@@ -139,33 +154,39 @@ internal fun buildOpenWithDiagnostic(
         is SecurityException -> "Permission denied by provider"
         is java.io.FileNotFoundException -> "File not found or provider rejected access"
         is IllegalArgumentException -> "Invalid or unsupported URI"
-        else -> rootCause.message?.substringBefore("\n")?.take(240)
+        else -> rootCause?.message?.substringBefore("\n")?.take(240)
             ?.takeIf { it.isNotBlank() }
             ?: "Provider could not open the resource"
     }
-    val redactedUri = buildString {
-        append(uri.scheme ?: "unknown")
-        append("://")
-        append(uri.authority ?: "[no-authority]")
-        append("/[redacted]")
-    }
+    val redactedUri = primaryUri?.let { uri ->
+        buildString {
+            append(uri.scheme ?: "unknown")
+            append("://")
+            append(uri.authority ?: "[no-authority]")
+            append("/[redacted]")
+        }
+    } ?: "[unavailable]"
     return buildString {
         appendLine("X-board Open With diagnostic")
         appendLine()
         appendLine("action: ${context?.action ?: "FILE_PICKER"}")
         appendLine("mimeType: ${context?.mimeType ?: "unknown"}")
         appendLine("uriSource: $source")
-        appendLine("uriScheme: ${uri.scheme ?: "unknown"}")
-        appendLine("uriAuthority: ${uri.authority ?: "[none]"}")
+        appendLine("uriScheme: ${primaryUri?.scheme ?: "unknown"}")
+        appendLine("uriAuthority: ${primaryUri?.authority ?: "[none]"}")
         appendLine("uriPath: [redacted]")
         appendLine("clipDataItemCount: ${context?.clipDataItemCount ?: 0}")
         appendLine("extraStreamItemCount: ${context?.payloadItemCount ?: 0}")
         appendLine("readGrantFlag: ${if (context?.hasReadGrant == true) "present" else "absent"}")
         appendLine("persistableGrantFlag: ${if (context?.hasPersistableGrant == true) "present" else "absent"}")
         appendLine("selectedUri: $redactedUri")
+        appendLine("candidateCount: ${failures.size}")
         appendLine("readAttempts: $attempts")
-        appendLine("failureType: ${rootCause::class.java.simpleName}")
+        appendLine("failureType: ${rootCause?.javaClass?.simpleName ?: "Unknown"}")
         appendLine("reason: $reason")
         appendLine("flags: 0x${Integer.toHexString(context?.flags ?: 0)}")
+        if (failures.size > 1) {
+            appendLine("candidateSources: ${failures.joinToString(",") { it.candidate.source.name }}")
+        }
     }
 }

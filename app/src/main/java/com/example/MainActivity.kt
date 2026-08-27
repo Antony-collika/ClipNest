@@ -332,13 +332,15 @@ class MainActivity : ComponentActivity() {
             action == Intent.ACTION_SEND_MULTIPLE
         if (!isOpenAction) return
 
-        val resolvedUri = resolveIncomingDocumentUri(intent)
+        val candidates = resolveIncomingDocumentUris(intent)
+        val resolvedUri = candidates.firstOrNull()
         val uri = resolvedUri?.uri
         Log.d(
             "XBoard.OpenWith",
             "action=$action, type=${intent.type}, data=${intent.data}, " +
                 "clipData=${intent.clipData?.itemCount}, uri=$uri, " +
                 "source=${resolvedUri?.source}, sourceItemCount=${resolvedUri?.itemCount}, " +
+                "candidateSources=${candidates.joinToString(",") { it.source.name }}, " +
                 "flags=0x${intent.flags.toString(16)}"
         )
         if (uri == null) {
@@ -371,7 +373,7 @@ class MainActivity : ComponentActivity() {
             hasReadGrant = grantedFlags and Intent.FLAG_GRANT_READ_URI_PERMISSION != 0,
             hasPersistableGrant = intent.flags and Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION != 0
         )
-        incomingOpenRequest.value = IncomingOpenRequest(uri, openContext)
+        incomingOpenRequest.value = IncomingOpenRequest(uri, openContext, candidates)
     }
 }
 

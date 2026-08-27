@@ -30,6 +30,19 @@ class IncomingDocumentUriResolverTest {
     }
 
     @Test
+    fun viewKeepsPayloadUriAsFallbackAfterDataUri() {
+        val intent = Intent(Intent.ACTION_VIEW)
+            .setData(dataUri)
+            .putExtra(Intent.EXTRA_STREAM, streamUri)
+
+        val candidates = resolveIncomingDocumentUris(intent)
+
+        assertEquals(listOf(dataUri, streamUri), candidates.map { it.uri })
+        assertEquals(IncomingUriSource.DATA, candidates[0].source)
+        assertEquals(IncomingUriSource.EXTRA_STREAM, candidates[1].source)
+    }
+
+    @Test
     fun sendPrefersExtraStreamOverDataUri() {
         val intent = Intent(Intent.ACTION_SEND)
             .setData(dataUri)

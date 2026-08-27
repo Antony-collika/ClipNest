@@ -17,6 +17,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.annotation.StringRes
 import androidx.lifecycle.viewModelScope
 import com.example.ExternalDocumentOpenContext
+import com.example.ExternalDocumentReadFailure
+import com.example.IncomingDocumentUri
 import com.example.buildOpenWithDiagnostic
 import com.example.data.local.ExportFormat
 import com.example.ui.localization.withAppLanguage
@@ -130,19 +132,35 @@ class EditorViewModel(
     fun openExternalDocument(
         uri: android.net.Uri,
         contentResolver: ContentResolver,
-        openContext: ExternalDocumentOpenContext? = null
+        openContext: ExternalDocumentOpenContext? = null,
+        candidates: List<IncomingDocumentUri> = listOf(
+            IncomingDocumentUri(uri, openContext?.source ?: com.example.IncomingUriSource.FILE_PICKER)
+        )
     ) {
         val previousState = _uiState.value
         editorLoaded = true
         autoSaveJob?.cancel()
         viewModelScope.launch(Dispatchers.IO) {
+            val failedCandidates = mutableListOf<ExternalDocumentReadFailure>()
             val result = runCatching {
-                val text = readExternalDocument(uri, contentResolver)
-                val name = queryDisplayName(uri, contentResolver)
-                name to text
+                val candidateUris = candidates.ifEmpty {
+                    listOf(IncomingDocumentUri(uri, openContext?.source ?: com.example.IncomingUriSource.FILE_PICKER))
+                }
+                val loaded = candidateUris.firstNotNullOfOrNull { candidate ->
+                    runCatching {
+                        candidate to readExternalDocument(candidate.uri, contentResolver)
+                    }.onFailure { error ->
+                        failedCandidates += ExternalDocumentReadFailure(candidate, error)
+                    }.getOrNull()
+                } ?: throw IllegalStateException(
+                    "Unable to read any incoming document URI",
+                    failedCandidates.firstOrNull()?.error
+                )
+                val name = queryDisplayName(loaded.first.uri, contentResolver)
+                Triple(loaded.first, name, loaded.second)
             }
             withContext(Dispatchers.Main.immediate) {
-                result.onSuccess { (name, text) ->
+                result.onSuccess { (candidate, name, text) ->
                     val value = TextFieldValue(text = text, selection = TextRange(text.length))
                     undoStack.clear()
                     redoStack.clear()
@@ -151,7 +169,7 @@ class EditorViewModel(
                         content = value,
                         isDirty = false,
                         documentName = name,
-                        externalDocumentUri = uri.toString(),
+                        externalDocumentUri = candidate.uri.toString(),
                         showSaveNewFileDialog = false,
                         lastSavedTimestamp = System.currentTimeMillis()
                     )
@@ -171,7 +189,11 @@ class EditorViewModel(
                         error
                     )
                     emitToast(com.example.R.string.could_not_open_file)
-                    _openWithDiagnostic.value = buildOpenWithDiagnostic(uri, openContext, error)
+                    _openWithDiagnostic.value = if (failedCandidates.isEmpty()) {
+                        buildOpenWithDiagnostic(uri, openContext, error)
+                    } else {
+                        buildOpenWithDiagnostic(failedCandidates, openContext)
+                    }
                 }
             }
         }
