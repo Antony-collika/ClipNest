@@ -16,11 +16,11 @@ class ThemePaletteTest {
     }
 
     @Test
-    fun emeraldRemainsTheDefaultPaletteAndOtherPresetsDiffer() {
-        assertEquals(EmeraldThemePalette, themePaletteFor(ThemePreset.EMERALD))
-        assertNotEquals(EmeraldThemePalette, themePaletteFor(ThemePreset.OCEAN))
-        assertNotEquals(EmeraldThemePalette, themePaletteFor(ThemePreset.VIOLET))
-        assertNotEquals(EmeraldThemePalette, themePaletteFor(ThemePreset.SUNSET))
-        assertNotEquals(EmeraldThemePalette, themePaletteFor(ThemePreset.GRAPHITE))
+    fun lightIsTheDefaultReferencePaletteAndOtherPresetsDiffer() {
+        assertEquals(LightThemePalette, themePaletteFor(ThemePreset.LIGHT))
+        assertNotEquals(LightThemePalette, themePaletteFor(ThemePreset.DARK))
+        assertNotEquals(LightThemePalette, themePaletteFor(ThemePreset.MIDNIGHT_BLUE))
+        assertNotEquals(LightThemePalette, themePaletteFor(ThemePreset.FOREST))
+        assertNotEquals(LightThemePalette, themePaletteFor(ThemePreset.LAVENDER))
     }
 }

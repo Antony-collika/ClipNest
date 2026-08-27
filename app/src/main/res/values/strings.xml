@@ -99,11 +99,11 @@
     <string name="theme_mode">Theme Mode</string>
     <string name="theme_preset">Color theme</string>
     <string name="theme_preset_description">Choose the app color palette. Light and dark mode remain separate.</string>
-    <string name="theme_emerald">Emerald</string>
-    <string name="theme_ocean">Ocean</string>
-    <string name="theme_violet">Violet</string>
-    <string name="theme_sunset">Sunset</string>
-    <string name="theme_graphite">Graphite</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="theme_midnight_blue">Midnight Blue</string>
+    <string name="theme_forest">Forest</string>
+    <string name="theme_lavender">Lavender</string>
     <string name="theme_nord">Nord</string>
     <string name="theme_solarized">Solarized</string>
     <string name="theme_soft_paper_cream">Soft Paper / Cream</string>

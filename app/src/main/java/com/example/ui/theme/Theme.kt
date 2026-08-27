@@ -14,7 +14,7 @@ import com.example.data.local.ThemePreset
 @Composable
 fun ClipboardManagerTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
-    themePreset: ThemePreset = ThemePreset.EMERALD,
+    themePreset: ThemePreset = ThemePreset.LIGHT,
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {

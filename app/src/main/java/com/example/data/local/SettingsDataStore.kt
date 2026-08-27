@@ -19,11 +19,11 @@ enum class ThemeMode {
 }
 
 enum class ThemePreset {
-    EMERALD,
-    OCEAN,
-    VIOLET,
-    SUNSET,
-    GRAPHITE,
+    LIGHT,
+    DARK,
+    MIDNIGHT_BLUE,
+    FOREST,
+    LAVENDER,
     NORD,
     SOLARIZED,
     SOFT_PAPER_CREAM,
@@ -66,7 +66,7 @@ data class UserSettings(
     val showPinnedFirst: Boolean = false,
     val isSensitivePreviewMasked: Boolean = true,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
-    val themePreset: ThemePreset = ThemePreset.EMERALD,
+    val themePreset: ThemePreset = ThemePreset.LIGHT,
     val editorTextSize: EditorTextSize = EditorTextSize.DEFAULT,
     val viewerTextSize: ViewerTextSize = ViewerTextSize.DEFAULT,
     val notificationEnabled: Boolean = true,
@@ -99,8 +99,8 @@ class SettingsDataStore(private val context: Context) {
             ThemeMode.valueOf(preferences[PreferencesKeys.THEME_MODE] ?: ThemeMode.SYSTEM.name)
         }.getOrDefault(ThemeMode.SYSTEM)
         val themePreset = runCatching {
-            ThemePreset.valueOf(preferences[PreferencesKeys.THEME_PRESET] ?: ThemePreset.EMERALD.name)
-        }.getOrDefault(ThemePreset.EMERALD)
+            ThemePreset.valueOf(preferences[PreferencesKeys.THEME_PRESET] ?: ThemePreset.LIGHT.name)
+        }.getOrDefault(ThemePreset.LIGHT)
         val editorTextSize = runCatching {
             EditorTextSize.valueOf(preferences[PreferencesKeys.EDITOR_TEXT_SIZE] ?: EditorTextSize.DEFAULT.name)
         }.getOrDefault(EditorTextSize.DEFAULT)

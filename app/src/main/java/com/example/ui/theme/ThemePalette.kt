@@ -22,249 +22,149 @@ data class ThemePalette(
         if (isDark) darkSemantic else lightSemantic
 }
 
-val EmeraldThemePalette = ThemePalette(
+val LightThemePalette = ThemePalette(
     light = lightColorScheme(
-        primary = EmeraldPrimaryLight,
-        onPrimary = OnEmeraldPrimaryLight,
-        primaryContainer = EmeraldContainerLight,
-        onPrimaryContainer = OnEmeraldContainerLight,
-        secondary = EmeraldSecondaryLight,
-        onSecondary = OnEmeraldSecondaryLight,
-        secondaryContainer = EmeraldSecondaryContainerLight,
-        onSecondaryContainer = OnEmeraldSecondaryContainerLight,
-        tertiary = EmeraldTertiaryLight,
-        onTertiary = OnEmeraldTertiaryLight,
-        tertiaryContainer = EmeraldTertiaryContainerLight,
-        onTertiaryContainer = OnEmeraldTertiaryContainerLight,
-        background = BackgroundLight,
-        onBackground = OnBackgroundLight,
-        surface = SurfaceLight,
-        onSurface = OnSurfaceLight,
-        surfaceVariant = SurfaceVariantLight,
-        onSurfaceVariant = OnSurfaceVariantLight,
-        outline = OutlineLight,
-        outlineVariant = OutlineVariantLight
+        primary = Color(0xFF111111), onPrimary = Color.White,
+        primaryContainer = Color(0xFFE5E7EB), onPrimaryContainer = Color(0xFF111111),
+        secondary = Color(0xFF6B7280), onSecondary = Color.White,
+        secondaryContainer = Color(0xFFE5E7EB), onSecondaryContainer = Color(0xFF111111),
+        tertiary = Color(0xFF374151), onTertiary = Color.White,
+        tertiaryContainer = Color(0xFFE5E7EB), onTertiaryContainer = Color(0xFF111111),
+        background = Color(0xFFFFFFFF), onBackground = Color(0xFF111111),
+        surface = Color(0xFFFFFFFF), onSurface = Color(0xFF111111),
+        surfaceVariant = Color(0xFFF3F4F6), onSurfaceVariant = Color(0xFF6B7280),
+        outline = Color(0xFF9CA3AF), outlineVariant = Color(0xFFE5E7EB)
     ),
     dark = darkColorScheme(
-        primary = EmeraldPrimaryDark,
-        onPrimary = OnEmeraldPrimaryDark,
-        primaryContainer = EmeraldContainerDark,
-        onPrimaryContainer = OnEmeraldContainerDark,
-        secondary = EmeraldSecondaryDark,
-        onSecondary = OnEmeraldSecondaryDark,
-        secondaryContainer = EmeraldSecondaryContainerDark,
-        onSecondaryContainer = OnEmeraldSecondaryContainerDark,
-        tertiary = EmeraldTertiaryDark,
-        onTertiary = OnEmeraldTertiaryDark,
-        tertiaryContainer = EmeraldTertiaryContainerDark,
-        onTertiaryContainer = OnEmeraldTertiaryContainerDark,
-        background = BackgroundDark,
-        onBackground = OnBackgroundDark,
-        surface = SurfaceDark,
-        onSurface = OnSurfaceDark,
-        surfaceVariant = SurfaceVariantDark,
-        onSurfaceVariant = OnSurfaceVariantDark,
-        outline = OutlineDark,
-        outlineVariant = OutlineVariantDark
+        primary = Color(0xFF111111), onPrimary = Color.White,
+        primaryContainer = Color(0xFFE5E7EB), onPrimaryContainer = Color(0xFF111111),
+        secondary = Color(0xFF6B7280), onSecondary = Color.White,
+        secondaryContainer = Color(0xFFE5E7EB), onSecondaryContainer = Color(0xFF111111),
+        tertiary = Color(0xFF374151), onTertiary = Color.White,
+        tertiaryContainer = Color(0xFFE5E7EB), onTertiaryContainer = Color(0xFF111111),
+        background = Color(0xFFFFFFFF), onBackground = Color(0xFF111111),
+        surface = Color(0xFFFFFFFF), onSurface = Color(0xFF111111),
+        surfaceVariant = Color(0xFFF3F4F6), onSurfaceVariant = Color(0xFF6B7280),
+        outline = Color(0xFF9CA3AF), outlineVariant = Color(0xFFE5E7EB)
     ),
-    lightSemantic = ThemeSemanticColors(PinnedGreenLight, SensitiveAmberLight),
-    darkSemantic = ThemeSemanticColors(PinnedGreenDark, SensitiveAmberDark)
+    lightSemantic = ThemeSemanticColors(Color(0xFF111111), Color(0xFFD97706)),
+    darkSemantic = ThemeSemanticColors(Color(0xFF111111), Color(0xFFD97706))
 )
 
-val OceanThemePalette = ThemePalette(
+val DarkThemePalette = ThemePalette(
     light = lightColorScheme(
-        primary = Color(0xFF1B5E92),
-        onPrimary = Color.White,
-        primaryContainer = Color(0xFFC9E6FF),
-        onPrimaryContainer = Color(0xFF001D32),
-        secondary = Color(0xFF4D6475),
-        onSecondary = Color.White,
-        secondaryContainer = Color(0xFFD0E5F6),
-        onSecondaryContainer = Color(0xFF081E2D),
-        tertiary = Color(0xFF00696C),
-        onTertiary = Color.White,
-        tertiaryContainer = Color(0xFF9DF0F0),
-        onTertiaryContainer = Color(0xFF002021),
-        background = Color(0xFFF7FAFE),
-        onBackground = Color(0xFF181C20),
-        surface = Color(0xFFF7FAFE),
-        onSurface = Color(0xFF181C20),
-        surfaceVariant = Color(0xFFDEE3EA),
-        onSurfaceVariant = Color(0xFF41474D),
-        outline = Color(0xFF71787F),
-        outlineVariant = Color(0xFFC1C7CF)
+        primary = Color(0xFF18181B), onPrimary = Color.White,
+        primaryContainer = Color(0xFFE4E4E7), onPrimaryContainer = Color(0xFF18181B),
+        secondary = Color(0xFF71717A), onSecondary = Color.White,
+        secondaryContainer = Color(0xFFE4E4E7), onSecondaryContainer = Color(0xFF18181B),
+        tertiary = Color(0xFF52525B), onTertiary = Color.White,
+        tertiaryContainer = Color(0xFFE4E4E7), onTertiaryContainer = Color(0xFF18181B),
+        background = Color(0xFFF4F4F5), onBackground = Color(0xFF18181B),
+        surface = Color(0xFFF4F4F5), onSurface = Color(0xFF18181B),
+        surfaceVariant = Color(0xFFE4E4E7), onSurfaceVariant = Color(0xFF71717A),
+        outline = Color(0xFFA1A1AA), outlineVariant = Color(0xFFD4D4D8)
     ),
     dark = darkColorScheme(
-        primary = Color(0xFF9ACBFF),
-        onPrimary = Color(0xFF003354),
-        primaryContainer = Color(0xFF004B72),
-        onPrimaryContainer = Color(0xFFC9E6FF),
-        secondary = Color(0xFFB4C9DA),
-        onSecondary = Color(0xFF1E333F),
-        secondaryContainer = Color(0xFF354A57),
-        onSecondaryContainer = Color(0xFFD0E5F6),
-        tertiary = Color(0xFF80D4D6),
-        onTertiary = Color(0xFF003739),
-        tertiaryContainer = Color(0xFF004F51),
-        onTertiaryContainer = Color(0xFF9DF0F0),
-        background = Color(0xFF101417),
-        onBackground = Color(0xFFE0E5E9),
-        surface = Color(0xFF101417),
-        onSurface = Color(0xFFE0E5E9),
-        surfaceVariant = Color(0xFF41474D),
-        onSurfaceVariant = Color(0xFFC1C7CF),
-        outline = Color(0xFF8B9299),
-        outlineVariant = Color(0xFF41474D)
+        primary = Color(0xFFF4F4F5), onPrimary = Color(0xFF18181B),
+        primaryContainer = Color(0xFF3F3F46), onPrimaryContainer = Color(0xFFF4F4F5),
+        secondary = Color(0xFFA1A1AA), onSecondary = Color(0xFF18181B),
+        secondaryContainer = Color(0xFF27272A), onSecondaryContainer = Color(0xFFE4E4E7),
+        tertiary = Color(0xFFD4D4D8), onTertiary = Color(0xFF27272A),
+        tertiaryContainer = Color(0xFF3F3F46), onTertiaryContainer = Color(0xFFF4F4F5),
+        background = Color(0xFF18181B), onBackground = Color(0xFFF4F4F5),
+        surface = Color(0xFF202023), onSurface = Color(0xFFF4F4F5),
+        surfaceVariant = Color(0xFF3F3F46), onSurfaceVariant = Color(0xFFA1A1AA),
+        outline = Color(0xFF71717A), outlineVariant = Color(0xFF3F3F46)
     ),
-    lightSemantic = ThemeSemanticColors(Color(0xFF1D4ED8), Color(0xFFB45309)),
-    darkSemantic = ThemeSemanticColors(Color(0xFF93C5FD), Color(0xFFFBBF24))
+    lightSemantic = ThemeSemanticColors(Color(0xFF27272A), Color(0xFFB45309)),
+    darkSemantic = ThemeSemanticColors(Color(0xFF38BDF8), Color(0xFFFBBF24))
 )
 
-val VioletThemePalette = ThemePalette(
+val MidnightBlueThemePalette = ThemePalette(
     light = lightColorScheme(
-        primary = Color(0xFF6750A4),
-        onPrimary = Color.White,
-        primaryContainer = Color(0xFFEADDFF),
-        onPrimaryContainer = Color(0xFF21005D),
-        secondary = Color(0xFF625B71),
-        onSecondary = Color.White,
-        secondaryContainer = Color(0xFFE8DEF8),
-        onSecondaryContainer = Color(0xFF1D192B),
-        tertiary = Color(0xFF7D5260),
-        onTertiary = Color.White,
-        tertiaryContainer = Color(0xFFFFD8E4),
-        onTertiaryContainer = Color(0xFF31111D),
-        background = Color(0xFFFFFBFE),
-        onBackground = Color(0xFF1D1B20),
-        surface = Color(0xFFFFFBFE),
-        onSurface = Color(0xFF1D1B20),
-        surfaceVariant = Color(0xFFE7E0EC),
-        onSurfaceVariant = Color(0xFF49454F),
-        outline = Color(0xFF79747E),
-        outlineVariant = Color(0xFFCAC4D0)
+        primary = Color(0xFF0F172A), onPrimary = Color.White,
+        primaryContainer = Color(0xFFDCE7F5), onPrimaryContainer = Color(0xFF0F172A),
+        secondary = Color(0xFF334155), onSecondary = Color.White,
+        secondaryContainer = Color(0xFFE2E8F0), onSecondaryContainer = Color(0xFF0F172A),
+        tertiary = Color(0xFF0284C7), onTertiary = Color.White,
+        tertiaryContainer = Color(0xFFBAE6FD), onTertiaryContainer = Color(0xFF082F49),
+        background = Color(0xFFF8FAFC), onBackground = Color(0xFF0F172A),
+        surface = Color(0xFFF8FAFC), onSurface = Color(0xFF0F172A),
+        surfaceVariant = Color(0xFFE2E8F0), onSurfaceVariant = Color(0xFF334155),
+        outline = Color(0xFF64748B), outlineVariant = Color(0xFFCBD5E1)
     ),
     dark = darkColorScheme(
-        primary = Color(0xFFD0BCFF),
-        onPrimary = Color(0xFF381E72),
-        primaryContainer = Color(0xFF4F378B),
-        onPrimaryContainer = Color(0xFFEADDFF),
-        secondary = Color(0xFFCCC2DC),
-        onSecondary = Color(0xFF332D41),
-        secondaryContainer = Color(0xFF4A4458),
-        onSecondaryContainer = Color(0xFFE8DEF8),
-        tertiary = Color(0xFFEFB8C8),
-        onTertiary = Color(0xFF492532),
-        tertiaryContainer = Color(0xFF633B48),
-        onTertiaryContainer = Color(0xFFFFD8E4),
-        background = Color(0xFF141218),
-        onBackground = Color(0xFFE6E0E9),
-        surface = Color(0xFF141218),
-        onSurface = Color(0xFFE6E0E9),
-        surfaceVariant = Color(0xFF49454F),
-        onSurfaceVariant = Color(0xFFCAC4D0),
-        outline = Color(0xFF938F99),
-        outlineVariant = Color(0xFF49454F)
+        primary = Color(0xFF38BDF8), onPrimary = Color(0xFF082F49),
+        primaryContainer = Color(0xFF164E63), onPrimaryContainer = Color(0xFFBAE6FD),
+        secondary = Color(0xFFCBD5E1), onSecondary = Color(0xFF0F172A),
+        secondaryContainer = Color(0xFF1E293B), onSecondaryContainer = Color(0xFFE2E8F0),
+        tertiary = Color(0xFF67E8F9), onTertiary = Color(0xFF083344),
+        tertiaryContainer = Color(0xFF155E75), onTertiaryContainer = Color(0xFFCFFAFE),
+        background = Color(0xFF0F172A), onBackground = Color(0xFFF8FAFC),
+        surface = Color(0xFF172554), onSurface = Color(0xFFF8FAFC),
+        surfaceVariant = Color(0xFF1E293B), onSurfaceVariant = Color(0xFFCBD5E1),
+        outline = Color(0xFF64748B), outlineVariant = Color(0xFF334155)
     ),
-    lightSemantic = ThemeSemanticColors(Color(0xFF6B21A8), Color(0xFFB45309)),
-    darkSemantic = ThemeSemanticColors(Color(0xFFD8B4FE), Color(0xFFFBBF24))
+    lightSemantic = ThemeSemanticColors(Color(0xFF0369A1), Color(0xFFB45309)),
+    darkSemantic = ThemeSemanticColors(Color(0xFF38BDF8), Color(0xFFFBBF24))
 )
 
-val SunsetThemePalette = ThemePalette(
+val ForestThemePalette = ThemePalette(
     light = lightColorScheme(
-        primary = Color(0xFFB9472E),
-        onPrimary = Color.White,
-        primaryContainer = Color(0xFFFFDAD1),
-        onPrimaryContainer = Color(0xFF3B0903),
-        secondary = Color(0xFF77574E),
-        onSecondary = Color.White,
-        secondaryContainer = Color(0xFFFFDBD0),
-        onSecondaryContainer = Color(0xFF2C1510),
-        tertiary = Color(0xFF6A5E2F),
-        onTertiary = Color.White,
-        tertiaryContainer = Color(0xFFF1E3A6),
-        onTertiaryContainer = Color(0xFF211B00),
-        background = Color(0xFFFFF8F6),
-        onBackground = Color(0xFF201A18),
-        surface = Color(0xFFFFF8F6),
-        onSurface = Color(0xFF201A18),
-        surfaceVariant = Color(0xFFF5DED8),
-        onSurfaceVariant = Color(0xFF57433E),
-        outline = Color(0xFF89736D),
-        outlineVariant = Color(0xFFD8C2BC)
+        primary = Color(0xFF4F8A63), onPrimary = Color.White,
+        primaryContainer = Color(0xFFCFE8D6), onPrimaryContainer = Color(0xFF17211B),
+        secondary = Color(0xFF526A60), onSecondary = Color.White,
+        secondaryContainer = Color(0xFFDCE9DF), onSecondaryContainer = Color(0xFF17211B),
+        tertiary = Color(0xFF356B4A), onTertiary = Color.White,
+        tertiaryContainer = Color(0xFFC6E3CF), onTertiaryContainer = Color(0xFF143020),
+        background = Color(0xFFF5F7F2), onBackground = Color(0xFF17211B),
+        surface = Color(0xFFF5F7F2), onSurface = Color(0xFF17211B),
+        surfaceVariant = Color(0xFFE7EEE8), onSurfaceVariant = Color(0xFF526A60),
+        outline = Color(0xFF71877A), outlineVariant = Color(0xFFCCDACE)
     ),
     dark = darkColorScheme(
-        primary = Color(0xFFFFB5A2),
-        onPrimary = Color(0xFF5F1608),
-        primaryContainer = Color(0xFF8F2F1D),
-        onPrimaryContainer = Color(0xFFFFDAD1),
-        secondary = Color(0xFFE7BDB1),
-        onSecondary = Color(0xFF432A23),
-        secondaryContainer = Color(0xFF5C4037),
-        onSecondaryContainer = Color(0xFFFFDBD0),
-        tertiary = Color(0xFFD4C98E),
-        onTertiary = Color(0xFF373000),
-        tertiaryContainer = Color(0xFF514719),
-        onTertiaryContainer = Color(0xFFF1E3A6),
-        background = Color(0xFF191110),
-        onBackground = Color(0xFFF0DFDB),
-        surface = Color(0xFF191110),
-        onSurface = Color(0xFFF0DFDB),
-        surfaceVariant = Color(0xFF57433E),
-        onSurfaceVariant = Color(0xFFD8C2BC),
-        outline = Color(0xFFA38C85),
-        outlineVariant = Color(0xFF57433E)
+        primary = Color(0xFF4F8A63), onPrimary = Color.White,
+        primaryContainer = Color(0xFF2F6845), onPrimaryContainer = Color(0xFFD8F3DE),
+        secondary = Color(0xFFB9CEBE), onSecondary = Color(0xFF1D3224),
+        secondaryContainer = Color(0xFF354D3C), onSecondaryContainer = Color(0xFFD5E9DA),
+        tertiary = Color(0xFF8DC69D), onTertiary = Color(0xFF12321D),
+        tertiaryContainer = Color(0xFF2F6845), onTertiaryContainer = Color(0xFFD8F3DE),
+        background = Color(0xFF17211B), onBackground = Color(0xFFE5EFE7),
+        surface = Color(0xFF203027), onSurface = Color(0xFFE5EFE7),
+        surfaceVariant = Color(0xFF354D3C), onSurfaceVariant = Color(0xFFB9CEBE),
+        outline = Color(0xFF829B89), outlineVariant = Color(0xFF4C6653)
     ),
-    lightSemantic = ThemeSemanticColors(Color(0xFFB45309), Color(0xFFB45309)),
-    darkSemantic = ThemeSemanticColors(Color(0xFFFFB09A), Color(0xFFFFCC80))
+    lightSemantic = ThemeSemanticColors(Color(0xFF2F6845), Color(0xFFB45309)),
+    darkSemantic = ThemeSemanticColors(Color(0xFF8DC69D), Color(0xFFFBBF24))
 )
 
-val GraphiteThemePalette = ThemePalette(
+val LavenderThemePalette = ThemePalette(
     light = lightColorScheme(
-        primary = Color(0xFF00695C),
-        onPrimary = Color.White,
-        primaryContainer = Color(0xFF9CF0E2),
-        onPrimaryContainer = Color(0xFF00201B),
-        secondary = Color(0xFF53615E),
-        onSecondary = Color.White,
-        secondaryContainer = Color(0xFFD6E5E0),
-        onSecondaryContainer = Color(0xFF0F1A17),
-        tertiary = Color(0xFF4B6078),
-        onTertiary = Color.White,
-        tertiaryContainer = Color(0xFFD2E4FF),
-        onTertiaryContainer = Color(0xFF061B2F),
-        background = Color(0xFFF7F8F8),
-        onBackground = Color(0xFF191C1C),
-        surface = Color(0xFFF7F8F8),
-        onSurface = Color(0xFF191C1C),
-        surfaceVariant = Color(0xFFDDE5E2),
-        onSurfaceVariant = Color(0xFF404947),
-        outline = Color(0xFF707976),
-        outlineVariant = Color(0xFFC0C9C5)
+        primary = Color(0xFF8B5CF6), onPrimary = Color.White,
+        primaryContainer = Color(0xFFE9D5FF), onPrimaryContainer = Color(0xFF32106B),
+        secondary = Color(0xFF6D5A88), onSecondary = Color.White,
+        secondaryContainer = Color(0xFFEDE9FE), onSecondaryContainer = Color(0xFF2E2142),
+        tertiary = Color(0xFF7C3AED), onTertiary = Color.White,
+        tertiaryContainer = Color(0xFFEDE9FE), onTertiaryContainer = Color(0xFF2E1065),
+        background = Color(0xFFF5F3FF), onBackground = Color(0xFF211A2E),
+        surface = Color(0xFFF5F3FF), onSurface = Color(0xFF211A2E),
+        surfaceVariant = Color(0xFFEDE9FE), onSurfaceVariant = Color(0xFF6D5A88),
+        outline = Color(0xFF8B7FA1), outlineVariant = Color(0xFFDCD5F0)
     ),
     dark = darkColorScheme(
-        primary = Color(0xFF80D5C5),
-        onPrimary = Color(0xFF003731),
-        primaryContainer = Color(0xFF005048),
-        onPrimaryContainer = Color(0xFF9CF0E2),
-        secondary = Color(0xFFB9CCC7),
-        onSecondary = Color(0xFF243330),
-        secondaryContainer = Color(0xFF3A4A47),
-        onSecondaryContainer = Color(0xFFD6E5E0),
-        tertiary = Color(0xFFB4C8E5),
-        onTertiary = Color(0xFF1C334A),
-        tertiaryContainer = Color(0xFF334A62),
-        onTertiaryContainer = Color(0xFFD2E4FF),
-        background = Color(0xFF181A1B),
-        onBackground = Color(0xFFE1E3E3),
-        surface = Color(0xFF202223),
-        onSurface = Color(0xFFE1E3E3),
-        surfaceVariant = Color(0xFF414947),
-        onSurfaceVariant = Color(0xFFC0C9C5),
-        outline = Color(0xFF8A9390),
-        outlineVariant = Color(0xFF414947)
+        primary = Color(0xFFB58CFF), onPrimary = Color(0xFF32106B),
+        primaryContainer = Color(0xFF6D28D9), onPrimaryContainer = Color(0xFFF1E8FF),
+        secondary = Color(0xFFD0C1E6), onSecondary = Color(0xFF302241),
+        secondaryContainer = Color(0xFF4C3B61), onSecondaryContainer = Color(0xFFE9DDF7),
+        tertiary = Color(0xFFC4B5FD), onTertiary = Color(0xFF2E1065),
+        tertiaryContainer = Color(0xFF6D28D9), onTertiaryContainer = Color(0xFFF1E8FF),
+        background = Color(0xFF211A2E), onBackground = Color(0xFFF1EBF8),
+        surface = Color(0xFF2B223B), onSurface = Color(0xFFF1EBF8),
+        surfaceVariant = Color(0xFF4C3B61), onSurfaceVariant = Color(0xFFD0C1E6),
+        outline = Color(0xFF9D8CB4), outlineVariant = Color(0xFF655278)
     ),
-    lightSemantic = ThemeSemanticColors(Color(0xFF087F6B), Color(0xFFB45309)),
-    darkSemantic = ThemeSemanticColors(Color(0xFF99F6E4), Color(0xFFFFCC80))
+    lightSemantic = ThemeSemanticColors(Color(0xFF7C3AED), Color(0xFFB45309)),
+    darkSemantic = ThemeSemanticColors(Color(0xFFC4B5FD), Color(0xFFFBBF24))
 )
 
 val NordThemePalette = ThemePalette(
@@ -413,11 +313,11 @@ val SageSlateThemePalette = ThemePalette(
 )
 
 fun themePaletteFor(preset: ThemePreset): ThemePalette = when (preset) {
-    ThemePreset.EMERALD -> EmeraldThemePalette
-    ThemePreset.OCEAN -> OceanThemePalette
-    ThemePreset.VIOLET -> VioletThemePalette
-    ThemePreset.SUNSET -> SunsetThemePalette
-    ThemePreset.GRAPHITE -> GraphiteThemePalette
+    ThemePreset.LIGHT -> LightThemePalette
+    ThemePreset.DARK -> DarkThemePalette
+    ThemePreset.MIDNIGHT_BLUE -> MidnightBlueThemePalette
+    ThemePreset.FOREST -> ForestThemePalette
+    ThemePreset.LAVENDER -> LavenderThemePalette
     ThemePreset.NORD -> NordThemePalette
     ThemePreset.SOLARIZED -> SolarizedThemePalette
     ThemePreset.SOFT_PAPER_CREAM -> SoftPaperCreamThemePalette
@@ -425,4 +325,4 @@ fun themePaletteFor(preset: ThemePreset): ThemePalette = when (preset) {
     ThemePreset.SAGE_SLATE -> SageSlateThemePalette
 }
 
-val LocalThemePalette = staticCompositionLocalOf { EmeraldThemePalette }
+val LocalThemePalette = staticCompositionLocalOf { LightThemePalette }

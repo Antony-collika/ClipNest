@@ -552,11 +552,11 @@ private fun SettingsSectionHeader(
 
 @Composable
 private fun themePresetLabel(preset: ThemePreset): String = when (preset) {
-    ThemePreset.EMERALD -> stringResource(com.example.R.string.theme_emerald)
-    ThemePreset.OCEAN -> stringResource(com.example.R.string.theme_ocean)
-    ThemePreset.VIOLET -> stringResource(com.example.R.string.theme_violet)
-    ThemePreset.SUNSET -> stringResource(com.example.R.string.theme_sunset)
-    ThemePreset.GRAPHITE -> stringResource(com.example.R.string.theme_graphite)
+    ThemePreset.LIGHT -> stringResource(com.example.R.string.theme_light)
+    ThemePreset.DARK -> stringResource(com.example.R.string.theme_dark)
+    ThemePreset.MIDNIGHT_BLUE -> stringResource(com.example.R.string.theme_midnight_blue)
+    ThemePreset.FOREST -> stringResource(com.example.R.string.theme_forest)
+    ThemePreset.LAVENDER -> stringResource(com.example.R.string.theme_lavender)
     ThemePreset.NORD -> stringResource(com.example.R.string.theme_nord)
     ThemePreset.SOLARIZED -> stringResource(com.example.R.string.theme_solarized)
     ThemePreset.SOFT_PAPER_CREAM -> stringResource(com.example.R.string.theme_soft_paper_cream)
