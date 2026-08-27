@@ -12,12 +12,6 @@ import kotlinx.coroutines.flow.map
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
-enum class ThemeMode {
-    SYSTEM,
-    LIGHT,
-    DARK
-}
-
 enum class ThemePreset {
     LIGHT,
     DARK,
@@ -65,7 +59,6 @@ data class UserSettings(
     val language: AppLanguage = AppLanguage.ENGLISH,
     val showPinnedFirst: Boolean = false,
     val isSensitivePreviewMasked: Boolean = true,
-    val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val themePreset: ThemePreset = ThemePreset.LIGHT,
     val editorTextSize: EditorTextSize = EditorTextSize.DEFAULT,
     val viewerTextSize: ViewerTextSize = ViewerTextSize.DEFAULT,
@@ -81,7 +74,6 @@ class SettingsDataStore(private val context: Context) {
         val LANGUAGE = stringPreferencesKey("language")
         val SHOW_PINNED_FIRST = booleanPreferencesKey("show_pinned_first")
         val SENSITIVE_PREVIEW_MASKED = booleanPreferencesKey("sensitive_preview_masked")
-        val THEME_MODE = stringPreferencesKey("theme_mode")
         val THEME_PRESET = stringPreferencesKey("theme_preset")
         val EDITOR_TEXT_SIZE = stringPreferencesKey("editor_text_size")
         val VIEWER_TEXT_SIZE = stringPreferencesKey("viewer_text_size")
@@ -95,9 +87,6 @@ class SettingsDataStore(private val context: Context) {
         val language = runCatching {
             AppLanguage.valueOf(preferences[PreferencesKeys.LANGUAGE] ?: AppLanguage.ENGLISH.name)
         }.getOrDefault(AppLanguage.ENGLISH)
-        val themeMode = runCatching {
-            ThemeMode.valueOf(preferences[PreferencesKeys.THEME_MODE] ?: ThemeMode.SYSTEM.name)
-        }.getOrDefault(ThemeMode.SYSTEM)
         val themePreset = runCatching {
             ThemePreset.valueOf(preferences[PreferencesKeys.THEME_PRESET] ?: ThemePreset.LIGHT.name)
         }.getOrDefault(ThemePreset.LIGHT)
@@ -115,7 +104,6 @@ class SettingsDataStore(private val context: Context) {
             language = language,
             showPinnedFirst = preferences[PreferencesKeys.SHOW_PINNED_FIRST] ?: false,
             isSensitivePreviewMasked = preferences[PreferencesKeys.SENSITIVE_PREVIEW_MASKED] ?: true,
-            themeMode = themeMode,
             themePreset = themePreset,
             editorTextSize = editorTextSize,
             viewerTextSize = viewerTextSize,
@@ -136,10 +124,6 @@ class SettingsDataStore(private val context: Context) {
 
     suspend fun setSensitivePreviewMasked(masked: Boolean) {
         context.dataStore.edit { it[PreferencesKeys.SENSITIVE_PREVIEW_MASKED] = masked }
-    }
-
-    suspend fun setThemeMode(mode: ThemeMode) {
-        context.dataStore.edit { it[PreferencesKeys.THEME_MODE] = mode.name }
     }
 
     suspend fun setThemePreset(preset: ThemePreset) {

@@ -106,7 +106,6 @@ class ShareDialogActivity : ComponentActivity() {
                     val localizedContext = LocalContext.current.withAppLanguage(settings.language)
                     CompositionLocalProvider(LocalContext provides localizedContext) {
                         ClipboardManagerTheme(
-                            themeMode = settings.themeMode,
                             themePreset = settings.themePreset
                         ) {
                             if (clipboardReady) {

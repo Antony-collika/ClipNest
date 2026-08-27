@@ -204,7 +204,6 @@ class MainActivity : ComponentActivity() {
             val incomingRequest by incomingOpenRequest.collectAsStateWithLifecycle()
             CompositionLocalProvider(LocalContext provides localizedContext) {
                 ClipboardManagerTheme(
-                    themeMode = userSettings.themeMode,
                     themePreset = userSettings.themePreset
                 ) {
                     MainAppContent(

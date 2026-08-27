@@ -11,7 +11,6 @@ import com.example.data.local.EditorTextSize
 import com.example.data.local.FileManager
 import com.example.data.local.RetentionPolicy
 import com.example.data.local.SettingsDataStore
-import com.example.data.local.ThemeMode
 import com.example.data.local.ThemePreset
 import com.example.data.local.ViewerTextSize
 import com.example.data.local.UserSettings
@@ -82,12 +81,6 @@ class SettingsViewModel(
     fun setLanguage(language: AppLanguage) {
         viewModelScope.launch {
             settingsDataStore.setLanguage(language)
-        }
-    }
-
-    fun setThemeMode(themeMode: ThemeMode) {
-        viewModelScope.launch {
-            settingsDataStore.setThemeMode(themeMode)
         }
     }
 

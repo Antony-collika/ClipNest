@@ -61,7 +61,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.local.AppLanguage
 import com.example.data.local.EditorTextSize
-import com.example.data.local.ThemeMode
 import com.example.data.local.ThemePreset
 import com.example.data.local.ViewerTextSize
 import java.io.File
@@ -138,35 +137,6 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = stringResource(com.example.R.string.theme_mode),
-                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        ThemeChip(
-                            label = stringResource(com.example.R.string.system),
-                            selected = userSettings.themeMode == ThemeMode.SYSTEM,
-                            onClick = { viewModel.setThemeMode(ThemeMode.SYSTEM) },
-                            modifier = Modifier.testTag("theme_chip_system")
-                        )
-                        ThemeChip(
-                            label = stringResource(com.example.R.string.light),
-                            selected = userSettings.themeMode == ThemeMode.LIGHT,
-                            onClick = { viewModel.setThemeMode(ThemeMode.LIGHT) },
-                            modifier = Modifier.testTag("theme_chip_light")
-                        )
-                        ThemeChip(
-                            label = stringResource(com.example.R.string.dark),
-                            selected = userSettings.themeMode == ThemeMode.DARK,
-                            onClick = { viewModel.setThemeMode(ThemeMode.DARK) },
-                            modifier = Modifier.testTag("theme_chip_dark")
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
                     Text(
                         text = stringResource(com.example.R.string.theme_preset),
                         style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)
