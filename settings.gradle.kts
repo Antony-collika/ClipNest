@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "Clipboard Manager"
+rootProject.name = "ClipNest"
 
 include(":app")

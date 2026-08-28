@@ -73,7 +73,7 @@ jobs:
             -keyalg RSA \
             -keysize 2048 \
             -validity 10000 \
-            -dname "CN=X-board Release Validation,O=X-board,C=US"
+            -dname "CN=ClipNest Release Validation,O=ClipNest,C=US"
           KEYSTORE_PATH="$RUNNER_TEMP/xboard-release-validation.jks" \
           STORE_PASSWORD=changeit \
           KEY_PASSWORD=changeit \
@@ -82,14 +82,14 @@ jobs:
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: Clipboard-Manager-debug-apk
+          name: ClipNest-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
       - name: Upload Release Validation APK
         uses: actions/upload-artifact@v4
         with:
-          name: Clipboard-Manager-release-validation-apk
+          name: ClipNest-release-validation-apk
           path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
 
@@ -97,5 +97,5 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Clipboard-Manager-test-report
+          name: ClipNest-test-report
           path: app/build/reports/tests/testDebugUnitTest/

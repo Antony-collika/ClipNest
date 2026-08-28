@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-  namespace = "com.example"
+  namespace = "com.clipnest"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
-    applicationId = "com.aistudio.clipboardmanager.kpxvlm"
+    applicationId = "com.clipnest.app"
     minSdk = 26
     targetSdk = 36
     versionCode = 1

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    X-board is intentionally device-local. Exclude every private-storage domain
+    ClipNest is intentionally device-local. Exclude every private-storage domain
     from both cloud backup and device-to-device transfer.
 -->
 <data-extraction-rules>

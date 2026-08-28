@@ -1,5 +1,5 @@
 {
-  "name": "Clipboard Manager",
-  "description": "A private, offline-first clipboard vault and markdown workspace.",
+  "name": "ClipNest",
+  "description": "A private, fully offline clipboard vault and Markdown workspace.",
   "requestFramePermissions": []
 }

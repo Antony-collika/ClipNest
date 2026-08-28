@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- X-board is device-local; exclude all app data from legacy Auto Backup. -->
+<!-- ClipNest is device-local; exclude all app data from legacy Auto Backup. -->
 <full-backup-content>
     <exclude domain="root" path="." />
 </full-backup-content>
