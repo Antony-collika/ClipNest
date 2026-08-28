@@ -1,21 +1,20 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# ClipNest release rules
+# Room and Moshi use generated code; retain the runtime entry points that may
+# be discovered by generated names or reflection.
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Keep Moshi generated adapters and annotated backup models.
+-keep class com.clipnest.data.model.**JsonAdapter { *; }
+-keep @com.squareup.moshi.JsonClass class * { *; }
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# Keep Room generated database implementation and DAO contracts.
+-keep class com.clipnest.data.local.AppDatabase_Impl { *; }
+-keep interface com.clipnest.data.local.**Dao { *; }
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Keep Android manifest entry points and provider metadata.
+-keep class com.clipnest.MainActivity { *; }
+-keep class com.clipnest.service.** { *; }
+-keep class androidx.core.content.FileProvider { *; }
+
+# Preserve useful release stack-trace locations without exposing source paths.
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
