@@ -8,7 +8,7 @@ import java.util.Locale
 fun Context.withAppLanguage(language: AppLanguage): Context {
     val locale = when (language) {
         AppLanguage.ENGLISH -> Locale.ENGLISH
-        AppLanguage.VIETNAMESE -> Locale("vi")
+        AppLanguage.VIETNAMESE -> Locale.forLanguageTag("vi")
     }
     val configuration = Configuration(resources.configuration)
     configuration.setLocale(locale)

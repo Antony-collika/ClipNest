@@ -2,14 +2,15 @@ name: Android CI/CD
 
 on:
   push:
-    branches: [ "main", "master", "UI/UX-adjust", "optimization" ]
+    branches: [ "main", "master", "Refine", "UI/UX-adjust", "optimization" ]
   pull_request:
-    branches: [ "main", "master", "UI/UX-adjust", "optimization" ]
+    branches: [ "main", "master", "Refine", "UI/UX-adjust", "optimization" ]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout repository
@@ -33,6 +34,20 @@ jobs:
           fi
           chmod +x gradlew
 
+      - name: Enforce offline release policy
+        run: |
+          if grep -q 'android.permission.INTERNET' app/src/main/AndroidManifest.xml; then
+            echo 'INTERNET permission is forbidden for this offline app.'
+            exit 1
+          fi
+          grep -q 'android:allowBackup="false"' app/src/main/AndroidManifest.xml
+          grep -q '<exclude domain="root" path="\."' app/src/main/res/xml/backup_rules.xml
+          grep -q '<exclude domain="root" path="\."' app/src/main/res/xml/data_extraction_rules.xml
+          if grep -RniE 'firebase|google-services|retrofit|okhttp|secrets-gradle|GEMINI_API_KEY' app/build.gradle.kts build.gradle.kts gradle/libs.versions.toml metadata.json; then
+            echo 'Cloud/network integration marker found in release configuration.'
+            exit 1
+          fi
+
       - name: Restore Debug Keystore
         run: |
           if [ -f "debug.keystore.base64" ] && [ ! -f "debug.keystore" ]; then
@@ -48,11 +63,34 @@ jobs:
       - name: Build Debug APK
         run: ./gradlew assembleDebug --no-daemon
 
+      - name: Validate Release APK
+        run: |
+          keytool -genkeypair -v \
+            -keystore "$RUNNER_TEMP/xboard-release-validation.jks" \
+            -storepass changeit \
+            -alias upload \
+            -keypass changeit \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=X-board Release Validation,O=X-board,C=US"
+          KEYSTORE_PATH="$RUNNER_TEMP/xboard-release-validation.jks" \
+          STORE_PASSWORD=changeit \
+          KEY_PASSWORD=changeit \
+          ./gradlew assembleRelease --no-daemon
+
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
           name: Clipboard-Manager-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Upload Release Validation APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Clipboard-Manager-release-validation-apk
+          path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
 
       - name: Upload Test Report
