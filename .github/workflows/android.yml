@@ -2,9 +2,9 @@ name: Android CI/CD
 
 on:
   push:
-    branches: [ "Refine", "finalizing", "release-debug" ]
+    branches: [ "Refine", "finalizing", "release-debug", "debug-apk-release" ]
   pull_request:
-    branches: [ "Refine", "finalizing", "release-debug" ]
+    branches: [ "Refine", "finalizing", "release-debug", "debug-apk-release" ]
   workflow_dispatch:
 
 jobs:
