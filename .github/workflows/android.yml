@@ -2,9 +2,9 @@ name: Android CI/CD
 
 on:
   push:
-    branches: [ "main", "master", "Refine", "UI/UX-adjust", "optimization" ]
+    branches: [ "Refine", "finalizing", "release-debug" ]
   pull_request:
-    branches: [ "main", "master", "Refine", "UI/UX-adjust", "optimization" ]
+    branches: [ "Refine", "finalizing", "release-debug" ]
   workflow_dispatch:
 
 jobs:
