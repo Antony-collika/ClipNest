@@ -14,7 +14,7 @@ android {
     targetSdk = 36
     versionCode = 1
     versionName = "1.0"
-    buildConfigField("String", "AI_API_BASE_URL", "\"${System.getenv("AI_API_BASE_URL") ?: "https://x-board-git-ask-ai-antony-collikas-projects.vercel.app"}\"")
+    buildConfigField("String", "AI_API_BASE_URL", "\"${System.getenv("AI_API_BASE_URL") ?: "https://x-board-iota-teal.vercel.app"}\"")
   }
 
   signingConfigs {
@@ -88,6 +88,9 @@ dependencies {
   testImplementation(libs.junit)
   testImplementation(libs.kotlinx.coroutines.test)
   testImplementation(libs.robolectric)
+
+  ksp(libs.androidx.room.compiler)
+  ksp(libs.moshi.kotlin.codegen)
 
   ksp(libs.androidx.room.compiler)
   ksp(libs.moshi.kotlin.codegen)
