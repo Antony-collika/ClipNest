@@ -1,6 +1,10 @@
 name: Android CI/CD
 
 on:
+  push:
+    branches: [ "Refine", "finalizing", "release-debug", "debug-apk-release", "ask-AI" ]
+  pull_request:
+    branches: [ "Refine", "finalizing", "release-debug", "debug-apk-release", "ask-AI" ]
   workflow_dispatch:
 
 jobs:
@@ -50,9 +54,6 @@ jobs:
       - name: Run Unit Tests
         run: ./gradlew testDebugUnitTest --no-daemon
 
-      - name: Build Debug APK
-        run: ./gradlew assembleDebug --no-daemon
-
       - name: Validate Release APK
         run: |
           keytool -genkeypair -v \
@@ -68,13 +69,6 @@ jobs:
           STORE_PASSWORD=changeit \
           KEY_PASSWORD=changeit \
           ./gradlew assembleRelease --no-daemon
-
-      - name: Upload Debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: ClipNest-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
 
       - name: Upload Release Validation APK
         uses: actions/upload-artifact@v4
