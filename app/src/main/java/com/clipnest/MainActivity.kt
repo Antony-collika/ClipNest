@@ -549,6 +549,11 @@ fun MainAppContent(
                                 ).show()
                             } else {
                                 askAiInProgress = true
+                                Toast.makeText(
+                                    context,
+                                    context.getString(com.clipnest.R.string.ask_ai_sent),
+                                    Toast.LENGTH_SHORT
+                                ).show()
                                 scope.launch {
                                     val result = askAiCoordinator.askAndSave(content)
                                     askAiInProgress = false
