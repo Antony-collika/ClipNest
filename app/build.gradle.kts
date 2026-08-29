@@ -14,7 +14,7 @@ android {
     targetSdk = 36
     versionCode = 1
     versionName = "1.0"
-    buildConfigField("String", "AI_API_BASE_URL", "\"${System.getenv("AI_API_BASE_URL") ?: ""}\"")
+    buildConfigField("String", "AI_API_BASE_URL", "\"${System.getenv("AI_API_BASE_URL") ?: "https://x-board-git-ask-ai-antony-collikas-projects.vercel.app"}\"")
   }
 
   signingConfigs {
