@@ -73,15 +73,20 @@ jobs:
         run: ./gradlew assembleRelease --no-daemon
 
       - name: Upload Release Validation APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.6.2
         with:
           name: ClipNest-release-validation-apk
           path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
+          overwrite: true
+          retention-days: 7
 
       - name: Upload Test Report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.6.2
         with:
           name: ClipNest-test-report
           path: app/build/reports/tests/testDebugUnitTest/
+          if-no-files-found: warn
+          overwrite: true
+          retention-days: 7
