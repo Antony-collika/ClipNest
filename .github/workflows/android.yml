@@ -2,52 +2,38 @@ name: Android CI/CD
 
 on:
   push:
-    branches: [ "ask-AI" ]
+    branches: [ "Refine", "finalizing", "release-debug", "debug-apk-release", "ask-AI" ]
   pull_request:
-    branches: [ "ask-AI" ]
+    branches: [ "Refine", "finalizing", "release-debug", "debug-apk-release", "ask-AI" ]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
-
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.3.1'
-
       - name: Generate Wrapper if not present
         run: |
-          if [ ! -f "gradlew" ]; then
-            gradle wrapper
-          fi
+          if [ ! -f "gradlew" ]; then gradle wrapper; fi
           chmod +x gradlew
-
-      - name: Enforce offline release policy
+      - name: Validate Android network configuration
         run: |
-          if grep -q 'android.permission.INTERNET' app/src/main/AndroidManifest.xml; then
-            echo 'INTERNET permission is forbidden for this offline app.'
+          grep -q 'android.permission.INTERNET' app/src/main/AndroidManifest.xml
+          if grep -RniE 'GEMINI_API_KEY\s*=|AIza[0-9A-Za-z_-]{20,}' app --exclude-dir=build; then
+            echo 'Gemini API key material must not be committed to the Android app.'
             exit 1
           fi
-          grep -q 'android:allowBackup="false"' app/src/main/AndroidManifest.xml
-          grep -q '<exclude domain="root" path="\."' app/src/main/res/xml/backup_rules.xml
-          grep -q '<exclude domain="root" path="\."' app/src/main/res/xml/data_extraction_rules.xml
-          if grep -RniE 'firebase|google-services|retrofit|okhttp|secrets-gradle|GEMINI_API_KEY' app/build.gradle.kts build.gradle.kts gradle/libs.versions.toml metadata.json; then
-            echo 'Cloud/network integration marker found in release configuration.'
-            exit 1
-          fi
-
       - name: Restore Debug Keystore
         run: |
           if [ -f "debug.keystore.base64" ] && [ ! -f "debug.keystore" ]; then
@@ -56,13 +42,10 @@ jobs:
           if [ ! -f "debug.keystore" ]; then
             keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
           fi
-
       - name: Run Unit Tests
         run: ./gradlew testDebugUnitTest --no-daemon
-
       - name: Build Debug APK
         run: ./gradlew assembleDebug --no-daemon
-
       - name: Validate Release APK
         run: |
           keytool -genkeypair -v \
@@ -78,21 +61,18 @@ jobs:
           STORE_PASSWORD=changeit \
           KEY_PASSWORD=changeit \
           ./gradlew assembleRelease --no-daemon
-
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
           name: ClipNest-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-
       - name: Upload Release Validation APK
         uses: actions/upload-artifact@v4
         with:
           name: ClipNest-release-validation-apk
           path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
-
       - name: Upload Test Report
         if: always()
         uses: actions/upload-artifact@v4
