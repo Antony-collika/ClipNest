@@ -14,6 +14,7 @@ android {
     targetSdk = 36
     versionCode = 1
     versionName = "1.0"
+    buildConfigField("String", "AI_API_BASE_URL", "\"${System.getenv("AI_API_BASE_URL") ?: ""}\"")
   }
 
   signingConfigs {
@@ -48,7 +49,7 @@ android {
     targetCompatibility = JavaVersion.VERSION_11
   }
 
-  buildFeatures { compose = true }
+  buildFeatures { compose = true; buildConfig = true }
   testOptions { unitTests { isIncludeAndroidResources = true } }
   dependenciesInfo {
     includeInApk = false
