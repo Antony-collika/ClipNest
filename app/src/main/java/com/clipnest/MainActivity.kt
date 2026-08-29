@@ -85,6 +85,9 @@ import com.clipnest.data.local.AppDatabase
 import com.clipnest.data.local.FileManager
 import com.clipnest.data.local.SettingsDataStore
 import com.clipnest.data.repository.ClipboardRepositoryImpl
+import com.clipnest.data.repository.AiRepository
+import com.clipnest.data.repository.AskAiCoordinator
+import com.clipnest.data.ai.AiApi
 import com.clipnest.data.repository.VaultBackupCodec
 import com.clipnest.service.CaptureNotificationManager
 import com.clipnest.ui.editor.EditorScreen
@@ -442,6 +445,15 @@ fun MainAppContent(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     val context = LocalContext.current
+    val askAiCoordinator = remember {
+        AskAiCoordinator(
+            aiRepository = AiRepository(AiApi(BuildConfig.AI_API_BASE_URL)),
+            clipboardRepository = ClipboardRepositoryImpl(
+                AppDatabase.getInstance(context).clipboardDao()
+            )
+        )
+    }
+    var askAiInProgress by remember { mutableStateOf(false) }
     val vaultState by vaultViewModel.uiState.collectAsStateWithLifecycle()
     val editorViewModel: EditorViewModel = viewModel(factory = editorViewModelFactory)
     val editorSearchOpen = editorViewModel.isSearchOpen.collectAsStateWithLifecycle().value
@@ -525,6 +537,30 @@ fun MainAppContent(
                     onShareSelected = { vaultViewModel.shareSelected() },
                     onSaveFile = vaultViewModel::openExportDialog,
                     onEditorSave = { editorViewModel.onSaveClicked(context.contentResolver) },
+                    onAskAi = {
+                        if (!askAiInProgress) {
+                            val content = editorUiState.content.text
+                            if (content.isBlank()) {
+                                Toast.makeText(
+                                    context,
+                                    context.getString(com.clipnest.R.string.ask_ai_empty),
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            } else {
+                                askAiInProgress = true
+                                scope.launch {
+                                    val result = askAiCoordinator.askAndSave(content)
+                                    askAiInProgress = false
+                                    val message = if (result.isSuccess) {
+                                        context.getString(com.clipnest.R.string.ask_ai_saved)
+                                    } else {
+                                        context.getString(com.clipnest.R.string.ask_ai_failed)
+                                    }
+                                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                    },
                     onOpenFile = ::openExternalFile,
                     onReturnToEditor = { editorViewModel.returnToInternalEditor(context.contentResolver) },
                     isExternalDocument = editorUiState.externalDocumentUri != null,
@@ -630,6 +666,7 @@ private fun MainTopBar(
     onShareSelected: () -> Unit,
     onSaveFile: () -> Unit,
     onEditorSave: () -> Unit,
+    onAskAi: () -> Unit,
     onOpenFile: () -> Unit,
     onReturnToEditor: () -> Unit,
     isExternalDocument: Boolean,
@@ -932,6 +969,14 @@ private fun MainTopBar(
                                 onEditorSave()
                             },
                             modifier = Modifier.testTag("editor_menu_save_file")
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(com.clipnest.R.string.ask_ai)) },
+                            onClick = {
+                                overflowExpanded = false
+                                onAskAi()
+                            },
+                            modifier = Modifier.testTag("editor_menu_ask_ai")
                         )
                         DropdownMenuItem(
                             text = { Text(stringResource(com.clipnest.R.string.settings)) },
