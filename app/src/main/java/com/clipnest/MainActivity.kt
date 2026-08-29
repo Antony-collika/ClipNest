@@ -44,6 +44,7 @@ import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -561,6 +562,7 @@ fun MainAppContent(
                             }
                         }
                     },
+                    isAskAiInProgress = askAiInProgress,
                     onOpenFile = ::openExternalFile,
                     onReturnToEditor = { editorViewModel.returnToInternalEditor(context.contentResolver) },
                     isExternalDocument = editorUiState.externalDocumentUri != null,
@@ -667,6 +669,7 @@ private fun MainTopBar(
     onSaveFile: () -> Unit,
     onEditorSave: () -> Unit,
     onAskAi: () -> Unit,
+    isAskAiInProgress: Boolean,
     onOpenFile: () -> Unit,
     onReturnToEditor: () -> Unit,
     isExternalDocument: Boolean,
@@ -825,6 +828,15 @@ private fun MainTopBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(0.dp)
             ) {
+                if (isAskAiInProgress) {
+                    CircularProgressIndicator(
+                        modifier = Modifier
+                            .size(22.dp)
+                            .testTag("ask_ai_loading_indicator"),
+                        strokeWidth = 2.dp
+                    )
+                }
+
                 if (isVault && selectedCount > 0 && !isSearchOpen) {
                     IconButton(
                         onClick = onPinSelected,
