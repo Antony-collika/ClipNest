@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-const GEMINI_MODEL = "gemini-3.6-flash";
+const GEMINI_MODEL = "gemini-3.5-flash-lite";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 function sendError(res: VercelResponse, status: number, error: string) {
@@ -49,7 +49,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           },
         ],
       }),
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(60_000),
     });
 
     console.log("[AI] Gemini response", { status: response.status, ok: response.ok });
