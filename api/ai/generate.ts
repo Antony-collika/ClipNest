@@ -8,6 +8,13 @@ function sendError(res: VercelResponse, status: number, error: string) {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  console.log("[AI] request", {
+    method: req.method,
+    hasBody: req.body != null,
+    contentLength: typeof req.body?.content === "string" ? req.body.content.length : 0,
+    hasGeminiKey: Boolean(process.env.GEMINI_API_KEY),
+  });
+
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return sendError(res, 405, "Method not allowed");
@@ -15,15 +22,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
+    console.error("[AI] GEMINI_API_KEY is missing");
     return sendError(res, 500, "AI service is not configured");
   }
 
   const content = typeof req.body?.content === "string" ? req.body.content : "";
   if (!content.trim()) {
+    console.warn("[AI] empty content");
     return sendError(res, 400, "Content must not be empty");
   }
 
   try {
+    console.log("[AI] calling Gemini", { model: GEMINI_MODEL });
+
     const response = await fetch(`${GEMINI_URL}`, {
       method: "POST",
       headers: {
@@ -41,8 +52,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       signal: AbortSignal.timeout(30_000),
     });
 
+    console.log("[AI] Gemini response", { status: response.status, ok: response.ok });
+
     if (!response.ok) {
-      return sendError(res, response.status >= 500 ? 502 : response.status, "Unable to generate an AI response");
+      const upstreamBody = await response.text();
+      console.error("[AI] Gemini error", {
+        status: response.status,
+        body: upstreamBody.slice(0, 1000),
+      });
+      return sendError(res, 502, "Unable to generate an AI response");
     }
 
     const data = await response.json() as {
@@ -60,11 +78,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .trim();
 
     if (!text) {
+      console.error("[AI] Gemini returned no text");
       return sendError(res, 502, "AI returned an empty response");
     }
 
+    console.log("[AI] success", { responseLength: text.length });
     return res.status(200).json({ success: true, text });
-  } catch {
+  } catch (error) {
+    console.error("[AI] Gemini request failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return sendError(res, 502, "Unable to generate an AI response");
   }
 }
