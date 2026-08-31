@@ -1,16 +1,14 @@
 package com.clipnest.data.repository
 
-/**
- * Coordinates the persistence side of an Ask AI response.
- * The AI response is stored as a normal Vault card so it follows the
- * existing Vault ordering, preview and content-type rules.
- */
+import com.clipnest.ai.AiSettings
+
+/** Coordinates Editor content -> AI -> Vault persistence without knowing the provider. */
 class AskAiCoordinator(
     private val aiRepository: AiRepository,
     private val clipboardRepository: ClipboardRepository
 ) {
-    suspend fun askAndSave(editorContent: String): Result<String> {
-        val response = aiRepository.generate(editorContent)
+    suspend fun askAndSave(editorContent: String, settings: AiSettings): Result<String> {
+        val response = aiRepository.generate(editorContent, settings)
             .getOrElse { return Result.failure(it) }
 
         clipboardRepository.saveCard(
