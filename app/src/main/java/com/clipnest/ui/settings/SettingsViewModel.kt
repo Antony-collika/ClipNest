@@ -6,6 +6,8 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.clipnest.ai.AiProviderType
+import com.clipnest.ai.GeminiModelCatalog
 import com.clipnest.data.local.AppLanguage
 import com.clipnest.data.local.EditorTextSize
 import com.clipnest.data.local.FileManager
@@ -15,6 +17,7 @@ import com.clipnest.data.local.ThemePreset
 import com.clipnest.data.local.ViewerTextSize
 import com.clipnest.data.local.UserSettings
 import com.clipnest.data.repository.ClipboardRepository
+import com.clipnest.security.SecureApiKeyStore
 import com.clipnest.service.CaptureNotificationManager
 import com.clipnest.ui.localization.withAppLanguage
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -48,9 +51,9 @@ class SettingsViewModel(
     private val appContext: Context
 ) : ViewModel() {
 
+    private val secureApiKeyStore = SecureApiKeyStore(appContext)
     private val _eventFlow = MutableSharedFlow<SettingsEvent>()
     val eventFlow: SharedFlow<SettingsEvent> = _eventFlow.asSharedFlow()
-
     private val _exportedFiles = MutableStateFlow<List<File>>(emptyList())
     val exportedFiles: StateFlow<List<File>> = _exportedFiles.asStateFlow()
 
@@ -60,59 +63,35 @@ class SettingsViewModel(
         initialValue = UserSettings()
     )
 
+    val hasGeminiApiKey: StateFlow<Boolean> = MutableStateFlow(secureApiKeyStore.hasGeminiApiKey()).asStateFlow()
+
     init {
-        // Let Settings render its primary content first; exported files are a
-        // secondary section and can be refreshed after the first frame.
-        viewModelScope.launch {
-            yield()
-            refreshExportedFiles()
-        }
+        viewModelScope.launch { yield(); refreshExportedFiles() }
     }
 
-    fun refreshExportedFiles() {
-        viewModelScope.launch {
-            val files = withContext(Dispatchers.IO) {
-                fileManager.listExportedFiles()
-            }
-            _exportedFiles.value = files
-        }
-    }
+    fun refreshExportedFiles() { viewModelScope.launch { _exportedFiles.value = withContext(Dispatchers.IO) { fileManager.listExportedFiles() } } }
+    fun setLanguage(language: AppLanguage) { viewModelScope.launch { settingsDataStore.setLanguage(language) } }
+    fun setThemePreset(themePreset: ThemePreset) { viewModelScope.launch { settingsDataStore.setThemePreset(themePreset) } }
+    fun setEditorTextSize(size: EditorTextSize) { viewModelScope.launch { settingsDataStore.setEditorTextSize(size) } }
+    fun setViewerTextSize(size: ViewerTextSize) { viewModelScope.launch { settingsDataStore.setViewerTextSize(size) } }
+    fun setShowPinnedFirst(enabled: Boolean) { viewModelScope.launch { settingsDataStore.setShowPinnedFirst(enabled) } }
+    fun setSensitivePreviewMasked(masked: Boolean) { viewModelScope.launch { settingsDataStore.setSensitivePreviewMasked(masked) } }
 
-    fun setLanguage(language: AppLanguage) {
-        viewModelScope.launch {
-            settingsDataStore.setLanguage(language)
-        }
+    fun setAiProvider(provider: AiProviderType) { viewModelScope.launch { settingsDataStore.setAiProvider(provider.name) } }
+    fun setGeminiModel(modelId: String) {
+        if (GeminiModelCatalog.find(modelId) == null) return
+        viewModelScope.launch { settingsDataStore.setGeminiModelId(modelId) }
     }
-
-    fun setThemePreset(themePreset: ThemePreset) {
-        viewModelScope.launch {
-            settingsDataStore.setThemePreset(themePreset)
-        }
+    fun saveGeminiApiKey(apiKey: String) {
+        runCatching { secureApiKeyStore.saveGeminiApiKey(apiKey.trim()) }
+            .onFailure { error -> viewModelScope.launch { _eventFlow.emit(SettingsEvent.ShowToast(error.message ?: "Could not save API key")) } }
+            .onSuccess { viewModelScope.launch { _eventFlow.emit(SettingsEvent.ShowToast("Gemini API key saved")) } }
     }
-
-    fun setEditorTextSize(size: EditorTextSize) {
-        viewModelScope.launch {
-            settingsDataStore.setEditorTextSize(size)
-        }
+    fun deleteGeminiApiKey() {
+        secureApiKeyStore.deleteGeminiApiKey()
+        viewModelScope.launch { _eventFlow.emit(SettingsEvent.ShowToast("Gemini API key deleted")) }
     }
-
-    fun setViewerTextSize(size: ViewerTextSize) {
-        viewModelScope.launch {
-            settingsDataStore.setViewerTextSize(size)
-        }
-    }
-
-    fun setShowPinnedFirst(enabled: Boolean) {
-        viewModelScope.launch {
-            settingsDataStore.setShowPinnedFirst(enabled)
-        }
-    }
-
-    fun setSensitivePreviewMasked(masked: Boolean) {
-        viewModelScope.launch {
-            settingsDataStore.setSensitivePreviewMasked(masked)
-        }
-    }
+    fun geminiApiKeyConfigured(): Boolean = secureApiKeyStore.hasGeminiApiKey()
 
     fun setNotificationEnabled(enabled: Boolean, context: Context) {
         viewModelScope.launch {
@@ -120,40 +99,22 @@ class SettingsViewModel(
             if (enabled) {
                 val language = settingsDataStore.userSettingsFlow.first().language
                 CaptureNotificationManager.showCaptureNotification(context, language)
-            } else {
-                CaptureNotificationManager.dismissCaptureNotification(context)
-            }
+            } else CaptureNotificationManager.dismissCaptureNotification(context)
         }
     }
 
     fun setDefaultSaveFolder(uri: Uri, contentResolver: ContentResolver) {
-        runCatching {
-            contentResolver.takePersistableUriPermission(
-                uri,
-                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-            )
-        }
+        runCatching { contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION) }
         viewModelScope.launch { settingsDataStore.setDefaultSaveFolderUri(uri.toString()) }
     }
-
-    fun clearDefaultSaveFolder() {
-        viewModelScope.launch { settingsDataStore.setDefaultSaveFolderUri(null) }
-    }
-
+    fun clearDefaultSaveFolder() { viewModelScope.launch { settingsDataStore.setDefaultSaveFolderUri(null) } }
     fun setRetentionPolicy(policy: RetentionPolicy) {
         viewModelScope.launch {
             settingsDataStore.setRetentionPolicy(policy)
             val deleted = repository.cleanupOldCards(policy)
             if (deleted > 0) {
                 val language = settingsDataStore.userSettingsFlow.first().language
-                _eventFlow.emit(
-                    SettingsEvent.ShowToast(
-                        appContext.withAppLanguage(language).getString(
-                            com.clipnest.R.string.cleaned_old_cards,
-                            deleted
-                        )
-                    )
-                )
+                _eventFlow.emit(SettingsEvent.ShowToast(appContext.withAppLanguage(language).getString(com.clipnest.R.string.cleaned_old_cards, deleted)))
             }
         }
     }
@@ -167,9 +128,7 @@ class SettingsViewModelFactory(
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(SettingsViewModel::class.java)) {
-            return SettingsViewModel(settingsDataStore, repository, fileManager, appContext) as T
-        }
+        if (modelClass.isAssignableFrom(SettingsViewModel::class.java)) return SettingsViewModel(settingsDataStore, repository, fileManager, appContext) as T
         throw IllegalArgumentException("Unknown ViewModel class")
     }
 }
