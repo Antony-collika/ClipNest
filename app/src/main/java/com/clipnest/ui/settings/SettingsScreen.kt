@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.widget.Toast
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,10 +17,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BrightnessMedium
 import androidx.compose.material.icons.filled.Check
@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Widgets
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -122,8 +123,22 @@ fun SettingsScreen(
             OutlinedCard(shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Provider", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium))
-                    AiProviderModelRow(AiProviderType.VERCEL, "Vercel", userSettings.aiProvider == AiProviderType.VERCEL.name, userSettings.vercelModelId, { viewModel.setAiProvider(AiProviderType.VERCEL) }, viewModel::setVercelModel, "vercel")
-                    AiProviderModelRow(AiProviderType.GEMINI, "Your own key", userSettings.aiProvider == AiProviderType.GEMINI.name, userSettings.geminiModelId, { viewModel.setAiProvider(AiProviderType.GEMINI) }, viewModel::setGeminiModel, "gemini")
+                    AiProviderModelRow(
+                        providerLabel = "Vercel",
+                        selected = userSettings.aiProvider == AiProviderType.VERCEL.name,
+                        modelId = userSettings.vercelModelId,
+                        onProviderSelected = { viewModel.setAiProvider(AiProviderType.VERCEL) },
+                        onModelSelected = viewModel::setVercelModel,
+                        testTagPrefix = "vercel"
+                    )
+                    AiProviderModelRow(
+                        providerLabel = "Your own key",
+                        selected = userSettings.aiProvider == AiProviderType.GEMINI.name,
+                        modelId = userSettings.geminiModelId,
+                        onProviderSelected = { viewModel.setAiProvider(AiProviderType.GEMINI) },
+                        onModelSelected = viewModel::setGeminiModel,
+                        testTagPrefix = "gemini"
+                    )
 
                     OutlinedTextField(
                         value = geminiApiKey,
@@ -263,7 +278,6 @@ fun SettingsScreen(
 
 @Composable
 private fun AiProviderModelRow(
-    provider: AiProviderType,
     providerLabel: String,
     selected: Boolean,
     modelId: String,
@@ -274,10 +288,25 @@ private fun AiProviderModelRow(
     var modelMenuExpanded by remember { mutableStateOf(false) }
     val selectedModel = GeminiModelCatalog.find(modelId) ?: GeminiModelCatalog.default
 
-    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        FilterChip(selected = selected, onClick = onProviderSelected, label = { Text(providerLabel) }, modifier = Modifier.testTag("ai_provider_$testTagPrefix"))
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        FilterChip(
+            selected = selected,
+            onClick = onProviderSelected,
+            label = { Text(providerLabel) },
+            leadingIcon = if (selected) { { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) } } else null,
+            modifier = Modifier.testTag("ai_provider_$testTagPrefix")
+        )
         Box {
-            FilterChip(selected = selected, onClick = { modelMenuExpanded = true }, label = { Text(selectedModel.displayName) }, modifier = Modifier.testTag("${testTagPrefix}_model_dropdown"))
+            AssistChip(
+                onClick = { modelMenuExpanded = true },
+                label = { Text(selectedModel.displayName) },
+                trailingIcon = { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                modifier = Modifier.testTag("${testTagPrefix}_model_dropdown")
+            )
             DropdownMenu(expanded = modelMenuExpanded, onDismissRequest = { modelMenuExpanded = false }) {
                 GeminiModelCatalog.models.forEach { model ->
                     DropdownMenuItem(
