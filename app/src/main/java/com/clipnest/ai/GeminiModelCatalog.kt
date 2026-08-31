@@ -7,6 +7,7 @@ object GeminiModelCatalog {
         val displayName: String
     )
 
+    // Verified against Google's current Gemini API model catalog during this implementation.
     val models: List<Model> = listOf(
         Model("gemini-3.5-flash-lite", "Gemini 3.5 Flash-Lite"),
         Model("gemma-4-31b-it", "Gemma 4")
