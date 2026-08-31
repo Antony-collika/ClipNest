@@ -15,14 +15,17 @@ class AiApi(
         val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             connectTimeout = 10_000
-            readTimeout = 30_000
+            readTimeout = 60_000
             doOutput = true
             setRequestProperty("Content-Type", "application/json")
             setRequestProperty("Accept", "application/json")
         }
 
         return try {
-            val body = JSONObject().put("content", request.content).toString()
+            val body = JSONObject()
+                .put("content", request.content)
+                .put("model", request.model)
+                .toString()
             connection.outputStream.use { output -> output.write(body.toByteArray(Charsets.UTF_8)) }
             val status = connection.responseCode
             val stream = if (status in 200..299) connection.inputStream else connection.errorStream
