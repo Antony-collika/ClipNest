@@ -4,7 +4,6 @@ import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.widget.Toast
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -123,26 +122,8 @@ fun SettingsScreen(
             OutlinedCard(shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Provider", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium))
-
-                    AiProviderModelRow(
-                        provider = AiProviderType.VERCEL,
-                        providerLabel = "Vercel",
-                        selected = userSettings.aiProvider == AiProviderType.VERCEL.name,
-                        modelId = userSettings.vercelModelId,
-                        onProviderSelected = { viewModel.setAiProvider(AiProviderType.VERCEL) },
-                        onModelSelected = viewModel::setVercelModel,
-                        testTagPrefix = "vercel"
-                    )
-
-                    AiProviderModelRow(
-                        provider = AiProviderType.GEMINI,
-                        providerLabel = "Your own key",
-                        selected = userSettings.aiProvider == AiProviderType.GEMINI.name,
-                        modelId = userSettings.geminiModelId,
-                        onProviderSelected = { viewModel.setAiProvider(AiProviderType.GEMINI) },
-                        onModelSelected = viewModel::setGeminiModel,
-                        testTagPrefix = "gemini"
-                    )
+                    AiProviderModelRow(AiProviderType.VERCEL, "Vercel", userSettings.aiProvider == AiProviderType.VERCEL.name, userSettings.vercelModelId, { viewModel.setAiProvider(AiProviderType.VERCEL) }, viewModel::setVercelModel, "vercel")
+                    AiProviderModelRow(AiProviderType.GEMINI, "Your own key", userSettings.aiProvider == AiProviderType.GEMINI.name, userSettings.geminiModelId, { viewModel.setAiProvider(AiProviderType.GEMINI) }, viewModel::setGeminiModel, "gemini")
 
                     OutlinedTextField(
                         value = geminiApiKey,
@@ -153,31 +134,10 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth().testTag("gemini_api_key_input")
                     )
                     Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-                        TextButton(
-                            onClick = {
-                                if (geminiApiKey.isNotBlank()) {
-                                    viewModel.saveGeminiApiKey(geminiApiKey)
-                                    geminiApiKey = ""
-                                    apiKeyStatusVersion++
-                                }
-                            },
-                            enabled = geminiApiKey.isNotBlank(),
-                            modifier = Modifier.testTag("gemini_api_key_save")
-                        ) { Text("Save key") }
-                        if (hasGeminiApiKey) {
-                            TextButton(
-                                onClick = {
-                                    viewModel.deleteGeminiApiKey()
-                                    apiKeyStatusVersion++
-                                },
-                                modifier = Modifier.testTag("gemini_api_key_delete")
-                            ) { Text("Delete key") }
-                        }
+                        TextButton(onClick = { if (geminiApiKey.isNotBlank()) { viewModel.saveGeminiApiKey(geminiApiKey); geminiApiKey = ""; apiKeyStatusVersion++ } }, enabled = geminiApiKey.isNotBlank(), modifier = Modifier.testTag("gemini_api_key_save")) { Text("Save key") }
+                        if (hasGeminiApiKey) TextButton(onClick = { viewModel.deleteGeminiApiKey(); apiKeyStatusVersion++ }, modifier = Modifier.testTag("gemini_api_key_delete")) { Text("Delete key") }
                     }
-                    Text(
-                        if (hasGeminiApiKey) "Gemini API key is configured securely on this device." else "No Gemini API key is configured.",
-                        style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    )
+                    Text(if (hasGeminiApiKey) "Gemini API key is configured securely on this device." else "No Gemini API key is configured.", style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
                 }
             }
         }
@@ -188,21 +148,15 @@ fun SettingsScreen(
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(stringResource(com.clipnest.R.string.theme_preset), style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium))
                     Text(stringResource(com.clipnest.R.string.theme_preset_description), style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant), modifier = Modifier.padding(top = 4.dp))
-                    Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ThemePreset.entries.forEach { preset -> ThemeChip(themePresetLabel(preset), userSettings.themePreset == preset, { viewModel.setThemePreset(preset) }, Modifier.testTag("theme_preset_${preset.name.lowercase(Locale.ROOT)}")) }
-                    }
+                    Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { ThemePreset.entries.forEach { preset -> ThemeChip(themePresetLabel(preset), userSettings.themePreset == preset, { viewModel.setThemePreset(preset) }, Modifier.testTag("theme_preset_${preset.name.lowercase(Locale.ROOT)}")) } }
                     Spacer(modifier = Modifier.height(18.dp))
                     Text(stringResource(com.clipnest.R.string.editor_text_size), style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium))
                     Text(stringResource(com.clipnest.R.string.editor_text_size_description), style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant), modifier = Modifier.padding(top = 4.dp))
-                    Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        EditorTextSize.entries.forEach { size -> TextSizeChip("${size.sp}sp", userSettings.editorTextSize == size, { viewModel.setEditorTextSize(size) }, Modifier.testTag("editor_text_size_${size.name.lowercase(Locale.ROOT)}")) }
-                    }
+                    Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { EditorTextSize.entries.forEach { size -> TextSizeChip("${size.sp}sp", userSettings.editorTextSize == size, { viewModel.setEditorTextSize(size) }, Modifier.testTag("editor_text_size_${size.name.lowercase(Locale.ROOT)}")) } }
                     Spacer(modifier = Modifier.height(14.dp))
                     Text(stringResource(com.clipnest.R.string.viewer_text_size), style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium))
                     Text(stringResource(com.clipnest.R.string.viewer_text_size_description), style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant), modifier = Modifier.padding(top = 4.dp))
-                    Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ViewerTextSize.entries.forEach { size -> TextSizeChip("${size.px}px", userSettings.viewerTextSize == size, { viewModel.setViewerTextSize(size) }, Modifier.testTag("viewer_text_size_${size.name.lowercase(Locale.ROOT)}")) }
-                    }
+                    Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { ViewerTextSize.entries.forEach { size -> TextSizeChip("${size.px}px", userSettings.viewerTextSize == size, { viewModel.setViewerTextSize(size) }, Modifier.testTag("viewer_text_size_${size.name.lowercase(Locale.ROOT)}")) } }
                 }
             }
         }
@@ -213,7 +167,7 @@ fun SettingsScreen(
                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(stringResource(com.clipnest.R.string.show_pinned_first), style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium))
-                        Text(stringResource(com.clipnest.R_string.pinned_first_description), style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
+                        Text(stringResource(com.clipnest.R.string.pinned_first_description), style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
                     }
                     Switch(userSettings.showPinnedFirst, viewModel::setShowPinnedFirst, modifier = Modifier.testTag("settings_switch_pinned_first"))
                 }
@@ -262,10 +216,7 @@ fun SettingsScreen(
                     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Widgets, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
                         Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(stringResource(com.clipnest.R.string.quick_settings_tile), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
-                            Text(stringResource(com.clipnest.R.string.quick_settings_description), style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
-                        }
+                        Column { Text(stringResource(com.clipnest.R.string.quick_settings_tile), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)); Text(stringResource(com.clipnest.R.string.quick_settings_description), style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)) }
                     }
                 }
             }
@@ -323,38 +274,16 @@ private fun AiProviderModelRow(
     var modelMenuExpanded by remember { mutableStateOf(false) }
     val selectedModel = GeminiModelCatalog.find(modelId) ?: GeminiModelCatalog.default
 
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        FilterChip(
-            selected = selected,
-            onClick = onProviderSelected,
-            label = { Text(providerLabel) },
-            modifier = Modifier.testTag("ai_provider_$testTagPrefix")
-        )
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FilterChip(selected = selected, onClick = onProviderSelected, label = { Text(providerLabel) }, modifier = Modifier.testTag("ai_provider_$testTagPrefix"))
         Box {
-            FilterChip(
-                selected = selected,
-                onClick = { modelMenuExpanded = true },
-                label = { Text(selectedModel.displayName) },
-                modifier = Modifier.testTag("${testTagPrefix}_model_dropdown")
-            )
-            DropdownMenu(
-                expanded = modelMenuExpanded,
-                onDismissRequest = { modelMenuExpanded = false }
-            ) {
+            FilterChip(selected = selected, onClick = { modelMenuExpanded = true }, label = { Text(selectedModel.displayName) }, modifier = Modifier.testTag("${testTagPrefix}_model_dropdown"))
+            DropdownMenu(expanded = modelMenuExpanded, onDismissRequest = { modelMenuExpanded = false }) {
                 GeminiModelCatalog.models.forEach { model ->
                     DropdownMenuItem(
                         text = { Text(model.displayName) },
-                        onClick = {
-                            onModelSelected(model.id)
-                            modelMenuExpanded = false
-                        },
-                        trailingIcon = if (model.id == modelId) {
-                            { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp)) }
-                        } else null
+                        onClick = { onModelSelected(model.id); modelMenuExpanded = false },
+                        trailingIcon = if (model.id == modelId) { { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp)) } } else null
                     )
                 }
             }
