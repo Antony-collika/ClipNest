@@ -56,14 +56,14 @@ class SettingsViewModel(
     val eventFlow: SharedFlow<SettingsEvent> = _eventFlow.asSharedFlow()
     private val _exportedFiles = MutableStateFlow<List<File>>(emptyList())
     val exportedFiles: StateFlow<List<File>> = _exportedFiles.asStateFlow()
+    private val _hasGeminiApiKey = MutableStateFlow(secureApiKeyStore.hasGeminiApiKey())
+    val hasGeminiApiKey: StateFlow<Boolean> = _hasGeminiApiKey.asStateFlow()
 
     val userSettings: StateFlow<UserSettings> = settingsDataStore.userSettingsFlow.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = UserSettings()
     )
-
-    val hasGeminiApiKey: StateFlow<Boolean> = MutableStateFlow(secureApiKeyStore.hasGeminiApiKey()).asStateFlow()
 
     init {
         viewModelScope.launch { yield(); refreshExportedFiles() }
@@ -85,13 +85,17 @@ class SettingsViewModel(
     fun saveGeminiApiKey(apiKey: String) {
         runCatching { secureApiKeyStore.saveGeminiApiKey(apiKey.trim()) }
             .onFailure { error -> viewModelScope.launch { _eventFlow.emit(SettingsEvent.ShowToast(error.message ?: "Could not save API key")) } }
-            .onSuccess { viewModelScope.launch { _eventFlow.emit(SettingsEvent.ShowToast("Gemini API key saved")) } }
+            .onSuccess {
+                _hasGeminiApiKey.value = true
+                viewModelScope.launch { _eventFlow.emit(SettingsEvent.ShowToast("Gemini API key saved")) }
+            }
     }
     fun deleteGeminiApiKey() {
         secureApiKeyStore.deleteGeminiApiKey()
+        _hasGeminiApiKey.value = false
         viewModelScope.launch { _eventFlow.emit(SettingsEvent.ShowToast("Gemini API key deleted")) }
     }
-    fun geminiApiKeyConfigured(): Boolean = secureApiKeyStore.hasGeminiApiKey()
+    fun geminiApiKeyConfigured(): Boolean = _hasGeminiApiKey.value
 
     fun setNotificationEnabled(enabled: Boolean, context: Context) {
         viewModelScope.launch {
