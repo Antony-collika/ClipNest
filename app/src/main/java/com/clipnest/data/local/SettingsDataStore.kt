@@ -65,7 +65,9 @@ data class UserSettings(
     val notificationEnabled: Boolean = true,
     val firstRunEducationShown: Boolean = false,
     val retentionPolicy: RetentionPolicy = RetentionPolicy.NEVER,
-    val defaultSaveFolderUri: String? = null
+    val defaultSaveFolderUri: String? = null,
+    val aiProvider: String = "GEMINI",
+    val geminiModelId: String = "gemini-3.5-flash-lite"
 )
 
 class SettingsDataStore(private val context: Context) {
@@ -81,6 +83,8 @@ class SettingsDataStore(private val context: Context) {
         val FIRST_RUN_EDUCATION_SHOWN = booleanPreferencesKey("first_run_education_shown")
         val RETENTION_POLICY = stringPreferencesKey("retention_policy")
         val DEFAULT_SAVE_FOLDER_URI = stringPreferencesKey("default_save_folder_uri")
+        val AI_PROVIDER = stringPreferencesKey("ai_provider")
+        val GEMINI_MODEL_ID = stringPreferencesKey("gemini_model_id")
     }
 
     val userSettingsFlow: Flow<UserSettings> = context.dataStore.data.map { preferences ->
@@ -110,53 +114,28 @@ class SettingsDataStore(private val context: Context) {
             notificationEnabled = preferences[PreferencesKeys.NOTIFICATION_ENABLED] ?: true,
             firstRunEducationShown = preferences[PreferencesKeys.FIRST_RUN_EDUCATION_SHOWN] ?: false,
             retentionPolicy = retention,
-            defaultSaveFolderUri = preferences[PreferencesKeys.DEFAULT_SAVE_FOLDER_URI]
+            defaultSaveFolderUri = preferences[PreferencesKeys.DEFAULT_SAVE_FOLDER_URI],
+            aiProvider = preferences[PreferencesKeys.AI_PROVIDER] ?: "GEMINI",
+            geminiModelId = preferences[PreferencesKeys.GEMINI_MODEL_ID] ?: "gemini-3.5-flash-lite"
         )
     }
 
-    suspend fun setLanguage(language: AppLanguage) {
-        context.dataStore.edit { it[PreferencesKeys.LANGUAGE] = language.name }
-    }
-
-    suspend fun setShowPinnedFirst(enabled: Boolean) {
-        context.dataStore.edit { it[PreferencesKeys.SHOW_PINNED_FIRST] = enabled }
-    }
-
-    suspend fun setSensitivePreviewMasked(masked: Boolean) {
-        context.dataStore.edit { it[PreferencesKeys.SENSITIVE_PREVIEW_MASKED] = masked }
-    }
-
-    suspend fun setThemePreset(preset: ThemePreset) {
-        context.dataStore.edit { it[PreferencesKeys.THEME_PRESET] = preset.name }
-    }
-
-    suspend fun setEditorTextSize(size: EditorTextSize) {
-        context.dataStore.edit { it[PreferencesKeys.EDITOR_TEXT_SIZE] = size.name }
-    }
-
-    suspend fun setViewerTextSize(size: ViewerTextSize) {
-        context.dataStore.edit { it[PreferencesKeys.VIEWER_TEXT_SIZE] = size.name }
-    }
-
-    suspend fun setNotificationEnabled(enabled: Boolean) {
-        context.dataStore.edit { it[PreferencesKeys.NOTIFICATION_ENABLED] = enabled }
-    }
-
-    suspend fun setFirstRunEducationShown(shown: Boolean) {
-        context.dataStore.edit { it[PreferencesKeys.FIRST_RUN_EDUCATION_SHOWN] = shown }
-    }
-
-    suspend fun setRetentionPolicy(policy: RetentionPolicy) {
-        context.dataStore.edit { it[PreferencesKeys.RETENTION_POLICY] = policy.name }
-    }
+    suspend fun setLanguage(language: AppLanguage) { context.dataStore.edit { it[PreferencesKeys.LANGUAGE] = language.name } }
+    suspend fun setShowPinnedFirst(enabled: Boolean) { context.dataStore.edit { it[PreferencesKeys.SHOW_PINNED_FIRST] = enabled } }
+    suspend fun setSensitivePreviewMasked(masked: Boolean) { context.dataStore.edit { it[PreferencesKeys.SENSITIVE_PREVIEW_MASKED] = masked } }
+    suspend fun setThemePreset(preset: ThemePreset) { context.dataStore.edit { it[PreferencesKeys.THEME_PRESET] = preset.name } }
+    suspend fun setEditorTextSize(size: EditorTextSize) { context.dataStore.edit { it[PreferencesKeys.EDITOR_TEXT_SIZE] = size.name } }
+    suspend fun setViewerTextSize(size: ViewerTextSize) { context.dataStore.edit { it[PreferencesKeys.VIEWER_TEXT_SIZE] = size.name } }
+    suspend fun setNotificationEnabled(enabled: Boolean) { context.dataStore.edit { it[PreferencesKeys.NOTIFICATION_ENABLED] = enabled } }
+    suspend fun setFirstRunEducationShown(shown: Boolean) { context.dataStore.edit { it[PreferencesKeys.FIRST_RUN_EDUCATION_SHOWN] = shown } }
+    suspend fun setRetentionPolicy(policy: RetentionPolicy) { context.dataStore.edit { it[PreferencesKeys.RETENTION_POLICY] = policy.name } }
+    suspend fun setAiProvider(provider: String) { context.dataStore.edit { it[PreferencesKeys.AI_PROVIDER] = provider } }
+    suspend fun setGeminiModelId(modelId: String) { context.dataStore.edit { it[PreferencesKeys.GEMINI_MODEL_ID] = modelId } }
 
     suspend fun setDefaultSaveFolderUri(uri: String?) {
         context.dataStore.edit { preferences ->
-            if (uri.isNullOrBlank()) {
-                preferences.remove(PreferencesKeys.DEFAULT_SAVE_FOLDER_URI)
-            } else {
-                preferences[PreferencesKeys.DEFAULT_SAVE_FOLDER_URI] = uri
-            }
+            if (uri.isNullOrBlank()) preferences.remove(PreferencesKeys.DEFAULT_SAVE_FOLDER_URI)
+            else preferences[PreferencesKeys.DEFAULT_SAVE_FOLDER_URI] = uri
         }
     }
 }
