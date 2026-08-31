@@ -6,7 +6,7 @@ import java.net.URL
 import org.json.JSONObject
 
 class AiApi(
-    private val baseUrl: String
+    val baseUrl: String
 ) {
     suspend fun generate(request: AiGenerateRequest): AiGenerateResponse {
         if (baseUrl.isBlank()) throw IOException("AI backend URL is not configured")
@@ -23,21 +23,13 @@ class AiApi(
 
         return try {
             val body = JSONObject().put("content", request.content).toString()
-            connection.outputStream.use { output ->
-                output.write(body.toByteArray(Charsets.UTF_8))
-            }
-
+            connection.outputStream.use { output -> output.write(body.toByteArray(Charsets.UTF_8)) }
             val status = connection.responseCode
             val stream = if (status in 200..299) connection.inputStream else connection.errorStream
             val responseBody = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
             val json = runCatching { JSONObject(responseBody) }.getOrNull()
-
             if (status !in 200..299) {
-                AiGenerateResponse(
-                    success = false,
-                    error = json?.optString("error")?.takeIf { it.isNotBlank() }
-                        ?: "AI request failed"
-                )
+                AiGenerateResponse(false, error = json?.optString("error")?.takeIf { it.isNotBlank() } ?: "AI request failed")
             } else {
                 AiGenerateResponse(
                     success = json?.optBoolean("success", false) == true,
