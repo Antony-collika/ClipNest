@@ -7,9 +7,8 @@ object GeminiModelCatalog {
         val displayName: String
     )
 
-    // IDs are taken from Google's current Gemini API model catalog.
     val models: List<Model> = listOf(
-        Model("gemini-2.5-flash-lite", "Gemini 2.5 Flash-Lite"),
+        Model("gemini-3.5-flash-lite", "Gemini 3.5 Flash-Lite"),
         Model("gemma-4-31b-it", "Gemma 4")
     )
 
