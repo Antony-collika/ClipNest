@@ -1,7 +1,7 @@
 package com.clipnest.ai
 
-import kotlin.test.Test
-import kotlin.test.assertSame
+import org.junit.Assert.assertSame
+import org.junit.Test
 
 class AiProviderResolverTest {
     @Test
