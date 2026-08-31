@@ -15,12 +15,8 @@ class GeminiAdapter(
     override suspend fun generate(request: AiRequest): Result<AiResponse> = withContext(Dispatchers.IO) {
         val apiKey = apiKeyStore.getGeminiApiKey()
             ?: return@withContext Result.failure(IllegalStateException("Gemini API key is not configured"))
-        if (request.content.isBlank()) {
-            return@withContext Result.failure(IllegalArgumentException("AI request content is empty"))
-        }
-        if (request.model.isBlank()) {
-            return@withContext Result.failure(IllegalArgumentException("Gemini model is not configured"))
-        }
+        if (request.content.isBlank()) return@withContext Result.failure(IllegalArgumentException("AI request content is empty"))
+        if (request.model.isBlank()) return@withContext Result.failure(IllegalArgumentException("Gemini model is not configured"))
 
         runCatching {
             val connection = (URL(baseUrl).openConnection() as HttpURLConnection).apply {
@@ -45,9 +41,10 @@ class GeminiAdapter(
                 val stream = if (status in 200..299) connection.inputStream else connection.errorStream
                 val responseBody = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
                 if (status !in 200..299) {
-                    val message = runCatching { JSONObject(responseBody).optString("message") }
-                        .getOrNull()
-                        ?.takeIf { it.isNotBlank() }
+                    val json = runCatching { JSONObject(responseBody) }.getOrNull()
+                    val nestedError = json?.optJSONObject("error")
+                    val message = nestedError?.optString("message")?.takeIf { it.isNotBlank() }
+                        ?: json?.optString("message")?.takeIf { it.isNotBlank() }
                     throw GeminiApiException(status, message ?: "Gemini request failed")
                 }
 
