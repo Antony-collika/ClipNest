@@ -13,8 +13,11 @@ abstract class AppDatabase : RoomDatabase() {
     companion object {
         @Volatile
         private var INSTANCE: AppDatabase? = null
+        @Volatile
+        private var APPLICATION_CONTEXT: Context? = null
 
         fun getInstance(context: Context): AppDatabase {
+            APPLICATION_CONTEXT = context.applicationContext
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
@@ -25,5 +28,8 @@ abstract class AppDatabase : RoomDatabase() {
                 instance
             }
         }
+
+        fun applicationContext(): Context =
+            APPLICATION_CONTEXT ?: error("AppDatabase has not been initialized")
     }
 }
