@@ -67,7 +67,8 @@ data class UserSettings(
     val retentionPolicy: RetentionPolicy = RetentionPolicy.NEVER,
     val defaultSaveFolderUri: String? = null,
     val aiProvider: String = "GEMINI",
-    val geminiModelId: String = "gemini-3.5-flash-lite"
+    val geminiModelId: String = "gemini-3.5-flash-lite",
+    val vercelModelId: String = "gemini-3.5-flash-lite"
 )
 
 class SettingsDataStore(private val context: Context) {
@@ -85,6 +86,7 @@ class SettingsDataStore(private val context: Context) {
         val DEFAULT_SAVE_FOLDER_URI = stringPreferencesKey("default_save_folder_uri")
         val AI_PROVIDER = stringPreferencesKey("ai_provider")
         val GEMINI_MODEL_ID = stringPreferencesKey("gemini_model_id")
+        val VERCEL_MODEL_ID = stringPreferencesKey("vercel_model_id")
     }
 
     val userSettingsFlow: Flow<UserSettings> = context.dataStore.data.map { preferences ->
@@ -116,7 +118,8 @@ class SettingsDataStore(private val context: Context) {
             retentionPolicy = retention,
             defaultSaveFolderUri = preferences[PreferencesKeys.DEFAULT_SAVE_FOLDER_URI],
             aiProvider = preferences[PreferencesKeys.AI_PROVIDER] ?: "GEMINI",
-            geminiModelId = preferences[PreferencesKeys.GEMINI_MODEL_ID] ?: "gemini-3.5-flash-lite"
+            geminiModelId = preferences[PreferencesKeys.GEMINI_MODEL_ID] ?: "gemini-3.5-flash-lite",
+            vercelModelId = preferences[PreferencesKeys.VERCEL_MODEL_ID] ?: "gemini-3.5-flash-lite"
         )
     }
 
@@ -131,6 +134,7 @@ class SettingsDataStore(private val context: Context) {
     suspend fun setRetentionPolicy(policy: RetentionPolicy) { context.dataStore.edit { it[PreferencesKeys.RETENTION_POLICY] = policy.name } }
     suspend fun setAiProvider(provider: String) { context.dataStore.edit { it[PreferencesKeys.AI_PROVIDER] = provider } }
     suspend fun setGeminiModelId(modelId: String) { context.dataStore.edit { it[PreferencesKeys.GEMINI_MODEL_ID] = modelId } }
+    suspend fun setVercelModelId(modelId: String) { context.dataStore.edit { it[PreferencesKeys.VERCEL_MODEL_ID] = modelId } }
 
     suspend fun setDefaultSaveFolderUri(uri: String?) {
         context.dataStore.edit { preferences ->
