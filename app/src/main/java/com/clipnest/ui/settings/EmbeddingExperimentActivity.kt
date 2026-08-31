@@ -1,7 +1,7 @@
 package com.clipnest.ui.settings
 
-import android.app.Activity
 import android.os.Bundle
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -25,7 +25,7 @@ import com.clipnest.security.SecureApiKeyStore
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
-class EmbeddingExperimentActivity : Activity() {
+class EmbeddingExperimentActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val keyStore = SecureApiKeyStore(this)

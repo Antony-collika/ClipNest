@@ -2,19 +2,16 @@ package com.clipnest.ai
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
 
-class EmbeddingExperiment(
-    private val client: OkHttpClient = OkHttpClient()
-) {
+class EmbeddingExperiment {
     suspend fun embed(apiKey: String, text: String): Result<String> = withContext(Dispatchers.IO) {
         runCatching {
             require(text.isNotBlank()) { "Text cannot be empty" }
+
             val body = JSONObject()
                 .put("content", JSONObject().put("parts", JSONArray().put(JSONObject().put("text", text))))
                 .put(
@@ -22,18 +19,27 @@ class EmbeddingExperiment(
                     JSONObject().put("outputDimensionality", EmbeddingModelCatalog.default.defaultOutputDimensions)
                 )
                 .toString()
-                .toRequestBody("application/json".toMediaType())
 
-            val request = Request.Builder()
-                .url("https://generativelanguage.googleapis.com/v1beta/models/${EmbeddingModelCatalog.default.id}:embedContent")
-                .header("x-goog-api-key", apiKey)
-                .post(body)
-                .build()
+            val connection = (URL("https://generativelanguage.googleapis.com/v1beta/models/${EmbeddingModelCatalog.default.id}:embedContent")
+                .openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                connectTimeout = 10_000
+                readTimeout = 60_000
+                doOutput = true
+                setRequestProperty("Content-Type", "application/json")
+                setRequestProperty("Accept", "application/json")
+                setRequestProperty("x-goog-api-key", apiKey)
+            }
 
-            client.newCall(request).execute().use { response ->
-                val raw = response.body?.string().orEmpty()
-                if (!response.isSuccessful) error("HTTP ${response.code}: $raw")
+            try {
+                connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+                val status = connection.responseCode
+                val stream = if (status in 200..299) connection.inputStream else connection.errorStream
+                val raw = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+                if (status !in 200..299) error("HTTP $status: $raw")
                 raw
+            } finally {
+                connection.disconnect()
             }
         }
     }
