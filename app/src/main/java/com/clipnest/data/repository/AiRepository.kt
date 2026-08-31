@@ -17,7 +17,7 @@ class AiRepository(
     constructor(api: com.clipnest.data.ai.AiApi) : this(
         providerResolver = ProviderFactory.create(
             AppDatabase.applicationContext(),
-            apiBaseUrl = api.baseUrl
+            vercelBaseUrl = api.baseUrl
         ),
         settingsDataStore = SettingsDataStore(AppDatabase.applicationContext())
     )
