@@ -24,13 +24,20 @@ class AiRepository(
 
     suspend fun generate(content: String): Result<String> = withContext(Dispatchers.IO) {
         val settings = settingsDataStore.userSettingsFlow.first()
-        generate(content, AiSettings(settings.aiProvider.toProviderType(), settings.geminiModelId))
+        generate(
+            content,
+            AiSettings(
+                provider = settings.aiProvider.toProviderType(),
+                geminiModelId = settings.geminiModelId,
+                vercelModelId = settings.vercelModelId
+            )
+        )
     }
 
     suspend fun generate(content: String, settings: AiSettings): Result<String> = withContext(Dispatchers.IO) {
         if (content.isBlank()) return@withContext Result.failure(IllegalArgumentException("Editor content is empty"))
         providerResolver.resolve(settings.provider)
-            .generate(AiRequest(content = content, model = settings.geminiModelId))
+            .generate(AiRequest(content = content, model = settings.selectedModelId))
             .map { it.text }
     }
 
