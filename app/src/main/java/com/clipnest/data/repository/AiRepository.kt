@@ -1,25 +1,20 @@
 package com.clipnest.data.repository
 
-import com.clipnest.data.ai.AiApi
-import com.clipnest.data.ai.AiGenerateRequest
+import com.clipnest.ai.AiProviderResolver
+import com.clipnest.ai.AiRequest
+import com.clipnest.ai.AiSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 class AiRepository(
-    private val api: AiApi
+    private val providerResolver: AiProviderResolver
 ) {
-    suspend fun generate(content: String): Result<String> = withContext(Dispatchers.IO) {
+    suspend fun generate(content: String, settings: AiSettings): Result<String> = withContext(Dispatchers.IO) {
         if (content.isBlank()) {
             return@withContext Result.failure(IllegalArgumentException("Editor content is empty"))
         }
-
-        runCatching {
-            val response = api.generate(AiGenerateRequest(content))
-            if (!response.success) {
-                error(response.error ?: "Ask AI failed")
-            }
-            response.text?.takeIf { it.isNotBlank() }
-                ?: error("AI returned an empty response")
-        }
+        providerResolver.resolve(settings.provider)
+            .generate(AiRequest(content = content, model = settings.geminiModelId))
+            .map { it.text }
     }
 }
