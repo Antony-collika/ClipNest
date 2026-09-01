@@ -18,6 +18,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     mode: isEmbedding ? "embedding" : "generation",
     hasBody: req.body != null,
     contentLength: typeof req.body?.content === "string" ? req.body.content.length : 0,
+    promptLength: typeof req.body?.prompt === "string" ? req.body.prompt.length : 0,
     hasGeminiKey: Boolean(process.env.GEMINI_API_KEY),
   });
 
@@ -33,12 +34,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const content = typeof req.body?.content === "string" ? req.body.content : "";
+  const prompt = typeof req.body?.prompt === "string" ? req.body.prompt.trim() : "";
   if (!content.trim()) {
     console.warn("[AI] empty content");
     return sendError(res, 400, "Content must not be empty");
   }
 
   try {
+    const generationInput = prompt
+      ? `Prompt:\n${prompt}\n\nContent:\n${content}`
+      : content;
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:${isEmbedding ? "embedContent" : "generateContent"}`;
     const body = isEmbedding
       ? {
@@ -52,7 +57,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           contents: [
             {
               role: "user",
-              parts: [{ text: content }],
+              parts: [{ text: generationInput }],
             },
           ],
         };
