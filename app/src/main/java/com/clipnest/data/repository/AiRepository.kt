@@ -29,7 +29,8 @@ class AiRepository(
             AiSettings(
                 provider = settings.aiProvider.toProviderType(),
                 geminiModelId = settings.geminiModelId,
-                vercelModelId = settings.vercelModelId
+                vercelModelId = settings.vercelModelId,
+                prompt = settings.aiPrompt
             )
         )
     }
@@ -37,7 +38,7 @@ class AiRepository(
     suspend fun generate(content: String, settings: AiSettings): Result<String> = withContext(Dispatchers.IO) {
         if (content.isBlank()) return@withContext Result.failure(IllegalArgumentException("Editor content is empty"))
         providerResolver.resolve(settings.provider)
-            .generate(AiRequest(content = content, model = settings.selectedModelId))
+            .generate(AiRequest(content = content, model = settings.selectedModelId, prompt = settings.prompt))
             .map { it.text }
     }
 
