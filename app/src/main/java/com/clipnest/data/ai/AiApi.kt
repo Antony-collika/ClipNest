@@ -25,6 +25,7 @@ class AiApi(
             val body = JSONObject()
                 .put("content", request.content)
                 .put("model", request.model)
+                .put("prompt", request.prompt)
                 .toString()
             connection.outputStream.use { output -> output.write(body.toByteArray(Charsets.UTF_8)) }
             val status = connection.responseCode
