@@ -41,9 +41,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const generationInput = prompt
-      ? `Prompt:\n${prompt}\n\nContent:\n${content}`
-      : content;
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:${isEmbedding ? "embedContent" : "generateContent"}`;
     const body = isEmbedding
       ? {
@@ -57,9 +54,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           contents: [
             {
               role: "user",
-              parts: [{ text: generationInput }],
+              parts: [{ text: content }],
             },
           ],
+          ...(prompt ? {
+            systemInstruction: {
+              parts: [{ text: prompt }],
+            },
+          } : {}),
         };
 
     console.log("[AI] calling Gemini", { model, mode: isEmbedding ? "embedding" : "generation" });
