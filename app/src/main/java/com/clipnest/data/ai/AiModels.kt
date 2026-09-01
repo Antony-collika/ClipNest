@@ -2,7 +2,8 @@ package com.clipnest.data.ai
 
 data class AiGenerateRequest(
     val content: String,
-    val model: String
+    val model: String,
+    val prompt: String = ""
 )
 
 data class AiGenerateResponse(
