@@ -68,7 +68,8 @@ data class UserSettings(
     val defaultSaveFolderUri: String? = null,
     val aiProvider: String = "GEMINI",
     val geminiModelId: String = "gemini-3.5-flash-lite",
-    val vercelModelId: String = "gemini-3.5-flash-lite"
+    val vercelModelId: String = "gemini-3.5-flash-lite",
+    val aiPrompt: String = ""
 )
 
 class SettingsDataStore(private val context: Context) {
@@ -87,6 +88,7 @@ class SettingsDataStore(private val context: Context) {
         val AI_PROVIDER = stringPreferencesKey("ai_provider")
         val GEMINI_MODEL_ID = stringPreferencesKey("gemini_model_id")
         val VERCEL_MODEL_ID = stringPreferencesKey("vercel_model_id")
+        val AI_PROMPT = stringPreferencesKey("ai_prompt")
     }
 
     val userSettingsFlow: Flow<UserSettings> = context.dataStore.data.map { preferences ->
@@ -119,7 +121,8 @@ class SettingsDataStore(private val context: Context) {
             defaultSaveFolderUri = preferences[PreferencesKeys.DEFAULT_SAVE_FOLDER_URI],
             aiProvider = preferences[PreferencesKeys.AI_PROVIDER] ?: "GEMINI",
             geminiModelId = preferences[PreferencesKeys.GEMINI_MODEL_ID] ?: "gemini-3.5-flash-lite",
-            vercelModelId = preferences[PreferencesKeys.VERCEL_MODEL_ID] ?: "gemini-3.5-flash-lite"
+            vercelModelId = preferences[PreferencesKeys.VERCEL_MODEL_ID] ?: "gemini-3.5-flash-lite",
+            aiPrompt = preferences[PreferencesKeys.AI_PROMPT] ?: ""
         )
     }
 
@@ -135,6 +138,7 @@ class SettingsDataStore(private val context: Context) {
     suspend fun setAiProvider(provider: String) { context.dataStore.edit { it[PreferencesKeys.AI_PROVIDER] = provider } }
     suspend fun setGeminiModelId(modelId: String) { context.dataStore.edit { it[PreferencesKeys.GEMINI_MODEL_ID] = modelId } }
     suspend fun setVercelModelId(modelId: String) { context.dataStore.edit { it[PreferencesKeys.VERCEL_MODEL_ID] = modelId } }
+    suspend fun setAiPrompt(prompt: String) { context.dataStore.edit { it[PreferencesKeys.AI_PROMPT] = prompt } }
 
     suspend fun setDefaultSaveFolderUri(uri: String?) {
         context.dataStore.edit { preferences ->
