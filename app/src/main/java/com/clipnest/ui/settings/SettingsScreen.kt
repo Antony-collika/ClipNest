@@ -90,6 +90,11 @@ fun SettingsScreen(
     var geminiApiKey by remember { mutableStateOf("") }
     var apiKeyStatusVersion by remember { mutableStateOf(0) }
     val hasGeminiApiKey = remember(apiKeyStatusVersion) { viewModel.geminiApiKeyConfigured() }
+    var promptInput by remember { mutableStateOf("") }
+
+    LaunchedEffect(userSettings.aiPrompt) {
+        promptInput = userSettings.aiPrompt
+    }
 
     LaunchedEffect(Unit) {
         viewModel.eventFlow.collect { event ->
@@ -144,7 +149,7 @@ fun SettingsScreen(
                         value = geminiApiKey,
                         onValueChange = { geminiApiKey = it },
                         label = { Text("Gemini API key") },
-                        placeholder = { Text(if (hasGeminiApiKey) "Key already configured" else "Enter API key") },
+                        placeholder = { Text(if (hasGeminiApiKey) "********" else "Enter API key") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth().testTag("gemini_api_key_input")
                     )
@@ -153,6 +158,16 @@ fun SettingsScreen(
                         if (hasGeminiApiKey) TextButton(onClick = { viewModel.deleteGeminiApiKey(); apiKeyStatusVersion++ }, modifier = Modifier.testTag("gemini_api_key_delete")) { Text("Delete key") }
                     }
                     Text(if (hasGeminiApiKey) "Gemini API key is configured securely on this device." else "No Gemini API key is configured.", style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
+
+                    OutlinedTextField(
+                        value = promptInput,
+                        onValueChange = { promptInput = it; viewModel.setAiPrompt(it) },
+                        label = { Text("AI prompt") },
+                        placeholder = { Text("Instructions for the AI") },
+                        minLines = 3,
+                        modifier = Modifier.fillMaxWidth().testTag("ai_prompt_input")
+                    )
+                    Text("This prompt is sent together with the Editor content. Embedding models use the content itself without this prompt.", style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
                 }
             }
         }
