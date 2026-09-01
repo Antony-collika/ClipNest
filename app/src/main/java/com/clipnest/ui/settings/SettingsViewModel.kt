@@ -86,6 +86,9 @@ class SettingsViewModel(
         if (GeminiModelCatalog.find(modelId) == null) return
         viewModelScope.launch { settingsDataStore.setVercelModelId(modelId) }
     }
+    fun setAiPrompt(prompt: String) {
+        viewModelScope.launch { settingsDataStore.setAiPrompt(prompt) }
+    }
     fun saveGeminiApiKey(apiKey: String) {
         runCatching { secureApiKeyStore.saveGeminiApiKey(apiKey.trim()) }
             .onFailure { error -> viewModelScope.launch { _eventFlow.emit(SettingsEvent.ShowToast(error.message ?: "Could not save API key")) } }
