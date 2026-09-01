@@ -36,7 +36,7 @@ class GeminiAdapter(
             try {
                 val body = JSONObject()
                     .put("model", request.model)
-                    .put("input", request.content)
+                    .put("input", buildPromptedInput(request.prompt, request.content))
                     .put("store", false)
                     .put("stream", false)
                     .toString()
@@ -90,6 +90,13 @@ class GeminiAdapter(
             connection.disconnect()
         }
     }
+
+    private fun buildPromptedInput(prompt: String, content: String): String =
+        if (prompt.isBlank()) {
+            content
+        } else {
+            "Prompt:\n${prompt.trim()}\n\nContent:\n$content"
+        }
 
     private fun formatEmbedding(model: String, values: JSONArray): String = buildString {
         append("Embedding model: ").append(model).append('\n')
