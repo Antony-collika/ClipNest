@@ -7,7 +7,8 @@ interface AiProvider {
 
 data class AiRequest(
     val content: String,
-    val model: String
+    val model: String,
+    val prompt: String = ""
 )
 
 data class AiResponse(
