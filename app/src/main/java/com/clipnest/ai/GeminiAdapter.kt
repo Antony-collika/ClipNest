@@ -34,12 +34,15 @@ class GeminiAdapter(
                 setRequestProperty("x-goog-api-key", apiKey)
             }
             try {
-                val body = JSONObject()
+                val bodyJson = JSONObject()
                     .put("model", request.model)
-                    .put("input", buildPromptedInput(request.prompt, request.content))
+                    .put("input", request.content)
                     .put("store", false)
                     .put("stream", false)
-                    .toString()
+                if (request.prompt.isNotBlank()) {
+                    bodyJson.put("system_instruction", request.prompt.trim())
+                }
+                val body = bodyJson.toString()
                 connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
 
                 val status = connection.responseCode
@@ -90,13 +93,6 @@ class GeminiAdapter(
             connection.disconnect()
         }
     }
-
-    private fun buildPromptedInput(prompt: String, content: String): String =
-        if (prompt.isBlank()) {
-            content
-        } else {
-            "Prompt:\n${prompt.trim()}\n\nContent:\n$content"
-        }
 
     private fun formatEmbedding(model: String, values: JSONArray): String = buildString {
         append("Embedding model: ").append(model).append('\n')
