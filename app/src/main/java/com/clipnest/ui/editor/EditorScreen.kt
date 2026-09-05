@@ -6,14 +6,9 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -33,8 +28,6 @@ import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -50,7 +43,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -72,6 +64,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -85,9 +79,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
 
-private const val MAX_PREVIEW_FRACTION = 1.0f
 private const val PREVIEW_RENDER_DEBOUNCE_MS = 140L
-private val PREVIEW_HANDLE_HEIGHT = 48.dp
+private val PREVIEW_POPUP_HEIGHT = 520.dp
+private val PREVIEW_POPUP_WIDTH_FRACTION = 0.92f
 private val PREVIEW_HEADER_HEIGHT = 48.dp
 
 @Composable
@@ -168,43 +162,36 @@ fun EditorScreen(
                 editorTextSize = editorTextSize,
                 modifier = Modifier.fillMaxSize()
             )
-
-            EditorWithPreviewOverlay(
-                uiState = uiState,
-                previewHtml = previewHtml,
-                onPreviewFractionChange = viewModel::setPreviewSplitFraction,
-                previewBackground = previewBackground,
-                previewTextColor = previewTextColor,
-                modifier = Modifier.fillMaxSize()
-            )
-        }
-
-        if (uiState.isMarkdownToolsExpanded) {
-            ExpandedMarkdownToolbox(
-                isPreviewVisible = uiState.showMarkdownPreview,
-                onHeading = viewModel::insertMarkdownHeading,
-                onBold = viewModel::toggleMarkdownStrong,
-                onItalic = viewModel::toggleMarkdownEmphasis,
-                onQuote = viewModel::insertMarkdownQuote,
-                onCode = viewModel::insertMarkdownCodeBlock,
-                onBullets = viewModel::insertMarkdownBullets,
-                onNumbers = viewModel::insertMarkdownNumbers,
-                onHorizontalRule = viewModel::insertMarkdownHorizontalRule,
-                onTogglePreview = viewModel::toggleMarkdownPreview
-            )
         }
 
         EditorToolbox(
-            isMarkdownToolsExpanded = uiState.isMarkdownToolsExpanded,
+            isPreviewVisible = uiState.showMarkdownPreview,
             onPaste = { viewModel.pasteFromClipboard(context) },
             onCopy = { viewModel.copySelectedText(context) },
             onSelectAll = viewModel::selectAll,
             onDelete = viewModel::deleteSelectedText,
             onUndo = viewModel::undo,
             onRedo = viewModel::redo,
+            onTogglePreview = viewModel::toggleMarkdownPreview,
             onMoveCursorLeft = viewModel::moveCursorLeft,
             onMoveCursorRight = viewModel::moveCursorRight,
-            onToggleExpanded = viewModel::toggleMarkdownTools
+            onHeading = viewModel::insertMarkdownHeading,
+            onBold = viewModel::toggleMarkdownStrong,
+            onItalic = viewModel::toggleMarkdownEmphasis,
+            onQuote = viewModel::insertMarkdownQuote,
+            onCode = viewModel::insertMarkdownCodeBlock,
+            onBullets = viewModel::insertMarkdownBullets,
+            onNumbers = viewModel::insertMarkdownNumbers,
+            onHorizontalRule = viewModel::insertMarkdownHorizontalRule
+        )
+    }
+
+    if (uiState.showMarkdownPreview) {
+        EditorMarkdownPreviewPopup(
+            html = previewHtml,
+            backgroundColor = previewBackground,
+            contentColor = previewTextColor,
+            onDismissRequest = viewModel::toggleMarkdownPreview
         )
     }
 
@@ -245,184 +232,123 @@ fun EditorScreen(
 }
 
 @Composable
-private fun EditorWithPreviewOverlay(
-    uiState: EditorUiState,
-    previewHtml: String,
-    onPreviewFractionChange: (Float) -> Unit,
-    previewBackground: Color,
-    previewTextColor: Color,
-    modifier: Modifier = Modifier
+private fun EditorMarkdownPreviewPopup(
+    html: String,
+    backgroundColor: Color,
+    contentColor: Color,
+    onDismissRequest: () -> Unit
 ) {
-    BoxWithConstraints(modifier = modifier.testTag("editor_split_view")) {
-        val density = androidx.compose.ui.platform.LocalDensity.current
-        val totalHeightPx = with(density) { maxHeight.toPx() }
-        val minPreviewFraction = if (totalHeightPx > 0f) {
-            with(density) { (PREVIEW_HEADER_HEIGHT + 1.dp).toPx() } / totalHeightPx
-        } else 0f
-        var dragging by remember { mutableStateOf(false) }
-        var dragFraction by remember(uiState.showMarkdownPreview, uiState.previewSplitFraction) {
-            mutableStateOf(uiState.previewSplitFraction)
-        }
-        val latestFraction by rememberUpdatedState(dragFraction)
-        val previewDragState = rememberDraggableState { delta ->
-            if (totalHeightPx > 0f && dragging) {
-                dragFraction = (latestFraction - delta / totalHeightPx)
-                    .coerceIn(minPreviewFraction.coerceAtMost(MAX_PREVIEW_FRACTION), MAX_PREVIEW_FRACTION)
-            }
-        }
-        val fraction = dragFraction.coerceIn(minPreviewFraction.coerceAtMost(MAX_PREVIEW_FRACTION), MAX_PREVIEW_FRACTION)
-        val previewHeight = if (uiState.showMarkdownPreview) maxHeight * fraction else 0.dp
+    val previewSurfaceColor = backgroundColor.toArgb()
+    val shape = RoundedCornerShape(18.dp)
 
-        Box(
+    Dialog(
+        onDismissRequest = onDismissRequest,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            color = backgroundColor,
+            contentColor = contentColor,
+            shape = shape,
+            shadowElevation = 12.dp,
             modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .height(previewHeight)
+                .fillMaxWidth(PREVIEW_POPUP_WIDTH_FRACTION)
+                .height(PREVIEW_POPUP_HEIGHT)
+                .testTag("markdown_preview_popup")
         ) {
-            MarkdownPreviewPane(
-                html = previewHtml,
-                backgroundColor = previewBackground,
-                contentColor = previewTextColor,
-                dragState = previewDragState,
-                onDragStarted = { dragging = true },
-                onDragStopped = {
-                    onPreviewFractionChange(latestFraction.coerceIn(minPreviewFraction.coerceAtMost(MAX_PREVIEW_FRACTION), MAX_PREVIEW_FRACTION))
-                    dragging = false
-                },
-                modifier = Modifier.fillMaxSize()
-            )
+            Column {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(PREVIEW_HEADER_HEIGHT)
+                        .background(backgroundColor)
+                        .testTag("markdown_preview_header"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = stringResource(com.clipnest.R.string.preview_markdown),
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                        color = contentColor
+                    )
+                }
+
+                androidx.compose.material3.HorizontalDivider(
+                    color = contentColor.copy(alpha = 0.18f)
+                )
+
+                MarkdownPreviewWebView(
+                    html = html,
+                    backgroundColor = previewSurfaceColor,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .testTag("markdown_preview_content")
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun MarkdownPreviewPane(
+private fun MarkdownPreviewWebView(
     html: String,
-    backgroundColor: Color,
-    contentColor: Color,
-    dragState: androidx.compose.foundation.gestures.DraggableState,
-    onDragStarted: () -> Unit,
-    onDragStopped: () -> Unit,
+    backgroundColor: Int,
     modifier: Modifier = Modifier
 ) {
-    val previewSurfaceColor = backgroundColor.toArgb()
-    val shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp)
-    Surface(
-        color = backgroundColor,
-        contentColor = contentColor,
-        shape = shape,
-        shadowElevation = 8.dp,
-        modifier = modifier
-            .clip(shape)
-            .shadow(8.dp, shape)
-            .testTag("markdown_preview_pane")
-    ) {
-        Box(Modifier.fillMaxSize()) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .fillMaxWidth()
-                    .height(PREVIEW_HEADER_HEIGHT)
-                    .background(backgroundColor)
-                    .testTag("markdown_preview_header")
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(PREVIEW_HANDLE_HEIGHT)
-                        .draggable(
-                            orientation = Orientation.Vertical,
-                            state = dragState,
-                            onDragStarted = { onDragStarted() },
-                            onDragStopped = { onDragStopped() }
-                        )
-                        .testTag("markdown_preview_handle_hitbox"),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(
-                            modifier = Modifier
-                                .width(40.dp)
-                                .height(5.dp)
-                                .clip(RoundedCornerShape(50))
-                                .background(Color(0xFF8B8B8B))
-                        )
-                        Text(
-                            text = stringResource(com.clipnest.R.string.preview_markdown),
-                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                            color = contentColor,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
-                    }
-                }
-            }
-            androidx.compose.material3.HorizontalDivider(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .fillMaxWidth()
-                    .padding(top = PREVIEW_HEADER_HEIGHT),
-                color = contentColor.copy(alpha = 0.18f)
-            )
-            AndroidView(
-                factory = { context ->
-                    WebView(context).apply {
-                        settings.javaScriptEnabled = false
-                        settings.domStorageEnabled = false
-                        settings.allowFileAccess = false
-                        settings.allowContentAccess = false
-                        settings.setSupportZoom(true)
-                        settings.builtInZoomControls = true
-                        settings.displayZoomControls = false
-                        setBackgroundColor(previewSurfaceColor)
-                        isVerticalScrollBarEnabled = true
-                        isHorizontalScrollBarEnabled = false
-                        overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
-                        val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
-                        var downX = 0f
-                        var downY = 0f
-                        var locked = false
-                        setOnTouchListener { view, event ->
-                            when (event.actionMasked) {
-                                android.view.MotionEvent.ACTION_DOWN -> {
-                                    downX = event.x
-                                    downY = event.y
-                                    locked = false
-                                }
-                                android.view.MotionEvent.ACTION_MOVE -> {
-                                    val dx = event.x - downX
-                                    val dy = event.y - downY
-                                    if (!locked && maxOf(abs(dx), abs(dy)) > touchSlop) {
-                                        locked = true
-                                        view.parent?.requestDisallowInterceptTouchEvent(abs(dy) >= abs(dx))
-                                    }
-                                }
-                                android.view.MotionEvent.ACTION_UP,
-                                android.view.MotionEvent.ACTION_CANCEL -> {
-                                    view.parent?.requestDisallowInterceptTouchEvent(false)
-                                    locked = false
-                                }
-                            }
-                            false
+    AndroidView(
+        factory = { context ->
+            WebView(context).apply {
+                settings.javaScriptEnabled = false
+                settings.domStorageEnabled = false
+                settings.allowFileAccess = false
+                settings.allowContentAccess = false
+                settings.setSupportZoom(true)
+                settings.builtInZoomControls = true
+                settings.displayZoomControls = false
+                setBackgroundColor(backgroundColor)
+                isVerticalScrollBarEnabled = true
+                isHorizontalScrollBarEnabled = false
+                overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
+                val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+                var downX = 0f
+                var downY = 0f
+                var locked = false
+                setOnTouchListener { view, event ->
+                    when (event.actionMasked) {
+                        android.view.MotionEvent.ACTION_DOWN -> {
+                            downX = event.x
+                            downY = event.y
+                            locked = false
                         }
-                        webViewClient = WebViewClient()
+                        android.view.MotionEvent.ACTION_MOVE -> {
+                            val dx = event.x - downX
+                            val dy = event.y - downY
+                            if (!locked && maxOf(abs(dx), abs(dy)) > touchSlop) {
+                                locked = true
+                                view.parent?.requestDisallowInterceptTouchEvent(abs(dy) >= abs(dx))
+                            }
+                        }
+                        android.view.MotionEvent.ACTION_UP,
+                        android.view.MotionEvent.ACTION_CANCEL -> {
+                            view.parent?.requestDisallowInterceptTouchEvent(false)
+                            locked = false
+                        }
                     }
-                },
-                update = { webView ->
-                    webView.setBackgroundColor(previewSurfaceColor)
-                    if (html.isNotBlank() && webView.tag != html) {
-                        val previousScrollY = webView.scrollY
-                        webView.tag = html
-                        webView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
-                        webView.post { if (webView.tag == html) webView.scrollTo(0, previousScrollY) }
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(top = PREVIEW_HEADER_HEIGHT + 1.dp)
-                    .testTag("markdown_preview_content")
-            )
-        }
-    }
+                    false
+                }
+                webViewClient = WebViewClient()
+            }
+        },
+        update = { webView ->
+            webView.setBackgroundColor(backgroundColor)
+            if (html.isNotBlank() && webView.tag != html) {
+                val previousScrollY = webView.scrollY
+                webView.tag = html
+                webView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
+                webView.post { if (webView.tag == html) webView.scrollTo(0, previousScrollY) }
+            }
+        },
+        modifier = modifier
+    )
 }
 
 @Composable
@@ -433,6 +359,7 @@ private fun EditorTextInput(
     modifier: Modifier = Modifier
 ) {
     val textColor = MaterialTheme.colorScheme.onSurface
+    val hintColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f).toArgb()
     val tagColor = MaterialTheme.colorScheme.primary.toArgb()
 
     AndroidView(
@@ -443,7 +370,7 @@ private fun EditorTextInput(
                 setLineSpacing(0f, editorTextSize.lineHeightSp.toFloat() / editorTextSize.sp.toFloat())
                 this.tagColor = tagColor
                 hint = context.getString(com.clipnest.R.string.write_or_paste)
-                setHintTextColor(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f).toArgb())
+                setHintTextColor(hintColor)
                 onEditorTextChanged = { text, selectionStart, selectionEnd ->
                     onValueChange(TextFieldValue(text = text, selection = TextRange(selectionStart, selectionEnd)))
                 }
@@ -453,7 +380,7 @@ private fun EditorTextInput(
             editor.setTextColor(textColor.toArgb())
             editor.textSize = editorTextSize.sp.toFloat()
             editor.setLineSpacing(0f, editorTextSize.lineHeightSp.toFloat() / editorTextSize.sp.toFloat())
-            editor.setHintTextColor(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f).toArgb())
+            editor.setHintTextColor(hintColor)
             if (editor.tagColor != tagColor) editor.tagColor = tagColor
 
             editor.onEditorSelectionChanged = { selectionStart, selectionEnd ->
@@ -477,16 +404,24 @@ private fun EditorTextInput(
 
 @Composable
 private fun EditorToolbox(
-    isMarkdownToolsExpanded: Boolean,
+    isPreviewVisible: Boolean,
     onPaste: () -> Unit,
     onCopy: () -> Unit,
     onSelectAll: () -> Unit,
     onDelete: () -> Unit,
     onUndo: () -> Unit,
     onRedo: () -> Unit,
+    onTogglePreview: () -> Unit,
     onMoveCursorLeft: () -> Unit,
     onMoveCursorRight: () -> Unit,
-    onToggleExpanded: () -> Unit
+    onHeading: (Int) -> Unit,
+    onBold: () -> Unit,
+    onItalic: () -> Unit,
+    onQuote: () -> Unit,
+    onCode: () -> Unit,
+    onBullets: () -> Unit,
+    onNumbers: () -> Unit,
+    onHorizontalRule: () -> Unit
 ) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
@@ -507,44 +442,14 @@ private fun EditorToolbox(
             EditorToolButton("editor_action_delete", stringResource(com.clipnest.R.string.delete_selected), Icons.Default.Delete, onDelete)
             EditorToolButton("editor_action_undo", stringResource(com.clipnest.R.string.undo), Icons.AutoMirrored.Filled.Undo, onUndo, repeatOnHold = true)
             EditorToolButton("editor_action_redo", stringResource(com.clipnest.R.string.redo), Icons.AutoMirrored.Filled.Redo, onRedo, repeatOnHold = true)
+            EditorToolButton(
+                "editor_action_preview",
+                if (isPreviewVisible) stringResource(com.clipnest.R.string.hide_markdown_preview) else stringResource(com.clipnest.R.string.show_markdown_preview),
+                if (isPreviewVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                onTogglePreview
+            )
             EditorToolButton("editor_action_cursor_left", stringResource(com.clipnest.R.string.move_cursor_left), Icons.AutoMirrored.Filled.KeyboardArrowLeft, onMoveCursorLeft, repeatOnHold = true)
             EditorToolButton("editor_action_cursor_right", stringResource(com.clipnest.R.string.move_cursor_right), Icons.AutoMirrored.Filled.KeyboardArrowRight, onMoveCursorRight, repeatOnHold = true)
-            EditorToolButton(
-                "editor_action_markdown_expand",
-                if (isMarkdownToolsExpanded) stringResource(com.clipnest.R.string.hide_markdown_tools) else stringResource(com.clipnest.R.string.show_markdown_tools),
-                if (isMarkdownToolsExpanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
-                onToggleExpanded
-            )
-        }
-    }
-}
-
-@Composable
-private fun ExpandedMarkdownToolbox(
-    isPreviewVisible: Boolean,
-    onHeading: (Int) -> Unit,
-    onBold: () -> Unit,
-    onItalic: () -> Unit,
-    onQuote: () -> Unit,
-    onCode: () -> Unit,
-    onBullets: () -> Unit,
-    onNumbers: () -> Unit,
-    onHorizontalRule: () -> Unit,
-    onTogglePreview: () -> Unit
-) {
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f),
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag("markdown_expanded_toolbox")
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.Start,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
             MarkdownTextButton("markdown_action_h1", "H1", stringResource(com.clipnest.R.string.markdown_h1), { onHeading(1) })
             MarkdownTextButton("markdown_action_h2", "H2", stringResource(com.clipnest.R.string.markdown_h2), { onHeading(2) })
             MarkdownTextButton("markdown_action_h3", "H3", stringResource(com.clipnest.R.string.markdown_h3), { onHeading(3) })
@@ -555,13 +460,6 @@ private fun ExpandedMarkdownToolbox(
             MarkdownTextButton("markdown_action_bullets", "•", stringResource(com.clipnest.R.string.markdown_bullets), onBullets)
             MarkdownTextButton("markdown_action_numbers", "1.", stringResource(com.clipnest.R.string.markdown_numbers), onNumbers)
             MarkdownTextButton("markdown_action_rule", "—", stringResource(com.clipnest.R.string.markdown_horizontal_rule), onHorizontalRule)
-            MarkdownTextButton(
-                tag = "markdown_action_view",
-                label = "",
-                contentDescription = if (isPreviewVisible) stringResource(com.clipnest.R.string.hide_markdown_preview) else stringResource(com.clipnest.R.string.show_markdown_preview),
-                onClick = onTogglePreview,
-                icon = if (isPreviewVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility
-            )
         }
     }
 }
@@ -573,12 +471,11 @@ private fun MarkdownTextButton(
     contentDescription: String,
     onClick: () -> Unit,
     bold: Boolean = false,
-    italic: Boolean = false,
-    icon: androidx.compose.ui.graphics.vector.ImageVector? = null
+    italic: Boolean = false
 ) {
     Box(
         modifier = Modifier
-            .size(36.dp)
+            .size(40.dp)
             .testTag(tag)
             .semantics {
                 role = Role.Button
@@ -587,17 +484,13 @@ private fun MarkdownTextButton(
             .pointerInput(Unit) { detectTapGestures(onTap = { onClick() }) },
         contentAlignment = Alignment.Center
     ) {
-        if (icon != null) {
-            Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(20.dp))
-        } else {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall.copy(
-                    fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal,
-                    fontStyle = if (italic) androidx.compose.ui.text.font.FontStyle.Italic else androidx.compose.ui.text.font.FontStyle.Normal
-                )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal,
+                fontStyle = if (italic) androidx.compose.ui.text.font.FontStyle.Italic else androidx.compose.ui.text.font.FontStyle.Normal
             )
-        }
+        )
     }
 }
 
