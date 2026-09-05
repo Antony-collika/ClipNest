@@ -277,7 +277,6 @@ private fun EditorWithPreviewOverlay(
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .height(previewHeight)
-                .zIndex(2f)
         ) {
             MarkdownPreviewPane(
                 html = previewHtml,
@@ -441,18 +440,11 @@ private fun EditorTextInput(
                 setTextColor(textColor.toArgb())
                 textSize = editorTextSize.sp.toFloat()
                 setLineSpacing(0f, editorTextSize.lineHeightSp.toFloat() / editorTextSize.sp.toFloat())
-                tagColor = tagColor
+                this.tagColor = tagColor
                 hint = context.getString(com.clipnest.R.string.write_or_paste)
                 setHintTextColor(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f).toArgb())
-
                 onEditorTextChanged = { text, selectionStart, selectionEnd ->
                     onValueChange(TextFieldValue(text = text, selection = TextRange(selectionStart, selectionEnd)))
-                }
-                onEditorSelectionChanged = { selectionStart, selectionEnd ->
-                    val current = value
-                    if (current.selection.start != selectionStart || current.selection.end != selectionEnd) {
-                        onValueChange(current.copy(selection = TextRange(selectionStart, selectionEnd)))
-                    }
                 }
             }
         },
@@ -460,7 +452,15 @@ private fun EditorTextInput(
             editor.setTextColor(textColor.toArgb())
             editor.textSize = editorTextSize.sp.toFloat()
             editor.setLineSpacing(0f, editorTextSize.lineHeightSp.toFloat() / editorTextSize.sp.toFloat())
+            editor.setHintTextColor(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f).toArgb())
             if (editor.tagColor != tagColor) editor.tagColor = tagColor
+
+            editor.onEditorSelectionChanged = { selectionStart, selectionEnd ->
+                val current = value
+                if (current.selection.start != selectionStart || current.selection.end != selectionEnd) {
+                    onValueChange(current.copy(selection = TextRange(selectionStart, selectionEnd)))
+                }
+            }
 
             if (editor.text?.toString() != value.text) {
                 editor.setEditorText(value.text, value.selection.start, value.selection.end)
