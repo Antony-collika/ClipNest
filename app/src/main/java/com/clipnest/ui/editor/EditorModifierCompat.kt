@@ -1,6 +1,7 @@
 package com.clipnest.ui.editor
 
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.unit.IntOffset
 
 /**
