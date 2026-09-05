@@ -20,11 +20,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.material3.minimumInteractiveComponentSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Delete
@@ -32,12 +34,13 @@ import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -48,11 +51,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -74,7 +78,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.clipnest.data.local.EditorTextSize
 import com.clipnest.data.local.ViewerTextSize
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -85,7 +88,7 @@ private const val PREVIEW_RENDER_DEBOUNCE_MS = 140L
 private val PREVIEW_POPUP_HEIGHT = 620.dp
 private val PREVIEW_POPUP_WIDTH_FRACTION = 0.92f
 private val PREVIEW_HEADER_HEIGHT = 48.dp
-private val PREVIEW_FOOTER_HEIGHT = 52.dp
+private val PREVIEW_FOOTER_HEIGHT = 36.dp
 
 @Composable
 fun EditorScreen(
@@ -241,9 +244,21 @@ private fun EditorMarkdownPreviewPopup(
     contentColor: Color,
     onDismissRequest: () -> Unit
 ) {
+    val configuration = LocalConfiguration.current
+    val density = LocalDensity.current
     val previewSurfaceColor = backgroundColor.toArgb()
     val shape = RoundedCornerShape(18.dp)
+    val popupHeightPx = with(density) { PREVIEW_POPUP_HEIGHT.toPx() }
+    val screenHeightPx = with(density) { configuration.screenHeightDp.dp.toPx() }
+    val maxTravelPx = ((screenHeightPx - popupHeightPx) / 2f).coerceAtLeast(0f)
     var dragOffsetY by remember { mutableStateOf(0f) }
+    val clampedOffsetY = dragOffsetY.coerceIn(-maxTravelPx, maxTravelPx)
+    val popupDragModifier = Modifier.pointerInput(Unit) {
+        detectDragGestures { change, dragAmount ->
+            change.consume()
+            dragOffsetY = (dragOffsetY + dragAmount.y).coerceIn(-maxTravelPx, maxTravelPx)
+        }
+    }
 
     Dialog(
         onDismissRequest = onDismissRequest,
@@ -257,36 +272,35 @@ private fun EditorMarkdownPreviewPopup(
             modifier = Modifier
                 .fillMaxWidth(PREVIEW_POPUP_WIDTH_FRACTION)
                 .height(PREVIEW_POPUP_HEIGHT)
-                .offset { IntOffset(0, dragOffsetY.roundToInt()) }
+                .offset { IntOffset(0, clampedOffsetY.roundToInt()) }
                 .testTag("markdown_preview_popup")
         ) {
             Column {
-                Box(
-                    modifier = Modifier
+                Row(
+                    modifier = popupDragModifier
                         .fillMaxWidth()
                         .height(PREVIEW_HEADER_HEIGHT)
                         .background(backgroundColor)
-                        .pointerInput(Unit) {
-                            detectDragGestures { change, dragAmount ->
-                                change.consume()
-                                dragOffsetY += dragAmount.y
-                            }
-                        }
-                        .testTag("markdown_preview_header"),
-                    contentAlignment = Alignment.Center
+                        .padding(start = 16.dp, end = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(
-                            modifier = Modifier
-                                .width(40.dp)
-                                .height(4.dp)
-                                .clip(RoundedCornerShape(50))
-                                .background(contentColor.copy(alpha = 0.45f))
-                        )
-                        Text(
-                            text = stringResource(com.clipnest.R.string.preview_markdown),
-                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                            color = contentColor
+                    Text(
+                        text = stringResource(com.clipnest.R.string.preview_markdown),
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                        color = contentColor,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(
+                        onClick = onDismissRequest,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .minimumInteractiveComponentSize()
+                            .testTag("markdown_preview_close")
+                    ) {
+                        Icon(
+                            Icons.Default.Clear,
+                            contentDescription = stringResource(com.clipnest.R.string.close),
+                            tint = contentColor
                         )
                     }
                 }
@@ -305,7 +319,7 @@ private fun EditorMarkdownPreviewPopup(
                 HorizontalDivider(color = contentColor.copy(alpha = 0.18f))
 
                 Box(
-                    modifier = Modifier
+                    modifier = popupDragModifier
                         .fillMaxWidth()
                         .height(PREVIEW_FOOTER_HEIGHT)
                         .background(backgroundColor)
@@ -532,7 +546,7 @@ private fun EditorToolButton(
                             onClick()
                             tryAwaitRelease()
                         } else {
-                            coroutineScope {
+                            kotlinx.coroutines.coroutineScope {
                                 val repeatJob = launch {
                                     onClick()
                                     delay(220)
