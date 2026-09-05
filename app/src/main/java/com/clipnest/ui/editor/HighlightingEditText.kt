@@ -3,7 +3,6 @@ package com.clipnest.ui.editor
 import android.content.Context
 import android.graphics.Typeface
 import android.text.Editable
-import android.text.Spannable
 import android.text.Spanned
 import android.text.TextWatcher
 import android.text.style.ForegroundColorSpan
@@ -13,8 +12,8 @@ import android.view.Gravity
 import android.widget.EditText
 
 /**
- * Native Android editor used as the text-editing surface inside the Compose UI.
- * The underlying text stays plain text; #tag recognition is only visual spans.
+ * Native Android text surface embedded in the Compose editor.
+ * The document remains plain text; #tag recognition is visual only.
  */
 class HighlightingEditText @JvmOverloads constructor(
     context: Context,
@@ -24,6 +23,7 @@ class HighlightingEditText @JvmOverloads constructor(
 
     var tagColor: Int = currentTextColor
         set(value) {
+            if (field == value) return
             field = value
             applyTagHighlighting()
         }
@@ -34,7 +34,6 @@ class HighlightingEditText @JvmOverloads constructor(
     private var suppressCallbacks = false
 
     init {
-        setBackground(null)
         background = null
         gravity = Gravity.TOP or Gravity.START
         isSingleLine = false
@@ -50,7 +49,6 @@ class HighlightingEditText @JvmOverloads constructor(
 
         addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
-
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
 
             override fun afterTextChanged(s: Editable?) {
@@ -67,76 +65,60 @@ class HighlightingEditText @JvmOverloads constructor(
 
     override fun onSelectionChanged(selStart: Int, selEnd: Int) {
         super.onSelectionChanged(selStart, selEnd)
-        if (!suppressCallbacks) {
-            onEditorSelectionChanged?.invoke(selStart, selEnd)
-        }
+        if (!suppressCallbacks) onEditorSelectionChanged?.invoke(selStart, selEnd)
     }
 
     fun setEditorText(text: String, selectionStart: Int, selectionEnd: Int) {
-        if (this.text?.toString() == text) {
-            setEditorSelection(selectionStart, selectionEnd)
-            return
-        }
-
         suppressCallbacks = true
         try {
-            setText(text)
-            setEditorSelection(selectionStart, selectionEnd)
+            if (this.text?.toString() != text) setText(text)
+            setEditorSelectionInternal(selectionStart, selectionEnd)
             applyTagHighlighting()
         } finally {
             suppressCallbacks = false
         }
     }
 
-    fun setEditorSelection(selectionStart: Int, selectionEnd: Int) {
-        val safeStart = selectionStart.coerceIn(0, text?.length ?: 0)
-        val safeEnd = selectionEnd.coerceIn(safeStart, text?.length ?: 0)
+    fun setEditorSelectionIfNeeded(selectionStart: Int, selectionEnd: Int) {
         if (selectionStart == this.selectionStart && selectionEnd == this.selectionEnd) return
         suppressCallbacks = true
         try {
-            setSelection(safeStart, safeEnd)
+            setEditorSelectionInternal(selectionStart, selectionEnd)
         } finally {
             suppressCallbacks = false
         }
     }
 
-    fun setSelectionCallbackEnabled(enabled: Boolean) {
-        suppressCallbacks = !enabled
+    private fun setEditorSelectionInternal(selectionStart: Int, selectionEnd: Int) {
+        val length = text?.length ?: 0
+        val start = selectionStart.coerceIn(0, length)
+        val end = selectionEnd.coerceIn(start, length)
+        setSelection(start, end)
     }
 
     private fun applyTagHighlighting(editable: Editable? = text) {
         if (editable == null) return
 
-        val existingColorSpans = editable.getSpans(0, editable.length, ForegroundColorSpan::class.java)
-            .filter { editable.getSpanFlags(it) and TAG_SPAN_FLAG != 0 }
-        val existingStyleSpans = editable.getSpans(0, editable.length, StyleSpan::class.java)
-            .filter { editable.getSpanFlags(it) and TAG_SPAN_FLAG != 0 }
-        existingColorSpans.forEach(editable::removeSpan)
-        existingStyleSpans.forEach(editable::removeSpan)
+        editable.getSpans(0, editable.length, TagForegroundSpan::class.java)
+            .forEach(editable::removeSpan)
+        editable.getSpans(0, editable.length, TagStyleSpan::class.java)
+            .forEach(editable::removeSpan)
 
-        val regex = TAG_REGEX
-        regex.findAll(editable).forEach { match ->
-            editable.setSpan(
-                ForegroundColorSpan(tagColor),
-                match.range.first,
-                match.range.last + 1,
-                TAG_SPAN_FLAG
-            )
-            editable.setSpan(
-                StyleSpan(Typeface.BOLD),
-                match.range.first,
-                match.range.last + 1,
-                TAG_SPAN_FLAG
-            )
+        TAG_REGEX.findAll(editable).forEach { match ->
+            val start = match.range.first
+            val end = match.range.last + 1
+            editable.setSpan(TagForegroundSpan(tagColor), start, end, TAG_SPAN_FLAGS)
+            editable.setSpan(TagStyleSpan(), start, end, TAG_SPAN_FLAGS)
         }
     }
 
-    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).roundToInt()
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     companion object {
-        private const val TAG_SPAN_FLAG = Spanned.SPAN_EXCLUSIVE_EXCLUSIVE or 0x100
+        private const val TAG_SPAN_FLAGS = Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
         private val TAG_REGEX = Regex("(?<!\\S)#[\\p{L}\\p{N}_-]+")
     }
 }
 
-private fun Float.roundToInt(): Int = kotlin.math.round(this).toInt()
+private class TagForegroundSpan(color: Int) : ForegroundColorSpan(color)
+private class TagStyleSpan : StyleSpan(Typeface.BOLD)
