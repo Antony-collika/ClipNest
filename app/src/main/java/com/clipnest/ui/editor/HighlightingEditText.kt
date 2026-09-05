@@ -3,6 +3,7 @@ package com.clipnest.ui.editor
 import android.content.Context
 import android.graphics.Typeface
 import android.text.Editable
+import android.text.InputType
 import android.text.Spanned
 import android.text.TextWatcher
 import android.text.style.ForegroundColorSpan
@@ -37,6 +38,9 @@ class HighlightingEditText @JvmOverloads constructor(
         background = null
         gravity = Gravity.TOP or Gravity.START
         isSingleLine = false
+        inputType = InputType.TYPE_CLASS_TEXT or
+            InputType.TYPE_TEXT_FLAG_MULTI_LINE or
+            InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
         setHorizontallyScrolling(false)
         setTextIsSelectable(true)
         setSelectAllOnFocus(false)
