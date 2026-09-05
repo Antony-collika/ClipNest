@@ -1,11 +1,11 @@
 package com.clipnest.ui.editor
 
 import android.view.View
-import android.view.ViewConfiguration
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
@@ -37,6 +37,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -62,6 +63,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
@@ -77,12 +79,13 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.math.abs
+import kotlin.math.roundToInt
 
 private const val PREVIEW_RENDER_DEBOUNCE_MS = 140L
-private val PREVIEW_POPUP_HEIGHT = 520.dp
+private val PREVIEW_POPUP_HEIGHT = 620.dp
 private val PREVIEW_POPUP_WIDTH_FRACTION = 0.92f
 private val PREVIEW_HEADER_HEIGHT = 48.dp
+private val PREVIEW_FOOTER_HEIGHT = 52.dp
 
 @Composable
 fun EditorScreen(
@@ -240,6 +243,7 @@ private fun EditorMarkdownPreviewPopup(
 ) {
     val previewSurfaceColor = backgroundColor.toArgb()
     val shape = RoundedCornerShape(18.dp)
+    var dragOffsetY by remember { mutableStateOf(0f) }
 
     Dialog(
         onDismissRequest = onDismissRequest,
@@ -253,6 +257,7 @@ private fun EditorMarkdownPreviewPopup(
             modifier = Modifier
                 .fillMaxWidth(PREVIEW_POPUP_WIDTH_FRACTION)
                 .height(PREVIEW_POPUP_HEIGHT)
+                .offset { IntOffset(0, dragOffsetY.roundToInt()) }
                 .testTag("markdown_preview_popup")
         ) {
             Column {
@@ -261,19 +266,32 @@ private fun EditorMarkdownPreviewPopup(
                         .fillMaxWidth()
                         .height(PREVIEW_HEADER_HEIGHT)
                         .background(backgroundColor)
+                        .pointerInput(Unit) {
+                            detectDragGestures { change, dragAmount ->
+                                change.consume()
+                                dragOffsetY += dragAmount.y
+                            }
+                        }
                         .testTag("markdown_preview_header"),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = stringResource(com.clipnest.R.string.preview_markdown),
-                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                        color = contentColor
-                    )
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(
+                            modifier = Modifier
+                                .width(40.dp)
+                                .height(4.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(contentColor.copy(alpha = 0.45f))
+                        )
+                        Text(
+                            text = stringResource(com.clipnest.R.string.preview_markdown),
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                            color = contentColor
+                        )
+                    }
                 }
 
-                androidx.compose.material3.HorizontalDivider(
-                    color = contentColor.copy(alpha = 0.18f)
-                )
+                HorizontalDivider(color = contentColor.copy(alpha = 0.18f))
 
                 MarkdownPreviewWebView(
                     html = html,
@@ -282,6 +300,16 @@ private fun EditorMarkdownPreviewPopup(
                         .fillMaxWidth()
                         .weight(1f)
                         .testTag("markdown_preview_content")
+                )
+
+                HorizontalDivider(color = contentColor.copy(alpha = 0.18f))
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(PREVIEW_FOOTER_HEIGHT)
+                        .background(backgroundColor)
+                        .testTag("markdown_preview_footer")
                 )
             }
         }
@@ -308,33 +336,6 @@ private fun MarkdownPreviewWebView(
                 isVerticalScrollBarEnabled = true
                 isHorizontalScrollBarEnabled = false
                 overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
-                val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
-                var downX = 0f
-                var downY = 0f
-                var locked = false
-                setOnTouchListener { view, event ->
-                    when (event.actionMasked) {
-                        android.view.MotionEvent.ACTION_DOWN -> {
-                            downX = event.x
-                            downY = event.y
-                            locked = false
-                        }
-                        android.view.MotionEvent.ACTION_MOVE -> {
-                            val dx = event.x - downX
-                            val dy = event.y - downY
-                            if (!locked && maxOf(abs(dx), abs(dy)) > touchSlop) {
-                                locked = true
-                                view.parent?.requestDisallowInterceptTouchEvent(abs(dy) >= abs(dx))
-                            }
-                        }
-                        android.view.MotionEvent.ACTION_UP,
-                        android.view.MotionEvent.ACTION_CANCEL -> {
-                            view.parent?.requestDisallowInterceptTouchEvent(false)
-                            locked = false
-                        }
-                    }
-                    false
-                }
                 webViewClient = WebViewClient()
             }
         },
@@ -371,9 +372,6 @@ private fun EditorTextInput(
                 this.tagColor = tagColor
                 hint = context.getString(com.clipnest.R.string.write_or_paste)
                 setHintTextColor(hintColor)
-                onEditorTextChanged = { text, selectionStart, selectionEnd ->
-                    onValueChange(TextFieldValue(text = text, selection = TextRange(selectionStart, selectionEnd)))
-                }
             }
         },
         update = { editor ->
@@ -383,10 +381,27 @@ private fun EditorTextInput(
             editor.setHintTextColor(hintColor)
             if (editor.tagColor != tagColor) editor.tagColor = tagColor
 
+            editor.onEditorTextChanged = { text, selectionStart, selectionEnd ->
+                onValueChange(
+                    TextFieldValue(
+                        text = text,
+                        selection = TextRange(selectionStart, selectionEnd)
+                    )
+                )
+            }
+
             editor.onEditorSelectionChanged = { selectionStart, selectionEnd ->
-                val current = value
-                if (current.selection.start != selectionStart || current.selection.end != selectionEnd) {
-                    onValueChange(current.copy(selection = TextRange(selectionStart, selectionEnd)))
+                val currentText = editor.text?.toString().orEmpty()
+                if (currentText != value.text ||
+                    value.selection.start != selectionStart ||
+                    value.selection.end != selectionEnd
+                ) {
+                    onValueChange(
+                        TextFieldValue(
+                            text = currentText,
+                            selection = TextRange(selectionStart, selectionEnd)
+                        )
+                    )
                 }
             }
 
