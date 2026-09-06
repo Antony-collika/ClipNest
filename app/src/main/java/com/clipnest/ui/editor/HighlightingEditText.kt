@@ -14,13 +14,9 @@ import android.widget.EditText
 
 /**
  * Native Android text surface with lightweight visual highlighting of #tags.
- * 
- * Key improvements:
- * - No highlight on scroll (scroll doesn't change content)
- * - Incremental highlighting: only process the changed range
- * - Does NOT send full text on every keystroke - only position and change info
- * - Supports direct Editable manipulation for paste/delete/format
- * - Supports Vietnamese characters in #tags
+ *
+ * The EditText owns the live editing buffer. Tag highlighting is incremental
+ * and deferred so typing, deletion and scrolling stay on the native input path.
  */
 class HighlightingEditText @JvmOverloads constructor(
     context: Context,
@@ -35,17 +31,15 @@ class HighlightingEditText @JvmOverloads constructor(
             refreshAllTags()
         }
 
-    /**
-     * Callback for when text changes. Instead of sending full text,
-     * we send what changed so ViewModel can update efficiently.
-     */
     var onTextChange: ((change: TextChange) -> Unit)? = null
-    
     var onSelectionChange: ((start: Int, end: Int) -> Unit)? = null
 
     private var suppressCallbacks = false
     private var isTagHighlightingEnabled = true
     private var hasLoadedContent = false
+    private var highlightRunnable: Runnable? = null
+    private var pendingHighlightStart = 0
+    private var pendingHighlightEnd = 0
 
     init {
         background = null
@@ -76,24 +70,21 @@ class HighlightingEditText @JvmOverloads constructor(
             }
 
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                if (suppressCallbacks || !isTagHighlightingEnabled) return
-                
-                // Process only the changed range incrementally
-                val editable = text ?: return
-                processChangedRange(editable, changeStart, changeBefore, changeAfter)
-                
-                // Notify ViewModel with what changed - NOT the full text
+                if (suppressCallbacks) return
                 onTextChange?.invoke(
                     TextChange(
-                        start = changeStart,
-                        removedLength = changeBefore,
-                        addedLength = changeAfter
+                        start = start,
+                        removedLength = before,
+                        addedLength = count
                     )
                 )
             }
 
             override fun afterTextChanged(s: Editable?) {
-                // All done in onTextChanged
+                if (suppressCallbacks || !isTagHighlightingEnabled || s.isNullOrEmpty()) return
+                val start = changeStart.coerceIn(0, s.length)
+                val end = (start + changeAfter).coerceIn(start, s.length)
+                scheduleChangedRangeHighlight(s, start, end)
             }
         })
     }
@@ -105,91 +96,61 @@ class HighlightingEditText @JvmOverloads constructor(
         }
     }
 
-    /**
-     * Process only the range that actually changed.
-     * Instead of re-highlighting everything, we only look at the affected area.
-     * 
-     * @param editable The Editable containing the text
-     * @param start The position where change started
-     * @param before Length of text removed
-     * @param after Length of text added
-     */
-    private fun processChangedRange(editable: Editable, start: Int, before: Int, after: Int) {
-        if (editable.isEmpty()) return
+    override fun onDetachedFromWindow() {
+        highlightRunnable?.let(::removeCallbacks)
+        highlightRunnable = null
+        super.onDetachedFromWindow()
+    }
 
-        // Determine the affected range:
-        // - Start from the beginning of the word that contains 'start'
-        // - Include the word that contains 'start + after' (where insertion ended)
+    fun isContentInitialized(): Boolean = hasLoadedContent
+
+    private fun scheduleChangedRangeHighlight(editable: Editable, start: Int, end: Int) {
+        pendingHighlightStart = (start - 1).coerceAtLeast(0)
+        pendingHighlightEnd = (end + 1).coerceAtMost(editable.length)
+        highlightRunnable?.let(::removeCallbacks)
+        val runnable = Runnable {
+            highlightRunnable = null
+            val current = text ?: return@Runnable
+            val safeStart = pendingHighlightStart.coerceIn(0, current.length)
+            val safeEnd = pendingHighlightEnd.coerceIn(safeStart, current.length)
+            processChangedRange(current, safeStart, safeEnd)
+        }
+        highlightRunnable = runnable
+        postDelayed(runnable, TAG_HIGHLIGHT_DEBOUNCE_MS)
+    }
+
+    private fun processChangedRange(editable: Editable, start: Int, end: Int) {
+        if (editable.isEmpty() || start >= end) return
+
         val searchStart = findWordStart(editable, start)
-        val searchEnd = findWordEnd(editable, start + after.coerceAtLeast(0))
-        
-        // Also need to check for #tag that might start BEFORE the change
-        // (e.g., user typed "#" and is about to type more)
-        val extendedStart = (searchStart - 1).coerceAtLeast(0)
-        val actualStart = if (extendedStart < searchStart) {
-            // Check if there's a # at extendedStart
-            val charBefore = editable.getOrNull(extendedStart)
-            if (charBefore == '#') extendedStart else searchStart
-        } else {
-            searchStart
-        }
-        
-        // Remove all tag spans in the affected range
-        removeTagSpansInRange(editable, actualStart, searchEnd)
-        
-        // Find #tags in the affected range and apply highlighting
-        findTagsInRange(editable, actualStart, searchEnd)
+        val searchEnd = findWordEnd(editable, end)
+        val actualStart = (searchStart - 1).coerceAtLeast(0)
+        val actualEnd = (searchEnd + 1).coerceAtMost(editable.length)
+
+        removeTagSpansInRange(editable, actualStart, actualEnd)
+        findTagsInRange(editable, actualStart, actualEnd)
     }
 
-    /**
-     * Find the start of the word containing the given position.
-     * A word is defined by: letters (including Vietnamese), numbers, and underscores.
-     */
     private fun findWordStart(editable: Editable, position: Int): Int {
-        if (position <= 0) return 0
-        val text = editable.toString()
-        var i = position.coerceAtMost(text.length - 1)
-        while (i > 0 && isWordChar(text[i])) {
-            i--
-        }
-        // Check if we're in the middle of a #tag
-        if (i > 0 && text[i] == '#') {
-            // Include the # in the range
-            return i
-        }
-        return if (i < position) i + 1 else i
-    }
-
-    /**
-     * Find the end of the word containing the given position.
-     */
-    private fun findWordEnd(editable: Editable, position: Int): Int {
-        val text = editable.toString()
-        var i = position.coerceAtMost(text.length - 1)
-        while (i < text.length && isWordChar(text[i])) {
-            i++
-        }
+        var i = position.coerceIn(0, editable.length)
+        while (i > 0 && isWordChar(editable[i - 1])) i--
+        if (i > 0 && editable[i - 1] == '#') i--
         return i
     }
 
-    /**
-     * Check if a character is part of a word/tag.
-     * Includes: letters (any script), numbers, underscore, hyphen.
-     * This properly supports Vietnamese and other Unicode characters.
-     */
+    private fun findWordEnd(editable: Editable, position: Int): Int {
+        var i = position.coerceIn(0, editable.length)
+        while (i < editable.length && isWordChar(editable[i])) i++
+        return i
+    }
+
     private fun isWordChar(char: Char): Boolean {
         return char.isLetterOrDigit() || char == '_' || char == '-'
     }
 
-    /**
-     * Find all #tags in the given range and apply foreground color + bold styling.
-     * Only looks at the specified range - efficient and incremental.
-     */
     private fun findTagsInRange(editable: Editable, start: Int, end: Int) {
         if (start >= end || start >= editable.length) return
         val actualEnd = end.coerceAtMost(editable.length)
-        if (start > actualEnd) return
-        
         val text = editable.subSequence(start, actualEnd)
         TAG_REGEX.findAll(text).forEach { match ->
             val matchStart = start + match.range.first
@@ -198,58 +159,34 @@ class HighlightingEditText @JvmOverloads constructor(
         }
     }
 
-    /**
-     * Apply tag styling to a specific range.
-     */
     private fun applyTagSpan(editable: Editable, start: Int, end: Int) {
         if (start >= end || start < 0 || end > editable.length) return
-        
-        // Remove any existing tag spans in this range to avoid duplication
         removeTagSpansInRange(editable, start, end)
-        
         editable.setSpan(TagForegroundSpan(tagColor), start, end, TAG_SPAN_FLAGS)
         editable.setSpan(TagStyleSpan(), start, end, TAG_SPAN_FLAGS)
     }
 
-    /**
-     * Remove all Tag spans in the given range.
-     */
     private fun removeTagSpansInRange(editable: Editable, start: Int, end: Int) {
         if (start >= end || start >= editable.length) return
         val actualEnd = end.coerceAtMost(editable.length)
-        if (start > actualEnd) return
-        
         editable.getSpans(start, actualEnd, TagForegroundSpan::class.java)
             .forEach { span ->
                 val spanStart = editable.getSpanStart(span)
                 val spanEnd = editable.getSpanEnd(span)
-                if (spanStart < actualEnd && spanEnd > start) {
-                    editable.removeSpan(span)
-                }
+                if (spanStart < actualEnd && spanEnd > start) editable.removeSpan(span)
             }
         editable.getSpans(start, actualEnd, TagStyleSpan::class.java)
             .forEach { span ->
                 val spanStart = editable.getSpanStart(span)
                 val spanEnd = editable.getSpanEnd(span)
-                if (spanStart < actualEnd && spanEnd > start) {
-                    editable.removeSpan(span)
-                }
+                if (spanStart < actualEnd && spanEnd > start) editable.removeSpan(span)
             }
     }
 
-    /**
-     * Refresh all #tag highlights in the entire document.
-     * Call this when loading a new document or when tag color changes.
-     * This is intentionally a full scan because it's used rarely (load/setting change).
-     */
     fun refreshAllTags() {
         val editable = text ?: return
         if (editable.isEmpty()) return
-        
-        // Remove all existing tag spans
         removeAllTagSpans(editable)
-        
-        // Find all #tags in the entire document
         val fullText = editable.toString()
         TAG_REGEX.findAll(fullText).forEach { match ->
             val matchStart = match.range.first
@@ -259,9 +196,6 @@ class HighlightingEditText @JvmOverloads constructor(
         }
     }
 
-    /**
-     * Remove ALL tag spans from the document.
-     */
     private fun removeAllTagSpans(editable: Editable) {
         editable.getSpans(0, editable.length, TagForegroundSpan::class.java)
             .forEach(editable::removeSpan)
@@ -269,83 +203,48 @@ class HighlightingEditText @JvmOverloads constructor(
             .forEach(editable::removeSpan)
     }
 
-    /**
-     * Enable or disable tag highlighting temporarily.
-     * Useful when programmatically changing text.
-     */
     fun setTagHighlightingEnabled(enabled: Boolean) {
         isTagHighlightingEnabled = enabled
     }
 
-    /**
-     * Get the current text as String.
-     * Use sparingly - only when needed (e.g., saving, copying full content).
-     */
     fun getFullText(): String = text?.toString().orEmpty()
 
-    /**
-     * Get a reference to the Editable for direct manipulation.
-     * This allows ViewModel to apply changes directly.
-     */
     fun getEditable(): Editable? = text
 
-    /**
-     * Apply a change directly to the Editable.
-     * This is the primary method that ViewModel should use for paste/delete/format.
-     * 
-     * @param operation Lambda that performs the edit on the Editable
-     * @param affectedStart Start of the range affected by the edit (for tag refresh)
-     * @param affectedEnd End of the range affected by the edit (for tag refresh)
-     */
-    fun applyDirectEdit(operation: (Editable) -> Unit, affectedStart: Int? = null, affectedEnd: Int? = null) {
+    fun applyDirectEdit(
+        operation: (Editable) -> Unit,
+        affectedStart: Int? = null,
+        affectedEnd: Int? = null
+    ) {
         val editable = text ?: return
         suppressCallbacks = true
         try {
             operation(editable)
-            
-            // Refresh tags in the affected range
             val start = affectedStart ?: 0
             val end = affectedEnd ?: editable.length
             if (start < end) {
-                // Remove old spans and re-apply in the affected range
-                processChangedRange(editable, start, 0, end - start)
+                processChangedRange(editable, start, end)
+            } else {
+                val safeStart = (start - 1).coerceAtLeast(0)
+                val safeEnd = (start + 1).coerceAtMost(editable.length)
+                if (safeStart < safeEnd) processChangedRange(editable, safeStart, safeEnd)
             }
         } finally {
             suppressCallbacks = false
-            // Notify that content changed - still send TextChange info
-            onTextChange?.invoke(
-                TextChange(
-                    start = affectedStart ?: 0,
-                    removedLength = 0,
-                    addedLength = (affectedEnd ?: editable.length) - (affectedStart ?: 0)
-                )
-            )
         }
     }
 
-    /**
-     * Set the full text of the editor.
-     * Use this when loading a new document, not for incremental edits.
-     */
     fun setFullText(text: String, selectionStart: Int, selectionEnd: Int) {
         suppressCallbacks = true
         try {
             setText(text)
             setEditorSelectionInternal(selectionStart, selectionEnd)
-            // After loading new text, refresh all tags (full scan - acceptable for load)
-            refreshAllTags()
+            removeAllTagSpans(this.text ?: return)
             hasLoadedContent = true
         } finally {
             suppressCallbacks = false
         }
-        onTextChange?.invoke(
-            TextChange(
-                start = 0,
-                removedLength = 0,
-                addedLength = text.length,
-                isFullReplacement = true
-            )
-        )
+        refreshAllTags()
     }
 
     fun setEditorSelectionIfNeeded(selectionStart: Int, selectionEnd: Int) {
@@ -369,14 +268,11 @@ class HighlightingEditText @JvmOverloads constructor(
 
     companion object {
         private const val TAG_SPAN_FLAGS = Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        private const val TAG_HIGHLIGHT_DEBOUNCE_MS = 90L
         private val TAG_REGEX = Regex("(?<!\\S)#[\\p{L}\\p{N}_-]+")
     }
 }
 
-/**
- * Data class representing a text change event.
- * This is sent to ViewModel instead of the full text.
- */
 data class TextChange(
     val start: Int,
     val removedLength: Int,
