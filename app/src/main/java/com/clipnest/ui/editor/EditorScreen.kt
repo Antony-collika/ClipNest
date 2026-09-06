@@ -164,12 +164,13 @@ fun EditorScreen(
                 .testTag("editor_content_area")
         ) {
             EditorTextInput(
-    value = uiState.content,
-    onTextChange = viewModel::onTextChange,
-    onSelectionChange = viewModel::onSelectionChange,
-    editorTextSize = editorTextSize,
-    modifier = Modifier.fillMaxSize()
-)
+                value = uiState.content,
+                onTextChange = viewModel::onTextChange,
+                onSelectionChange = viewModel::onSelectionChange,
+                editorTextSize = editorTextSize,
+                modifier = Modifier.fillMaxSize(),
+                viewModel = viewModel
+            )
         }
 
         EditorToolbox(
@@ -377,8 +378,9 @@ private fun EditorTextInput(
     onTextChange: ((TextChange) -> Unit)? = null,
     onSelectionChange: ((Int, Int) -> Unit)? = null,
     editorTextSize: EditorTextSize,
-    modifier: Modifier = Modifier
-){
+    modifier: Modifier = Modifier,
+    viewModel: EditorViewModel
+) {
     val textColor = MaterialTheme.colorScheme.onSurface
     val hintColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f).toArgb()
     val tagColor = MaterialTheme.colorScheme.primary.toArgb()
@@ -392,6 +394,10 @@ private fun EditorTextInput(
                 this.tagColor = tagColor
                 hint = context.getString(com.clipnest.R.string.write_or_paste)
                 setHintTextColor(hintColor)
+                viewModel.setEditorInstance(this)
+                if (value.text.isNotEmpty() || !isContentInitialized()) {
+                    setFullText(value.text, value.selection.start, value.selection.end)
+                }
             }
         },
         update = { editor ->
@@ -400,22 +406,20 @@ private fun EditorTextInput(
             editor.setLineSpacing(0f, editorTextSize.lineHeightSp.toFloat() / editorTextSize.sp.toFloat())
             editor.setHintTextColor(hintColor)
             if (editor.tagColor != tagColor) editor.tagColor = tagColor
+            viewModel.setEditorInstance(editor)
 
             editor.onTextChange = { change ->
-    // ViewModel sẽ xử lý TextChange thay vì nhận toàn bộ text
-    onTextChange?.invoke(change)
-}
+                onTextChange?.invoke(change)
+            }
+            editor.onSelectionChange = { selectionStart, selectionEnd ->
+                onSelectionChange?.invoke(selectionStart, selectionEnd)
+            }
 
-editor.onSelectionChange = { selectionStart, selectionEnd ->
-    // Cập nhật selection riêng biệt
-    onSelectionChange?.invoke(selectionStart, selectionEnd)
-}
-
-            
-
-            // HighlightingEditText đã tự quản lý nội dung, không cần đồng bộ 2 chiều nữa
-// Chỉ cập nhật selection khi cần
-editor.setEditorSelectionIfNeeded(value.selection.start, value.selection.end)
+            if (!editor.isContentInitialized()) {
+                editor.setFullText(value.text, value.selection.start, value.selection.end)
+            } else {
+                editor.setEditorSelectionIfNeeded(value.selection.start, value.selection.end)
+            }
         },
         modifier = modifier
             .fillMaxWidth()
