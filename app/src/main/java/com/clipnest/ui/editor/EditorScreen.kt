@@ -253,7 +253,7 @@ private fun EditorMarkdownPreviewPopup(
     val screenHeightPx = with(density) { configuration.screenHeightDp.dp.toPx() }
     val centeredOffsetPx = (screenHeightPx - popupHeightPx) / 2f
     val statusBarInsetPx = WindowInsets.statusBars.getTop(density)
-    val topBarBottomPx = statusBarInsetPx + with(density) { 52.dp.toPx() }
+    val topBarBottomPx = statusBarInsetPx + with(density) { 30.dp.toPx() }
     val minOffsetPx = topBarBottomPx - centeredOffsetPx
     var dragOffsetY by remember { mutableStateOf(0f) }
     val clampedOffsetY = dragOffsetY.coerceIn(minOffsetPx, centeredOffsetPx)
