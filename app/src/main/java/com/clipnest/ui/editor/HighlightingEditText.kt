@@ -62,20 +62,29 @@ class HighlightingEditText @JvmOverloads constructor(
             private var changeStart = 0
             private var changeBefore = 0
             private var changeAfter = 0
+            private var removedText = ""
 
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
                 changeStart = start
                 changeBefore = count
                 changeAfter = after
+                removedText = if (s != null && count > 0) {
+                    s.subSequence(start, start + count).toString()
+                } else ""
             }
 
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                 if (suppressCallbacks) return
+                val addedText = if (s != null && count > 0) {
+                    s.subSequence(start, start + count).toString()
+                } else ""
                 onTextChange?.invoke(
                     TextChange(
                         start = start,
                         removedLength = before,
-                        addedLength = count
+                        addedLength = count,
+                        removedText = removedText,
+                        addedText = addedText
                     )
                 )
             }
@@ -277,7 +286,9 @@ data class TextChange(
     val start: Int,
     val removedLength: Int,
     val addedLength: Int,
-    val isFullReplacement: Boolean = false
+    val isFullReplacement: Boolean = false,
+    val removedText: String? = null,
+    val addedText: String? = null
 )
 
 private class TagForegroundSpan(color: Int) : ForegroundColorSpan(color)
