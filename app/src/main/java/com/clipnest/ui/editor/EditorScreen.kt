@@ -11,12 +11,14 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -249,13 +251,16 @@ private fun EditorMarkdownPreviewPopup(
     val shape = RoundedCornerShape(18.dp)
     val popupHeightPx = with(density) { PREVIEW_POPUP_HEIGHT.toPx() }
     val screenHeightPx = with(density) { configuration.screenHeightDp.dp.toPx() }
-    val maxTravelPx = ((screenHeightPx - popupHeightPx) / 2f).coerceAtLeast(0f)
+    val centeredOffsetPx = (screenHeightPx - popupHeightPx) / 2f
+    val statusBarInsetPx = WindowInsets.statusBars.getTop(density)
+    val topBarBottomPx = statusBarInsetPx + with(density) { 52.dp.toPx() }
+    val minOffsetPx = topBarBottomPx - centeredOffsetPx
     var dragOffsetY by remember { mutableStateOf(0f) }
-    val clampedOffsetY = dragOffsetY.coerceIn(-maxTravelPx, maxTravelPx)
+    val clampedOffsetY = dragOffsetY.coerceIn(minOffsetPx, centeredOffsetPx)
     val popupDragModifier = Modifier.pointerInput(Unit) {
         detectDragGestures { change, dragAmount ->
             change.consume()
-            dragOffsetY = (dragOffsetY + dragAmount.y).coerceIn(-maxTravelPx, maxTravelPx)
+            dragOffsetY = (dragOffsetY + dragAmount.y).coerceIn(minOffsetPx, centeredOffsetPx)
         }
     }
 
