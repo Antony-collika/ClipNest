@@ -40,6 +40,16 @@ import kotlinx.coroutines.withContext
 
 private data class PendingSave(val fileName: String, val format: ExportFormat)
 
+/**
+ * Represents an undo/redo operation.
+ * Much lighter than storing full TextFieldValue snapshots.
+ */
+private sealed class EditOperation {
+    data class Insert(val position: Int, val text: String) : EditOperation()
+    data class Delete(val position: Int, val length: Int, val deletedText: String) : EditOperation()
+    data class Replace(val start: Int, val end: Int, val newText: String, val oldText: String) : EditOperation()
+}
+
 data class EditorUiState(
     val content: TextFieldValue = TextFieldValue(""),
     val isDirty: Boolean = false,
@@ -87,12 +97,16 @@ class EditorViewModel(
 
     private var searchMatchStarts: List<Int> = emptyList()
 
-    private val undoStack = ArrayDeque<TextFieldValue>()
-    private val redoStack = ArrayDeque<TextFieldValue>()
+    // Undo/redo using operations instead of full snapshots
+    private val undoStack = ArrayDeque<EditOperation>()
+    private val redoStack = ArrayDeque<EditOperation>()
     private var applyingHistory = false
     private var editorLoaded = false
     private var pendingSave: PendingSave? = null
     private var autoSaveJob: Job? = null
+
+    // Reference to the editor for direct Editable manipulation
+    private var editorInstance: HighlightingEditText? = null
 
     val settings: StateFlow<com.clipnest.data.local.UserSettings> = settingsDataStore.userSettingsFlow.stateIn(
         scope = viewModelScope,
@@ -106,6 +120,83 @@ class EditorViewModel(
             settings.collect { userSettings ->
                 _uiState.value = _uiState.value.copy(defaultSaveFolderUri = userSettings.defaultSaveFolderUri)
             }
+        }
+    }
+
+    /**
+     * Called by EditorScreen when text changes.
+     * Instead of receiving full text, we receive what changed.
+     */
+    fun onTextChange(change: TextChange) {
+        if (applyingHistory) return
+        
+        val currentContent = _uiState.value.content
+        val oldText = currentContent.text
+        val newText = buildString {
+            append(oldText.substring(0, change.start))
+            // We need the new text to update state
+            // The editor already has it, but we need to track it for state consistency
+            // We'll get the full text from the editor when needed
+        }
+        
+        // Update the state with new content
+        // We need to get the full text from the editor
+        val fullText = editorInstance?.getFullText() ?: oldText
+        val newTextFieldValue = TextFieldValue(
+            text = fullText,
+            selection = TextRange(
+                start = currentContent.selection.start,
+                end = currentContent.selection.end
+            )
+        )
+        
+        // Push operation to undo stack
+        if (!change.isFullReplacement) {
+            val deletedText = oldText.substring(change.start, change.start + change.removedLength)
+            val addedText = fullText.substring(change.start, change.start + change.addedLength)
+            
+            if (change.removedLength > 0 && change.addedLength == 0) {
+                // Deletion
+                undoStack.addLast(EditOperation.Delete(change.start, change.removedLength, deletedText))
+                redoStack.clear()
+            } else if (change.removedLength == 0 && change.addedLength > 0) {
+                // Insertion
+                undoStack.addLast(EditOperation.Insert(change.start, addedText))
+                redoStack.clear()
+            } else if (change.removedLength > 0 && change.addedLength > 0) {
+                // Replacement
+                undoStack.addLast(EditOperation.Replace(change.start, change.start + change.removedLength, addedText, deletedText))
+                redoStack.clear()
+            }
+        }
+        
+        // Trim undo stack
+        while (undoStack.size > MAX_HISTORY) {
+            undoStack.removeFirst()
+        }
+        
+        _uiState.value = _uiState.value.copy(
+            content = newTextFieldValue,
+            isDirty = true
+        )
+        
+        // Update search if query is active
+        if (_searchQuery.value.isNotBlank()) {
+            updateSearchResults(_searchQuery.value)
+        }
+        
+        scheduleDebouncedAutoSave()
+    }
+
+    /**
+     * Called by EditorScreen when selection changes.
+     */
+    fun onSelectionChange(start: Int, end: Int) {
+        val current = _uiState.value.content
+        if (current.selection.start != start || current.selection.end != end) {
+            _uiState.value = _uiState.value.copy(
+                content = current.copy(selection = TextRange(start, end))
+            )
         }
     }
 
@@ -129,6 +220,14 @@ class EditorViewModel(
                 editorLoaded = true
             }
         }
+    }
+
+    /**
+     * Set the editor instance for direct manipulation.
+     * Called from EditorScreen's AndroidView update.
+     */
+    fun setEditorInstance(editor: HighlightingEditText) {
+        editorInstance = editor
     }
 
     fun openExternalDocument(
@@ -187,7 +286,6 @@ class EditorViewModel(
                                 loadedDocuments.size
                             )
                         } else name,
-
                         externalDocumentUri = firstCandidate.uri.toString(),
                         externalDocumentSaveAsOnly = isMergedDocument,
                         externalDocumentFileCount = loadedDocuments.size,
@@ -202,6 +300,8 @@ class EditorViewModel(
                             candidates.size
                         )
                     }
+                    // Load into editor
+                    editorInstance?.setFullText(text, 0, text.length)
                     viewModelScope.launch(Dispatchers.IO) {
                         runCatching { writeDocumentSnapshot(previousState, contentResolver) }
                             .onFailure { error ->
@@ -227,6 +327,7 @@ class EditorViewModel(
             }
         }
     }
+
     fun dismissOpenWithDiagnostic() {
         _openWithDiagnostic.value = null
     }
@@ -256,6 +357,7 @@ class EditorViewModel(
                         showSaveNewFileDialog = false,
                         lastSavedTimestamp = System.currentTimeMillis()
                     )
+                    editorInstance?.setFullText(text, 0, text.length)
                     onComplete()
                 }.onFailure {
                     emitToast(com.clipnest.R.string.could_not_open_file)
@@ -422,26 +524,6 @@ class EditorViewModel(
         _activeSearchMatch.value = 0
     }
 
-    fun onContentChange(newValue: TextFieldValue) {
-        editorLoaded = true
-        val current = _uiState.value.content
-        if (newValue.text != current.text && !applyingHistory) {
-            undoStack.addLast(current)
-            if (undoStack.size > MAX_HISTORY) undoStack.removeFirst()
-            redoStack.clear()
-        }
-        _uiState.value = _uiState.value.copy(
-            content = newValue,
-            isDirty = _uiState.value.isDirty || newValue.text != current.text
-        )
-        if (newValue.text != current.text) {
-            if (_searchQuery.value.isNotBlank()) {
-                updateSearchResults(_searchQuery.value)
-            }
-            scheduleDebouncedAutoSave()
-        }
-    }
-
     fun openSearch() {
         _isSearchOpen.value = true
     }
@@ -513,6 +595,8 @@ class EditorViewModel(
         _uiState.value = _uiState.value.copy(
             content = current.copy(selection = TextRange(start, start + queryLength))
         )
+        // Also update editor selection
+        editorInstance?.setEditorSelectionIfNeeded(start, start + queryLength)
     }
 
     fun pasteFromClipboard(context: Context) {
@@ -522,7 +606,33 @@ class EditorViewModel(
             emitToast(com.clipnest.R.string.clipboard_empty)
             return
         }
-        replaceSelection(clip)
+        
+        val editor = editorInstance ?: run {
+            emitToast(com.clipnest.R.string.editor_not_ready)
+            return
+        }
+        
+        val selection = _uiState.value.content.selection
+        val start = selection.min
+        val end = selection.max
+        
+        editor.applyDirectEdit(
+            operation = { editable ->
+                editable.replace(start, end, clip)
+            },
+            affectedStart = start,
+            affectedEnd = start + clip.length
+        )
+        
+        // Update selection after paste
+        val newPosition = start + clip.length
+        _uiState.value = _uiState.value.copy(
+            content = _uiState.value.content.copy(
+                selection = TextRange(newPosition)
+            )
+        )
+        editor.setEditorSelectionIfNeeded(newPosition, newPosition)
+        
         emitToast(com.clipnest.R.string.pasted)
     }
 
@@ -546,6 +656,7 @@ class EditorViewModel(
             current.selection.min
         }
         _uiState.value = _uiState.value.copy(content = current.copy(selection = TextRange(position)))
+        editorInstance?.setEditorSelectionIfNeeded(position, position)
     }
 
     fun moveCursorRight() {
@@ -556,11 +667,13 @@ class EditorViewModel(
             current.selection.max
         }
         _uiState.value = _uiState.value.copy(content = current.copy(selection = TextRange(position)))
+        editorInstance?.setEditorSelectionIfNeeded(position, position)
     }
 
     fun selectAll() {
         val text = _uiState.value.content.text
         _uiState.value = _uiState.value.copy(content = _uiState.value.content.copy(selection = TextRange(0, text.length)))
+        editorInstance?.setEditorSelectionIfNeeded(0, text.length)
     }
 
     fun toggleMarkdownTools() {
@@ -572,8 +685,6 @@ class EditorViewModel(
         val openingPreview = !currentState.showMarkdownPreview
         _uiState.value = currentState.copy(
             showMarkdownPreview = openingPreview,
-            // Do not reopen a previously collapsed Preview at zero height.
-            // The header must have a measured area before any pointer input.
             previewSplitFraction = if (openingPreview && currentState.previewSplitFraction <= 0f) {
                 DEFAULT_PREVIEW_FRACTION
             } else {
@@ -589,7 +700,41 @@ class EditorViewModel(
     }
 
     fun insertMarkdownHeading(level: Int) {
-        applyLinePrefix("${"#".repeat(level)} ")
+        val editor = editorInstance ?: return
+        val selection = _uiState.value.content.selection
+        val start = selection.min
+        val end = selection.max
+        
+        // Find line start and end
+        val text = _uiState.value.content.text
+        val lineStart = text.lastIndexOf('\n', start.coerceAtLeast(0) - 1).let { if (it < 0) 0 else it + 1 }
+        val lineEnd = text.indexOf('\n', end).let { if (it < 0) text.length else it }
+        
+        val prefix = "#".repeat(level) + " "
+        
+        // Delete existing heading prefix if any
+        val lineText = text.substring(lineStart, lineEnd)
+        val existingPrefix = lineText.takeWhile { it == '#' }.takeIf { it.isNotEmpty() }
+        val prefixLength = existingPrefix?.length ?: 0
+        val hasSpaceAfter = prefixLength > 0 && lineText.getOrNull(prefixLength) == ' '
+        val cleanStart = if (hasSpaceAfter) lineStart + prefixLength + 1 else if (prefixLength > 0) lineStart + prefixLength else lineStart
+        
+        editor.applyDirectEdit(
+            operation = { editable ->
+                editable.replace(cleanStart, lineEnd, prefix + lineText.substring(prefixLength))
+            },
+            affectedStart = cleanStart,
+            affectedEnd = cleanStart + prefix.length + (lineEnd - cleanStart)
+        )
+        
+        // Update selection
+        val newPosition = cleanStart + prefix.length
+        _uiState.value = _uiState.value.copy(
+            content = _uiState.value.content.copy(
+                selection = TextRange(newPosition)
+            )
+        )
+        editor.setEditorSelectionIfNeeded(newPosition, newPosition)
     }
 
     fun toggleMarkdownStrong() {
@@ -605,27 +750,47 @@ class EditorViewModel(
     }
 
     fun insertMarkdownCodeBlock() {
-        val current = _uiState.value.content
-        val selection = current.selection
-        if (selection.collapsed) {
-            replaceRange(
-                start = selection.start,
-                end = selection.end,
-                replacement = "```\n\n```",
-                selectionStart = selection.start + 4,
-                selectionEnd = selection.start + 4
+        val editor = editorInstance ?: return
+        val selection = _uiState.value.content.selection
+        val start = selection.min
+        val end = selection.max
+        
+        if (start == end) {
+            // Insert empty code block
+            val codeBlock = "\n```\n\n```\n"
+            editor.applyDirectEdit(
+                operation = { editable ->
+                    editable.replace(start, end, codeBlock)
+                },
+                affectedStart = start,
+                affectedEnd = start + codeBlock.length
             )
-            return
+            val newPosition = start + 4 // Position inside the code block
+            _uiState.value = _uiState.value.copy(
+                content = _uiState.value.content.copy(
+                    selection = TextRange(newPosition)
+                )
+            )
+            editor.setEditorSelectionIfNeeded(newPosition, newPosition)
+        } else {
+            // Wrap selected text in code block
+            val selected = _uiState.value.content.text.substring(start, end)
+            val codeBlock = "```\n$selected\n```"
+            editor.applyDirectEdit(
+                operation = { editable ->
+                    editable.replace(start, end, codeBlock)
+                },
+                affectedStart = start,
+                affectedEnd = start + codeBlock.length
+            )
+            val newPosition = start + 4 + selected.length
+            _uiState.value = _uiState.value.copy(
+                content = _uiState.value.content.copy(
+                    selection = TextRange(start + 4, newPosition)
+                )
+            )
+            editor.setEditorSelectionIfNeeded(start + 4, newPosition)
         }
-        val selected = current.text.substring(selection.min, selection.max)
-        val replacement = "```\n$selected\n```"
-        replaceRange(
-            start = selection.min,
-            end = selection.max,
-            replacement = replacement,
-            selectionStart = selection.min + 4,
-            selectionEnd = selection.min + 4 + selected.length
-        )
     }
 
     fun insertMarkdownBullets() {
@@ -637,110 +802,280 @@ class EditorViewModel(
     }
 
     fun insertMarkdownHorizontalRule() {
-        val current = _uiState.value.content
-        val caret = current.selection.max
-        val before = if (caret > 0 && current.text[caret - 1] != '\n') "\n" else ""
-        val after = if (caret < current.text.length && current.text[caret] != '\n') "\n" else ""
-        val replacement = "$before---$after"
-        val newCaret = caret + before.length + 3 + after.length
-        replaceRange(caret, caret, replacement, newCaret, newCaret)
+        val editor = editorInstance ?: return
+        val selection = _uiState.value.content.selection
+        val position = selection.max
+        val text = _uiState.value.content.text
+        
+        val before = if (position > 0 && text[position - 1] != '\n') "\n" else ""
+        val after = if (position < text.length && text[position] != '\n') "\n" else ""
+        val replacement = "${before}---${after}"
+        
+        editor.applyDirectEdit(
+            operation = { editable ->
+                editable.replace(position, position, replacement)
+            },
+            affectedStart = position,
+            affectedEnd = position + replacement.length
+        )
+        
+        val newPosition = position + replacement.length
+        _uiState.value = _uiState.value.copy(
+            content = _uiState.value.content.copy(
+                selection = TextRange(newPosition)
+            )
+        )
+        editor.setEditorSelectionIfNeeded(newPosition, newPosition)
     }
 
     private fun applyInlineDelimiter(delimiter: String) {
-        val current = _uiState.value.content
-        val selection = current.selection
-        if (selection.collapsed) {
-            replaceRange(
-                start = selection.start,
-                end = selection.end,
-                replacement = delimiter + delimiter,
-                selectionStart = selection.start + delimiter.length,
-                selectionEnd = selection.start + delimiter.length
+        val editor = editorInstance ?: return
+        val selection = _uiState.value.content.selection
+        val start = selection.min
+        val end = selection.max
+        
+        if (start == end) {
+            // Insert empty delimiters
+            editor.applyDirectEdit(
+                operation = { editable ->
+                    editable.replace(start, end, delimiter + delimiter)
+                },
+                affectedStart = start,
+                affectedEnd = start + delimiter.length * 2
             )
+            val newPosition = start + delimiter.length
+            _uiState.value = _uiState.value.copy(
+                content = _uiState.value.content.copy(
+                    selection = TextRange(newPosition)
+                )
+            )
+            editor.setEditorSelectionIfNeeded(newPosition, newPosition)
         } else {
-            val selected = current.text.substring(selection.min, selection.max)
+            // Wrap selected text
+            val selected = _uiState.value.content.text.substring(start, end)
             val replacement = delimiter + selected + delimiter
-            replaceRange(
-                start = selection.min,
-                end = selection.max,
-                replacement = replacement,
-                selectionStart = selection.min + delimiter.length,
-                selectionEnd = selection.min + delimiter.length + selected.length
+            editor.applyDirectEdit(
+                operation = { editable ->
+                    editable.replace(start, end, replacement)
+                },
+                affectedStart = start,
+                affectedEnd = start + replacement.length
             )
+            val newStart = start + delimiter.length
+            val newEnd = start + delimiter.length + selected.length
+            _uiState.value = _uiState.value.copy(
+                content = _uiState.value.content.copy(
+                    selection = TextRange(newStart, newEnd)
+                )
+            )
+            editor.setEditorSelectionIfNeeded(newStart, newEnd)
         }
     }
 
     private fun applyLinePrefix(prefix: String) {
-        val current = _uiState.value.content
-        val selection = current.selection
-        val start = current.text.lastIndexOf('\n', (selection.min - 1).coerceAtLeast(0))
-            .let { if (it < 0) 0 else it + 1 }
-        val end = current.text.indexOf('\n', selection.max).let { if (it < 0) current.text.length else it }
-        val block = current.text.substring(start, end)
-        val lines = if (block.isEmpty()) listOf("") else block.split('\n')
+        val editor = editorInstance ?: return
+        val selection = _uiState.value.content.selection
+        val text = _uiState.value.content.text
+        val start = selection.min
+        val end = selection.max
+        
+        // Find line boundaries
+        val lineStart = text.lastIndexOf('\n', start.coerceAtLeast(0) - 1).let { if (it < 0) 0 else it + 1 }
+        val lineEnd = text.indexOf('\n', end).let { if (it < 0) text.length else it }
+        
+        val lineText = text.substring(lineStart, lineEnd)
+        val lines = if (lineText.isEmpty()) listOf("") else lineText.split('\n')
         val transformed = lines.joinToString("\n") { line -> prefix + line }
-        val insertedPrefixLength = transformed.length - block.length
-        val newSelectionStart = selection.min + prefix.length
-        val newSelectionEnd = if (selection.collapsed) newSelectionStart else selection.max + insertedPrefixLength
-        replaceRange(start, end, transformed, newSelectionStart, newSelectionEnd)
-    }
-
-    private fun replaceRange(
-        start: Int,
-        end: Int,
-        replacement: String,
-        selectionStart: Int,
-        selectionEnd: Int
-    ) {
-        val current = _uiState.value.content
-        val newText = current.text.substring(0, start) + replacement + current.text.substring(end)
-        onContentChange(
-            TextFieldValue(
-                text = newText,
-                selection = TextRange(selectionStart.coerceIn(0, newText.length), selectionEnd.coerceIn(0, newText.length))
+        
+        editor.applyDirectEdit(
+            operation = { editable ->
+                editable.replace(lineStart, lineEnd, transformed)
+            },
+            affectedStart = lineStart,
+            affectedEnd = lineStart + transformed.length
+        )
+        
+        val newSelectionStart = start + prefix.length
+        val newSelectionEnd = if (selection.collapsed) newSelectionStart else end + (transformed.length - lineText.length)
+        _uiState.value = _uiState.value.copy(
+            content = _uiState.value.content.copy(
+                selection = TextRange(newSelectionStart, newSelectionEnd)
             )
         )
+        editor.setEditorSelectionIfNeeded(newSelectionStart, newSelectionEnd)
     }
 
     fun deleteSelectedText() {
-        val current = _uiState.value.content
-        if (current.selection.collapsed) {
+        val editor = editorInstance ?: run {
+            emitToast(com.clipnest.R.string.editor_not_ready)
+            return
+        }
+        val selection = _uiState.value.content.selection
+        if (selection.collapsed) {
             emitToast(com.clipnest.R.string.select_text_to_delete)
             return
         }
-        replaceSelection("")
+        
+        val start = selection.min
+        val end = selection.max
+        val deletedText = _uiState.value.content.text.substring(start, end)
+        
+        editor.applyDirectEdit(
+            operation = { editable ->
+                editable.delete(start, end)
+            },
+            affectedStart = start,
+            affectedEnd = start
+        )
+        
+        // Push to undo stack
+        undoStack.addLast(EditOperation.Delete(start, end - start, deletedText))
+        redoStack.clear()
+        while (undoStack.size > MAX_HISTORY) {
+            undoStack.removeFirst()
+        }
+        
+        _uiState.value = _uiState.value.copy(
+            content = _uiState.value.content.copy(
+                selection = TextRange(start)
+            )
+        )
+        editor.setEditorSelectionIfNeeded(start, start)
+        
+        scheduleDebouncedAutoSave()
     }
 
     fun undo() {
         if (undoStack.isEmpty()) return
-        val current = _uiState.value.content
-        val previous = undoStack.removeLast()
-        redoStack.addLast(current)
-        applyHistoryValue(previous)
+        val operation = undoStack.removeLast()
+        val editor = editorInstance ?: return
+        
+        applyingHistory = true
+        try {
+            when (operation) {
+                is EditOperation.Insert -> {
+                    // Delete the inserted text
+                    val text = _uiState.value.content.text
+                    val end = operation.position + operation.text.length
+                    editor.applyDirectEdit(
+                        operation = { editable ->
+                            editable.delete(operation.position, end)
+                        },
+                        affectedStart = operation.position,
+                        affectedEnd = operation.position
+                    )
+                    redoStack.addLast(EditOperation.Delete(operation.position, operation.text.length, operation.text))
+                    _uiState.value = _uiState.value.copy(
+                        content = _uiState.value.content.copy(
+                            selection = TextRange(operation.position)
+                        )
+                    )
+                    editor.setEditorSelectionIfNeeded(operation.position, operation.position)
+                }
+                is EditOperation.Delete -> {
+                    // Re-insert the deleted text
+                    editor.applyDirectEdit(
+                        operation = { editable ->
+                            editable.replace(operation.position, operation.position, operation.deletedText)
+                        },
+                        affectedStart = operation.position,
+                        affectedEnd = operation.position + operation.deletedText.length
+                    )
+                    redoStack.addLast(EditOperation.Insert(operation.position, operation.deletedText))
+                    _uiState.value = _uiState.value.copy(
+                        content = _uiState.value.content.copy(
+                            selection = TextRange(operation.position + operation.deletedText.length)
+                        )
+                    )
+                    editor.setEditorSelectionIfNeeded(operation.position + operation.deletedText.length, operation.position + operation.deletedText.length)
+                }
+                is EditOperation.Replace -> {
+                    // Revert to old text
+                    editor.applyDirectEdit(
+                        operation = { editable ->
+                            editable.replace(operation.start, operation.start + operation.newText.length, operation.oldText)
+                        },
+                        affectedStart = operation.start,
+                        affectedEnd = operation.start + operation.oldText.length
+                    )
+                    redoStack.addLast(EditOperation.Replace(operation.start, operation.start + operation.oldText.length, operation.newText, operation.oldText))
+                    _uiState.value = _uiState.value.copy(
+                        content = _uiState.value.content.copy(
+                            selection = TextRange(operation.start + operation.oldText.length)
+                        )
+                    )
+                    editor.setEditorSelectionIfNeeded(operation.start + operation.oldText.length, operation.start + operation.oldText.length)
+                }
+            }
+        } finally {
+            applyingHistory = false
+        }
     }
 
     fun redo() {
         if (redoStack.isEmpty()) return
-        val current = _uiState.value.content
-        val next = redoStack.removeLast()
-        undoStack.addLast(current)
-        applyHistoryValue(next)
-    }
-
-    private fun applyHistoryValue(value: TextFieldValue) {
+        val operation = redoStack.removeLast()
+        val editor = editorInstance ?: return
+        
         applyingHistory = true
-        _uiState.value = _uiState.value.copy(content = value, isDirty = true)
-        applyingHistory = false
-        scheduleDebouncedAutoSave()
-    }
-
-    private fun replaceSelection(replacement: String) {
-        val current = _uiState.value.content
-        val start = current.selection.min
-        val end = current.selection.max
-        val newText = current.text.substring(0, start) + replacement + current.text.substring(end)
-        val newCursor = start + replacement.length
-        onContentChange(TextFieldValue(newText, TextRange(newCursor)))
+        try {
+            when (operation) {
+                is EditOperation.Insert -> {
+                    // Re-insert the text
+                    editor.applyDirectEdit(
+                        operation = { editable ->
+                            editable.replace(operation.position, operation.position, operation.text)
+                        },
+                        affectedStart = operation.position,
+                        affectedEnd = operation.position + operation.text.length
+                    )
+                    undoStack.addLast(EditOperation.Insert(operation.position, operation.text))
+                    _uiState.value = _uiState.value.copy(
+                        content = _uiState.value.content.copy(
+                            selection = TextRange(operation.position + operation.text.length)
+                        )
+                    )
+                    editor.setEditorSelectionIfNeeded(operation.position + operation.text.length, operation.position + operation.text.length)
+                }
+                is EditOperation.Delete -> {
+                    // Delete again
+                    val end = operation.position + operation.length
+                    editor.applyDirectEdit(
+                        operation = { editable ->
+                            editable.delete(operation.position, end)
+                        },
+                        affectedStart = operation.position,
+                        affectedEnd = operation.position
+                    )
+                    undoStack.addLast(EditOperation.Delete(operation.position, operation.length, operation.deletedText))
+                    _uiState.value = _uiState.value.copy(
+                        content = _uiState.value.content.copy(
+                            selection = TextRange(operation.position)
+                        )
+                    )
+                    editor.setEditorSelectionIfNeeded(operation.position, operation.position)
+                }
+                is EditOperation.Replace -> {
+                    // Apply the new text again
+                    editor.applyDirectEdit(
+                        operation = { editable ->
+                            editable.replace(operation.start, operation.start + operation.oldText.length, operation.newText)
+                        },
+                        affectedStart = operation.start,
+                        affectedEnd = operation.start + operation.newText.length
+                    )
+                    undoStack.addLast(EditOperation.Replace(operation.start, operation.start + operation.newText.length, operation.newText, operation.oldText))
+                    _uiState.value = _uiState.value.copy(
+                        content = _uiState.value.content.copy(
+                            selection = TextRange(operation.start + operation.newText.length)
+                        )
+                    )
+                    editor.setEditorSelectionIfNeeded(operation.start + operation.newText.length, operation.start + operation.newText.length)
+                }
+            }
+        } finally {
+            applyingHistory = false
+        }
     }
 
     private fun scheduleDebouncedAutoSave() {

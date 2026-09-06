@@ -164,11 +164,12 @@ fun EditorScreen(
                 .testTag("editor_content_area")
         ) {
             EditorTextInput(
-                value = uiState.content,
-                onValueChange = viewModel::onContentChange,
-                editorTextSize = editorTextSize,
-                modifier = Modifier.fillMaxSize()
-            )
+    value = uiState.content,
+    onTextChange = viewModel::onTextChange,
+    onSelectionChange = viewModel::onSelectionChange,
+    editorTextSize = editorTextSize,
+    modifier = Modifier.fillMaxSize()
+)
         }
 
         EditorToolbox(
@@ -373,10 +374,11 @@ private fun MarkdownPreviewWebView(
 @Composable
 private fun EditorTextInput(
     value: TextFieldValue,
-    onValueChange: (TextFieldValue) -> Unit,
+    onTextChange: ((TextChange) -> Unit)? = null,
+    onSelectionChange: ((Int, Int) -> Unit)? = null,
     editorTextSize: EditorTextSize,
     modifier: Modifier = Modifier
-) {
+){
     val textColor = MaterialTheme.colorScheme.onSurface
     val hintColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f).toArgb()
     val tagColor = MaterialTheme.colorScheme.primary.toArgb()
@@ -399,35 +401,21 @@ private fun EditorTextInput(
             editor.setHintTextColor(hintColor)
             if (editor.tagColor != tagColor) editor.tagColor = tagColor
 
-            editor.onEditorTextChanged = { text, selectionStart, selectionEnd ->
-                onValueChange(
-                    TextFieldValue(
-                        text = text,
-                        selection = TextRange(selectionStart, selectionEnd)
-                    )
-                )
-            }
+            editor.onTextChange = { change ->
+    // ViewModel sẽ xử lý TextChange thay vì nhận toàn bộ text
+    onTextChange?.invoke(change)
+}
 
-            editor.onEditorSelectionChanged = { selectionStart, selectionEnd ->
-                val currentText = editor.text?.toString().orEmpty()
-                if (currentText != value.text ||
-                    value.selection.start != selectionStart ||
-                    value.selection.end != selectionEnd
-                ) {
-                    onValueChange(
-                        TextFieldValue(
-                            text = currentText,
-                            selection = TextRange(selectionStart, selectionEnd)
-                        )
-                    )
-                }
-            }
+editor.onSelectionChange = { selectionStart, selectionEnd ->
+    // Cập nhật selection riêng biệt
+    onSelectionChange?.invoke(selectionStart, selectionEnd)
+}
 
-            if (editor.text?.toString() != value.text) {
-                editor.setEditorText(value.text, value.selection.start, value.selection.end)
-            } else {
-                editor.setEditorSelectionIfNeeded(value.selection.start, value.selection.end)
-            }
+            
+
+            // HighlightingEditText đã tự quản lý nội dung, không cần đồng bộ 2 chiều nữa
+// Chỉ cập nhật selection khi cần
+editor.setEditorSelectionIfNeeded(value.selection.start, value.selection.end)
         },
         modifier = modifier
             .fillMaxWidth()
