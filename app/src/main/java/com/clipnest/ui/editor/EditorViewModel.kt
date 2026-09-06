@@ -118,38 +118,29 @@ class EditorViewModel(
 
     fun onTextChange(change: TextChange) {
         if (applyingHistory) return
-        val editor = editorInstance ?: return
-        val selectionStart = editor.selectionStart.coerceIn(0, editor.getFullText().length)
-        val selectionEnd = editor.selectionEnd.coerceIn(selectionStart, editor.getFullText().length)
-
-        if (!change.isFullReplacement) {
-            val position = change.start.coerceAtLeast(0)
-            when {
-                change.removedLength > 0 && change.addedLength == 0 -> {
-                    undoStack.addLast(EditOperation.Delete(position, change.removedLength, change.removedText.orEmpty()))
-                    redoStack.clear()
-                }
-                change.removedLength == 0 && change.addedLength > 0 -> {
-                    undoStack.addLast(EditOperation.Insert(position, change.addedText.orEmpty()))
-                    redoStack.clear()
-                }
-                change.removedLength > 0 && change.addedLength > 0 -> {
-                    undoStack.addLast(EditOperation.Replace(
-                        position,
-                        position + change.removedLength,
+        when {
+            change.removedLength > 0 && change.addedLength == 0 -> {
+                undoStack.addLast(EditOperation.Delete(change.start.coerceAtLeast(0), change.removedLength, change.removedText.orEmpty()))
+                redoStack.clear()
+            }
+            change.removedLength == 0 && change.addedLength > 0 -> {
+                undoStack.addLast(EditOperation.Insert(change.start.coerceAtLeast(0), change.addedText.orEmpty()))
+                redoStack.clear()
+            }
+            change.removedLength > 0 && change.addedLength > 0 -> {
+                undoStack.addLast(
+                    EditOperation.Replace(
+                        change.start.coerceAtLeast(0),
+                        change.start.coerceAtLeast(0) + change.removedLength,
                         change.addedText.orEmpty(),
                         change.removedText.orEmpty()
-                    ))
-                    redoStack.clear()
-                }
+                    )
+                )
+                redoStack.clear()
             }
-            while (undoStack.size > MAX_HISTORY) undoStack.removeFirst()
         }
-
-        _uiState.value = _uiState.value.copy(
-            content = _uiState.value.content.copy(selection = TextRange(selectionStart, selectionEnd)),
-            isDirty = true
-        )
+        while (undoStack.size > MAX_HISTORY) undoStack.removeFirst()
+        _uiState.value = _uiState.value.copy(isDirty = true)
         scheduleEditorSnapshot()
         scheduleDebouncedAutoSave()
     }
@@ -157,14 +148,17 @@ class EditorViewModel(
     private fun scheduleEditorSnapshot() {
         editorSnapshotJob?.cancel()
         editorSnapshotJob = viewModelScope.launch {
-            delay(120)
+            delay(80)
             val editor = editorInstance ?: return@launch
             val text = editor.getFullText()
             val selectionStart = editor.selectionStart.coerceIn(0, text.length)
             val selectionEnd = editor.selectionEnd.coerceIn(selectionStart, text.length)
-            _uiState.value = _uiState.value.copy(
-                content = TextFieldValue(text, TextRange(selectionStart, selectionEnd))
-            )
+            val current = _uiState.value.content
+            if (current.text != text || current.selection.start != selectionStart || current.selection.end != selectionEnd) {
+                _uiState.value = _uiState.value.copy(
+                    content = TextFieldValue(text, TextRange(selectionStart, selectionEnd))
+                )
+            }
             if (_searchQuery.value.isNotBlank()) updateSearchResults(_searchQuery.value, text)
         }
     }
@@ -182,16 +176,7 @@ class EditorViewModel(
 
     private fun currentEditorText(): String = editorInstance?.getFullText() ?: _uiState.value.content.text
 
-    fun onSelectionChange(start: Int, end: Int) {
-        val editor = editorInstance
-        val length = editor?.getFullText()?.length ?: _uiState.value.content.text.length
-        val safeStart = start.coerceIn(0, length)
-        val safeEnd = end.coerceIn(safeStart, length)
-        val current = _uiState.value.content
-        if (current.selection.start != safeStart || current.selection.end != safeEnd) {
-            _uiState.value = _uiState.value.copy(content = current.copy(selection = TextRange(safeStart, safeEnd)))
-        }
-    }
+    fun onSelectionChange(start: Int, end: Int) = Unit
 
     private fun loadEditor() {
         viewModelScope.launch(Dispatchers.IO) {
@@ -529,7 +514,9 @@ class EditorViewModel(
             emitToast(com.clipnest.R.string.select_text_to_copy)
             return
         }
-        val selected = text.substring(selectionStart.coerceIn(0, text.length), selectionEnd.coerceIn(0, text.length))
+        val start = selectionStart.coerceIn(0, text.length)
+        val end = selectionEnd.coerceIn(0, text.length)
+        val selected = text.substring(min(start, end), max(start, end))
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Editor selection", selected))
         emitToast(com.clipnest.R.string.copied)
@@ -541,7 +528,7 @@ class EditorViewModel(
         val end = editor.selectionEnd
         val position = if (start == end) max(0, start - 1) else min(start, end)
         editor.setEditorSelectionIfNeeded(position, position)
-        onSelectionChange(position, position)
+        syncEditorState()
     }
 
     fun moveCursorRight() {
@@ -550,7 +537,7 @@ class EditorViewModel(
         val end = editor.selectionEnd
         val position = if (start == end) min(editor.getFullText().length, end + 1) else max(start, end)
         editor.setEditorSelectionIfNeeded(position, position)
-        onSelectionChange(position, position)
+        syncEditorState()
     }
 
     fun selectAll() {
@@ -612,10 +599,7 @@ class EditorViewModel(
         }
     }
 
-    fun insertMarkdownHeading(level: Int) {
-        applyLinePrefix("#".repeat(level) + " ")
-    }
-
+    fun insertMarkdownHeading(level: Int) { applyLinePrefix("#".repeat(level) + " ") }
     fun toggleMarkdownStrong() { applyInlineDelimiter("**") }
     fun toggleMarkdownEmphasis() { applyInlineDelimiter("*") }
     fun insertMarkdownQuote() { applyLinePrefix("> ") }
