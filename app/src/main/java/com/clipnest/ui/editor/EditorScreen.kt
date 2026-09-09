@@ -50,6 +50,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.testTag
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -71,6 +72,10 @@ fun EditorScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val openWithDiagnostic by viewModel.openWithDiagnostic.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
+    val contentTextColor = MaterialTheme.colorScheme.onSurface
+    val contentHintColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+    val tagColor = MaterialTheme.colorScheme.primary
+    val contentPlaceholder = stringResource(com.clipnest.R.string.note_content_placeholder)
     var title by rememberSaveable { mutableStateOf("") }
     var tagQuery by remember { mutableStateOf<String?>(null) }
     var tagStart by remember { mutableStateOf(-1) }
@@ -135,12 +140,12 @@ fun EditorScreen(
                     AndroidView(
                         factory = { ctx ->
                             HighlightingEditText(ctx).apply {
-                                setTextColor(MaterialTheme.colorScheme.onSurface.toArgb())
+                                setTextColor(contentTextColor.toArgb())
                                 setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, editorTextSize.sp.toFloat())
                                 setLineSpacing(0f, editorTextSize.lineHeightSp.toFloat() / editorTextSize.sp.toFloat())
-                                tagColor = MaterialTheme.colorScheme.primary.toArgb()
-                                hint = ctx.getString(com.clipnest.R.string.note_content_placeholder)
-                                setHintTextColor(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f).toArgb())
+                                this.tagColor = tagColor.toArgb()
+                                hint = contentPlaceholder
+                                setHintTextColor(contentHintColor.toArgb())
                                 setPadding(dp(18), dp(14), dp(18), dp(18))
                                 setFullText(uiState.content.text, uiState.content.selection.start, uiState.content.selection.end)
                                 viewModel.setEditorInstance(this)
@@ -149,11 +154,11 @@ fun EditorScreen(
                         },
                         update = { editor ->
                             editorRef = editor
-                            editor.setTextColor(MaterialTheme.colorScheme.onSurface.toArgb())
-                            editor.setHintTextColor(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f).toArgb())
+                            editor.setTextColor(contentTextColor.toArgb())
+                            editor.setHintTextColor(contentHintColor.toArgb())
                             editor.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, editorTextSize.sp.toFloat())
                             editor.setLineSpacing(0f, editorTextSize.lineHeightSp.toFloat() / editorTextSize.sp.toFloat())
-                            editor.tagColor = MaterialTheme.colorScheme.primary.toArgb()
+                            editor.tagColor = tagColor.toArgb()
                             viewModel.setEditorInstance(editor)
                             if (!editor.isContentInitialized()) {
                                 editor.setFullText(uiState.content.text, uiState.content.selection.start, uiState.content.selection.end)
