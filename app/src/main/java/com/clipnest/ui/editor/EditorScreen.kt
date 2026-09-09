@@ -1,8 +1,8 @@
 package com.clipnest.ui.editor
 
 import android.widget.Toast
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Redo
@@ -22,8 +21,6 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.SelectAll
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -43,7 +40,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
@@ -52,15 +48,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.clipnest.data.local.EditorTextSize
 import com.clipnest.data.local.ViewerTextSize
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
 
 private const val NOTE_TAG_QUERY_MAX_LENGTH = 40
 
@@ -85,9 +79,7 @@ fun EditorScreen(
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_PAUSE || event == Lifecycle.Event.ON_STOP) {
-                viewModel.onPauseOrExit()
-            }
+            if (event == Lifecycle.Event.ON_PAUSE || event == Lifecycle.Event.ON_STOP) viewModel.onPauseOrExit()
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
@@ -107,30 +99,27 @@ fun EditorScreen(
 
     val suggestions = remember(uiState.content.text, tagQuery) {
         val query = tagQuery ?: return@remember emptyList<String>()
-        val existing = Regex("(?<!\\S)#([\\p{L}\\p{N}_-]+)")
+        Regex("(?<!\\S)#([\\p{L}\\p{N}_-]+)")
             .findAll(uiState.content.text)
             .map { it.groupValues[1] }
-            .filter { it.isNotBlank() && it.startsWith(query, ignoreCase = true) }
+            .filter { it.startsWith(query, ignoreCase = true) }
             .distinctBy { it.lowercase() }
             .take(5)
             .toList()
-        existing
     }
-
-    val noteSurfaceShape = RoundedCornerShape(18.dp)
 
     Column(
         modifier = modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Surface(
-            modifier = Modifier.fillMaxWidth().weight(1f).clip(noteSurfaceShape),
-            shape = noteSurfaceShape,
+            modifier = Modifier.fillMaxWidth().weight(1f),
+            shape = RoundedCornerShape(18.dp),
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 1.dp
         ) {
             Column(Modifier.fillMaxSize()) {
-                BasicNoteTitleField(
+                NoteTitleField(
                     value = title,
                     onValueChange = { title = it },
                     modifier = Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 18.dp, vertical = 10.dp),
@@ -140,7 +129,7 @@ fun EditorScreen(
                 )
 
                 HorizontalDivider(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp),
+                    modifier = Modifier.padding(horizontal = 18.dp),
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.8f)
                 )
 
@@ -149,7 +138,7 @@ fun EditorScreen(
                         factory = { ctx ->
                             HighlightingEditText(ctx).apply {
                                 setTextColor(MaterialTheme.colorScheme.onSurface.toArgb())
-                                textSize = editorTextSize.sp.toFloat()
+                                setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, editorTextSize.sp.toFloat())
                                 setLineSpacing(0f, editorTextSize.lineHeightSp.toFloat() / editorTextSize.sp.toFloat())
                                 tagColor = MaterialTheme.colorScheme.primary.toArgb()
                                 hint = ctx.getString(com.clipnest.R.string.note_content_placeholder)
@@ -164,7 +153,7 @@ fun EditorScreen(
                             editorRef = editor
                             editor.setTextColor(MaterialTheme.colorScheme.onSurface.toArgb())
                             editor.setHintTextColor(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f).toArgb())
-                            editor.textSize = editorTextSize.sp.toFloat()
+                            editor.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, editorTextSize.sp.toFloat())
                             editor.setLineSpacing(0f, editorTextSize.lineHeightSp.toFloat() / editorTextSize.sp.toFloat())
                             editor.tagColor = MaterialTheme.colorScheme.primary.toArgb()
                             viewModel.setEditorInstance(editor)
@@ -181,20 +170,15 @@ fun EditorScreen(
                                     tagStart = token.first
                                     tagEnd = token.first + token.second.length + 1
                                     tagQuery = token.second
-                                } else {
-                                    tagQuery = null
-                                }
+                                } else tagQuery = null
                             }
-                            editor.onSelectionChange = { start, end ->
-                                val caret = end.coerceIn(0, editor.length())
-                                val token = findActiveTag(editor.getFullText(), caret)
+                            editor.onSelectionChange = { _, end ->
+                                val token = findActiveTag(editor.getFullText(), end.coerceIn(0, editor.length()))
                                 if (token != null && token.second.length <= NOTE_TAG_QUERY_MAX_LENGTH) {
                                     tagStart = token.first
                                     tagEnd = token.first + token.second.length + 1
                                     tagQuery = token.second
-                                } else {
-                                    tagQuery = null
-                                }
+                                } else tagQuery = null
                             }
                         },
                         modifier = Modifier.fillMaxSize().testTag("note_content_editor")
@@ -214,7 +198,7 @@ fun EditorScreen(
                             DropdownMenuItem(
                                 text = { Text("#$label") },
                                 onClick = {
-                                    replaceActiveTag(editorRef, tagStart, tagEnd, label)
+                                    replaceActiveTag(editorRef, tagStart, tagEnd, label, viewModel)
                                     tagQuery = null
                                 }
                             )
@@ -223,9 +207,7 @@ fun EditorScreen(
                         if (query.isNotBlank() && suggestions.none { it.equals(query, ignoreCase = true) }) {
                             DropdownMenuItem(
                                 text = { Text(stringResource(com.clipnest.R.string.note_label_create, query)) },
-                                onClick = {
-                                    tagQuery = null
-                                }
+                                onClick = { tagQuery = null }
                             )
                         }
                     }
@@ -239,17 +221,7 @@ fun EditorScreen(
             onSelectAll = viewModel::selectAll,
             onDelete = viewModel::deleteSelectedText,
             onUndo = viewModel::undo,
-            onRedo = viewModel::redo,
-            onPreview = viewModel::toggleMarkdownPreview,
-            previewVisible = uiState.showMarkdownPreview
-        )
-    }
-
-    if (uiState.showMarkdownPreview) {
-        NotePreviewDialog(
-            text = uiState.content.text,
-            viewerTextSize = viewerTextSize,
-            onDismiss = viewModel::toggleMarkdownPreview
+            onRedo = viewModel::redo
         )
     }
 
@@ -259,11 +231,7 @@ fun EditorScreen(
             title = { Text(stringResource(com.clipnest.R.string.open_with_fallback_title)) },
             text = { Text(stringResource(com.clipnest.R.string.open_with_fallback_message)) },
             confirmButton = { TextButton(onClick = viewModel::dismissOpenWithDiagnostic) { Text(stringResource(com.clipnest.R.string.close)) } },
-            dismissButton = {
-                TextButton(onClick = { viewModel.dismissOpenWithDiagnostic(); onRequestOpenFile() }) {
-                    Text(stringResource(com.clipnest.R.string.open_with_fallback_open_file))
-                }
-            }
+            dismissButton = { TextButton(onClick = { viewModel.dismissOpenWithDiagnostic(); onRequestOpenFile() }) { Text(stringResource(com.clipnest.R.string.open_with_fallback_open_file)) } }
         )
     }
 
@@ -279,20 +247,13 @@ fun EditorScreen(
 }
 
 @Composable
-private fun BasicNoteTitleField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    modifier: Modifier,
-    textColor: Color,
-    hintColor: Color,
-    textSize: Int
-) {
+private fun NoteTitleField(value: String, onValueChange: (String) -> Unit, modifier: Modifier, textColor: Color, hintColor: Color, textSize: Int) {
     androidx.compose.foundation.text.BasicTextField(
         value = value,
         onValueChange = onValueChange,
         modifier = modifier,
         singleLine = true,
-        textStyle = TextStyle(color = textColor, fontSize = textSize.dp.let { androidx.compose.ui.unit.TextUnit(it.value, androidx.compose.ui.unit.TextUnitType.Sp) }, fontWeight = FontWeight.SemiBold),
+        textStyle = TextStyle(color = textColor, fontSize = textSize.sp, fontWeight = FontWeight.SemiBold),
         decorationBox = { inner ->
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.CenterStart) {
                 if (value.isEmpty()) Text(stringResource(com.clipnest.R.string.note_title_placeholder), color = hintColor, style = MaterialTheme.typography.titleLarge)
@@ -303,67 +264,23 @@ private fun BasicNoteTitleField(
 }
 
 @Composable
-private fun NoteEditorToolbar(
-    onPaste: () -> Unit,
-    onCopy: () -> Unit,
-    onSelectAll: () -> Unit,
-    onDelete: () -> Unit,
-    onUndo: () -> Unit,
-    onRedo: () -> Unit,
-    onPreview: () -> Unit,
-    previewVisible: Boolean
-) {
+private fun NoteEditorToolbar(onPaste: () -> Unit, onCopy: () -> Unit, onSelectAll: () -> Unit, onDelete: () -> Unit, onUndo: () -> Unit, onRedo: () -> Unit) {
     Surface(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp, vertical = 2.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
             NoteToolButton("note_action_paste", Icons.Default.ContentPaste, onPaste)
             NoteToolButton("note_action_copy", Icons.Default.ContentCopy, onCopy)
             NoteToolButton("note_action_select_all", Icons.Default.SelectAll, onSelectAll)
             NoteToolButton("note_action_delete", Icons.Default.Delete, onDelete)
             NoteToolButton("note_action_undo", Icons.AutoMirrored.Filled.Undo, onUndo)
             NoteToolButton("note_action_redo", Icons.AutoMirrored.Filled.Redo, onRedo)
-            NoteToolButton("note_action_preview", if (previewVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility, onPreview)
         }
     }
 }
 
 @Composable
 private fun NoteToolButton(tag: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier.size(44.dp).clickable(onClick = onClick).testTag(tag),
-        contentAlignment = Alignment.Center
-    ) {
+    Box(Modifier.size(44.dp).clickable(onClick = onClick).testTag(tag), contentAlignment = Alignment.Center) {
         Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-    }
-}
-
-@Composable
-private fun NotePreviewDialog(text: String, viewerTextSize: ViewerTextSize, onDismiss: () -> Unit) {
-    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
-        Surface(shape = RoundedCornerShape(18.dp), tonalElevation = 6.dp, modifier = Modifier.fillMaxWidth(0.92f).fillMaxSize(0.78f)) {
-            Column(Modifier.fillMaxSize()) {
-                Row(Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(com.clipnest.R.string.preview_markdown), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold), modifier = Modifier.weight(1f))
-                    TextButton(onClick = onDismiss) { Text(stringResource(com.clipnest.R.string.close)) }
-                }
-                HorizontalDivider()
-                val htmlState = remember(text, viewerTextSize) { mutableStateOf("") }
-                LaunchedEffect(text, viewerTextSize) {
-                    htmlState.value = withContext(Dispatchers.Default) {
-                        MarkdownPreviewRenderer.render(text, MarkdownPreviewColors.from(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.onSurface, MaterialTheme.colorScheme.onSurfaceVariant, MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.outline, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.surfaceVariant, false), viewerTextSize.px)
-                    }
-                }
-                if (htmlState.value.isNotBlank()) {
-                    androidx.compose.ui.viewinterop.AndroidView(
-                        factory = { ctx -> android.webkit.WebView(ctx).apply { settings.javaScriptEnabled = false; settings.domStorageEnabled = false; settings.allowFileAccess = false; settings.allowContentAccess = false } },
-                        update = { webView -> webView.loadDataWithBaseURL(null, htmlState.value, "text/html", "UTF-8", null) },
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-            }
-        }
     }
 }
 
@@ -378,7 +295,7 @@ private fun findActiveTag(text: String, caret: Int): Pair<Int, String>? {
     return start to query
 }
 
-private fun replaceActiveTag(editor: HighlightingEditText?, start: Int, end: Int, label: String) {
+private fun replaceActiveTag(editor: HighlightingEditText?, start: Int, end: Int, label: String, viewModel: EditorViewModel) {
     if (editor == null || start < 0 || end <= start || end > editor.length()) return
     val replacement = "#$label"
     val old = editor.getFullText().substring(start, end)
@@ -388,6 +305,7 @@ private fun replaceActiveTag(editor: HighlightingEditText?, start: Int, end: Int
         affectedEnd = start + replacement.length
     )
     editor.setEditorSelectionIfNeeded(start + replacement.length, start + replacement.length)
+    viewModel.onTextChange(TextChange(start = start, removedLength = old.length, addedLength = replacement.length, removedText = old, addedText = replacement))
 }
 
 private fun dp(value: Int): Int = value
