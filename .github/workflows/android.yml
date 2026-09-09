@@ -73,6 +73,7 @@ jobs:
         run: ./gradlew assembleRelease --no-daemon
 
       - name: Upload Release Validation APK
+        continue-on-error: true
         uses: actions/upload-artifact@v4.6.2
         with:
           name: ClipNest-release-validation-apk
@@ -83,6 +84,7 @@ jobs:
 
       - name: Upload Test Report
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4.6.2
         with:
           name: ClipNest-test-report
