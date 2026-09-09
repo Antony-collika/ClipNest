@@ -127,12 +127,10 @@ fun EditorScreen(
                     hintColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
                     textSize = (editorTextSize.sp + 4).coerceAtMost(32)
                 )
-
                 HorizontalDivider(
                     modifier = Modifier.padding(horizontal = 18.dp),
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.8f)
                 )
-
                 Box(Modifier.fillMaxWidth().weight(1f)) {
                     AndroidView(
                         factory = { ctx ->
@@ -164,8 +162,7 @@ fun EditorScreen(
                             }
                             editor.onTextChange = { change ->
                                 viewModel.onTextChange(change)
-                                val caret = editor.selectionEnd.coerceIn(0, editor.length())
-                                val token = findActiveTag(editor.getFullText(), caret)
+                                val token = findActiveTag(editor.getFullText(), editor.selectionEnd.coerceIn(0, editor.length()))
                                 if (token != null && token.second.length <= NOTE_TAG_QUERY_MAX_LENGTH) {
                                     tagStart = token.first
                                     tagEnd = token.first + token.second.length + 1
@@ -183,7 +180,6 @@ fun EditorScreen(
                         },
                         modifier = Modifier.fillMaxSize().testTag("note_content_editor")
                     )
-
                     DropdownMenu(
                         expanded = tagQuery != null,
                         onDismissRequest = { tagQuery = null },
@@ -214,7 +210,6 @@ fun EditorScreen(
                 }
             }
         }
-
         NoteEditorToolbar(
             onPaste = { viewModel.pasteFromClipboard(context) },
             onCopy = { viewModel.copySelectedText(context) },
@@ -234,7 +229,6 @@ fun EditorScreen(
             dismissButton = { TextButton(onClick = { viewModel.dismissOpenWithDiagnostic(); onRequestOpenFile() }) { Text(stringResource(com.clipnest.R.string.open_with_fallback_open_file)) } }
         )
     }
-
     if (uiState.showSaveNewFileDialog) {
         SaveNewFileDialog(
             defaultFolderUri = uiState.defaultSaveFolderUri,
@@ -305,7 +299,7 @@ private fun replaceActiveTag(editor: HighlightingEditText?, start: Int, end: Int
         affectedEnd = start + replacement.length
     )
     editor.setEditorSelectionIfNeeded(start + replacement.length, start + replacement.length)
-    viewModel.onTextChange(TextChange(start = start, removedLength = old.length, addedLength = replacement.length, removedText = old, addedText = replacement))
+    viewModel.onTextChange(TextChange(start, old.length, replacement.length, removedText = old, addedText = replacement))
 }
 
 private fun dp(value: Int): Int = value
