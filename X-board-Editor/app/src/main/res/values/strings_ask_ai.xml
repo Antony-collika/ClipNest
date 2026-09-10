@@ -1,0 +1,9 @@
+<resources>
+    <string name="ask_ai">Ask AI</string>
+    <string name="ask_ai_unavailable">Ask AI is not configured.</string>
+    <string name="ask_ai_failed">Ask AI failed. Please try again.</string>
+    <string name="ask_ai_connection_failed">Could not connect to AI.</string>
+    <string name="ask_ai_sent">Request sent. AI is processing.</string>
+    <string name="ask_ai_saved">AI response saved to Vault.</string>
+    <string name="ask_ai_empty">AI returned an empty response.</string>
+</resources>

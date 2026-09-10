@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Clipboard board -->
+    <path
+        android:fillColor="#E2F5EA"
+        android:pathData="M34,26 C31.8,26 30,27.8 30,30 L30,82 C30,84.2 31.8,86 34,86 L74,86 C76.2,86 78,84.2 78,82 L78,30 C78,27.8 76.2,26 74,26 L66,26 L66,30 L42,30 L42,26 Z" />
+
+    <!-- Clip top part -->
+    <path
+        android:fillColor="#248A4E"
+        android:pathData="M44,22 C44,20.9 44.9,20 46,20 L62,20 C63.1,20 64,20.9 64,22 L64,28 C64,29.1 63.1,30 62,30 L46,30 C44.9,30 44,29.1 44,28 Z" />
+
+    <!-- Card line 1 -->
+    <path
+        android:fillColor="#248A4E"
+        android:pathData="M38,40 L70,40 A2,2 0 0,1 70,44 L38,44 A2,2 0 0,1 38,40 Z" />
+
+    <!-- Card line 2 -->
+    <path
+        android:fillColor="#4CA771"
+        android:pathData="M38,50 L64,50 A2,2 0 0,1 64,54 L38,54 A2,2 0 0,1 38,50 Z" />
+
+    <!-- Card line 3 -->
+    <path
+        android:fillColor="#4CA771"
+        android:pathData="M38,60 L58,60 A2,2 0 0,1 58,64 L38,64 A2,2 0 0,1 38,60 Z" />
+
+    <!-- Check badge in bottom right -->
+    <path
+        android:fillColor="#10B981"
+        android:pathData="M70,64 C75.5,64 80,68.5 80,74 C80,79.5 75.5,84 70,84 C64.5,84 60,79.5 60,74 C60,68.5 64.5,64 70,64 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M66,74 L68.5,76.5 L74.5,70.5 L76,72 L68.5,79.5 L64.5,75.5 Z" />
+</vector>

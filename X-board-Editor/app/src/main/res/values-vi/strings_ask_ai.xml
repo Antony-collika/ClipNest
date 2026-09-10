@@ -1,0 +1,9 @@
+<resources>
+    <string name="ask_ai">Hỏi AI</string>
+    <string name="ask_ai_unavailable">Hỏi AI chưa được cấu hình.</string>
+    <string name="ask_ai_failed">Hỏi AI thất bại. Vui lòng thử lại.</string>
+    <string name="ask_ai_connection_failed">Không thể kết nối tới AI.</string>
+    <string name="ask_ai_sent">Đã gửi yêu cầu. AI đang xử lý.</string>
+    <string name="ask_ai_saved">Đã lưu câu trả lời của AI vào Vault.</string>
+    <string name="ask_ai_empty">AI trả về nội dung rỗng.</string>
+</resources>

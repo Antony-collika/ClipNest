@@ -1,0 +1,5 @@
+{
+  "name": "ClipNest",
+  "description": "A private, fully offline clipboard vault and Markdown workspace.",
+  "requestFramePermissions": []
+}
