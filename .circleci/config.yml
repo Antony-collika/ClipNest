@@ -97,5 +97,8 @@ workflows:
           filters:
             branches:
               only:
+                - Draft
+                - Editor
                 - Note
                 - circleci-project-setup
+                - main
