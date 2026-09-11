@@ -233,10 +233,12 @@
     <string name="export_pinned">Pinned</string>
     <string name="export_url_type">URL</string>
     <string name="export_combined_type">Combined</string>
+<!-- res/values/strings.xml (English) -->
+<string name="editor_mode_label">Editor mode</string>
+<string name="save_to_note">Save to Note</string>
 <string name="note_breadcrumb_default">Taking note</string>
 <string name="note_breadcrumb_with_origin">%1$s/New Note</string>
-<string name="note_title_placeholder">Title here</string>
+<string name="note_title_placeholder">Title</string>
 <string name="edit_note">Edit note</string>
-<string name="done">👌</string>
-<string name="back">Bach</string>
-</resources>
+<string name="done">Done</string>
+<string name="back">Back</string></resources>
