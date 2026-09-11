@@ -233,4 +233,10 @@
     <string name="export_pinned">Pinned</string>
     <string name="export_url_type">URL</string>
     <string name="export_combined_type">Combined</string>
+<string name="note_breadcrumb_default">Taking note</string>
+<string name="note_breadcrumb_with_origin">%1$s/New Note</string>
+<string name="note_title_placeholder">Title here</string>
+<string name="edit_note">Edit note</string>
+<string name="done">👌</string>
+<string name="back">Bach</string>
 </resources>
