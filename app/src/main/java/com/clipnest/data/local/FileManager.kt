@@ -35,6 +35,15 @@ class FileManager(private val context: android.content.Context) {
         File(documentsDir, EDITOR_FILE_NAME).writeText(content, StandardCharsets.UTF_8)
     }
 
+    fun readEditorTitle(): String {
+        val file = File(documentsDir, EDITOR_TITLE_FILE_NAME)
+        return if (file.exists()) file.readText(StandardCharsets.UTF_8) else ""
+    }
+
+    fun writeEditorTitle(title: String) {
+        File(documentsDir, EDITOR_TITLE_FILE_NAME).writeText(title, StandardCharsets.UTF_8)
+    }
+
     fun saveNewFile(baseName: String, format: ExportFormat, content: String): File {
         val finalName = buildFileName(baseName, format)
         return File(documentsDir, finalName).also {
@@ -72,7 +81,7 @@ class FileManager(private val context: android.content.Context) {
 
     fun listExportedFiles(): List<File> {
         return documentsDir.listFiles()
-            ?.filter { it.isFile && it.name != EDITOR_FILE_NAME }
+            ?.filter { it.isFile && it.name != EDITOR_FILE_NAME && it.name != EDITOR_TITLE_FILE_NAME }
             ?.sortedByDescending { it.lastModified() }
             ?: emptyList()
     }
@@ -88,6 +97,7 @@ class FileManager(private val context: android.content.Context) {
 
     companion object {
         const val EDITOR_FILE_NAME = "Editor.md"
+        const val EDITOR_TITLE_FILE_NAME = "Editor.title"
 
         fun sanitizeFileName(name: String): String {
             val trimmed = name.trim()
