@@ -69,12 +69,9 @@ jobs:
 
       - run:
           name: Validate Release APK
-          command: ./gradlew assembleRelease --no-daemon
-          environment:
-            KEYSTORE_PATH: /home/circleci/xboard-release.jks
-            STORE_PASSWORD: ${STORE_PASSWORD}
-            KEY_ALIAS: ${KEY_ALIAS}
-            KEY_PASSWORD: ${KEY_PASSWORD}
+          command: |
+            export KEYSTORE_PATH="$HOME/xboard-release.jks"
+            ./gradlew assembleRelease --no-daemon
 
       - save_cache:
           key: gradle-v1-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}
