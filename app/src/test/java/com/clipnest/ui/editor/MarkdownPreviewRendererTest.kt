@@ -1,6 +1,7 @@
 package com.clipnest.ui.editor
 
 import androidx.compose.ui.graphics.Color
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -53,24 +54,28 @@ class MarkdownPreviewRendererTest {
     fun escapesRawHtmlInUserContent() {
         val html = MarkdownPreviewRenderer.render("<script>alert('x')</script>", colors)
 
-        assertTrue(html.contains("function toggleToc()"))
+        assertTrue(html.contains("function jumpToHeading(id)"))
         assertTrue(!html.contains("<script>alert('x')</script>"))
         assertTrue(!html.contains("alert('x')"))
     }
 
     @Test
     fun buildsTableOfContentsForHeadings() {
-        val html = MarkdownPreviewRenderer.render(
-            "# Overview\n\n## Setup\n\n### Configuration",
-            colors
-        )
+        val markdown = "# Overview\n\n## Setup\n\n### Configuration"
+        val html = MarkdownPreviewRenderer.render(markdown, colors)
+        val headings = MarkdownPreviewRenderer.extractHeadings(markdown)
 
         assertTrue(html.contains("id=\"md-heading-0\""))
         assertTrue(html.contains("id=\"md-heading-1\""))
         assertTrue(html.contains("id=\"md-heading-2\""))
-        assertTrue(html.contains("toc-level-1"))
-        assertTrue(html.contains("toc-level-2"))
-        assertTrue(html.contains("toc-level-3"))
-        assertTrue(html.contains("jumpToHeading('md-heading-1')"))
+        assertEquals(
+            listOf(
+                MarkdownHeading(1, "Overview", 0),
+                MarkdownHeading(2, "Setup", 1),
+                MarkdownHeading(3, "Configuration", 2)
+            ),
+            headings
+        )
+        assertTrue(html.contains("function jumpToHeading(id)"))
     }
 }
