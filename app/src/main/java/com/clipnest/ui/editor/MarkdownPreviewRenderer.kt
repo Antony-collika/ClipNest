@@ -8,11 +8,6 @@ import com.vladsch.flexmark.parser.Parser
 import com.vladsch.flexmark.util.options.MutableDataSet
 import java.util.Locale
 
-/**
- * Converts the editor's Markdown into a self-contained HTML document.
- * The generated preview also indexes Markdown headings so the built-in TOC can jump
- * directly to the corresponding section without needing an external navigation layer.
- */
 object MarkdownPreviewRenderer {
     private val options: MutableDataSet by lazy {
         MutableDataSet().apply {
@@ -28,11 +23,7 @@ object MarkdownPreviewRenderer {
     private val parser: Parser by lazy { Parser.builder(options).build() }
     private val renderer: HtmlRenderer by lazy { HtmlRenderer.builder(options).build() }
 
-    fun render(
-        markdown: String,
-        colors: MarkdownPreviewColors,
-        viewerTextSizePx: Int = 16
-    ): String {
+    fun render(markdown: String, colors: MarkdownPreviewColors, viewerTextSizePx: Int = 16): String {
         val renderedBody = renderer.render(parser.parse(markdown))
         var headingIndex = 0
         val tocItems = StringBuilder()
@@ -55,15 +46,7 @@ object MarkdownPreviewRenderer {
                 :root { color-scheme: ${colors.colorScheme}; }
                 * { box-sizing: border-box; }
                 html, body { margin: 0; padding: 0; min-height: 100%; scroll-behavior: smooth; }
-                body {
-                  background: ${colors.background};
-                  color: ${colors.onSurface};
-                  font-family: sans-serif;
-                  font-size: ${viewerTextSizePx.coerceIn(10, 32)}px;
-                  line-height: 1.5;
-                  overflow-wrap: anywhere;
-                  overflow-x: hidden;
-                }
+                body { background: ${colors.background}; color: ${colors.onSurface}; font-family: sans-serif; font-size: ${viewerTextSizePx.coerceIn(10, 32)}px; line-height: 1.5; overflow-wrap: anywhere; overflow-x: hidden; }
                 h1, h2, h3, h4, h5, h6 { color: ${colors.onSurface}; line-height: 1.25; margin: 0.6em 0 0.45em; scroll-margin-top: 56px; }
                 h1, h2 { border-bottom: 1px solid ${colors.outlineVariant}; padding-bottom: 0.2em; }
                 p { margin: 0.7em 0; }
@@ -107,13 +90,8 @@ object MarkdownPreviewRenderer {
               </script>
             </head>
             <body>
-              <div class="preview-toc-bar">
-                <button class="toc-toggle" aria-label="Table of contents" title="Table of contents" onclick="toggleToc()">☰</button>
-              </div>
-              <div id="toc-panel" class="toc-panel">
-                <div class="toc-title">Table of contents</div>
-                $toc
-              </div>
+              <div class="preview-toc-bar"><button class="toc-toggle" aria-label="Table of contents" title="Table of contents" onclick="toggleToc()">☰</button></div>
+              <div id="toc-panel" class="toc-panel"><div class="toc-title">Table of contents</div>$toc</div>
               $body
             </body>
             </html>
@@ -135,26 +113,8 @@ data class MarkdownPreviewColors(
     val colorScheme: String
 ) {
     companion object {
-        fun from(
-            background: Color,
-            onSurface: Color,
-            onSurfaceVariant: Color,
-            surfaceVariant: Color,
-            outline: Color,
-            outlineVariant: Color,
-            primary: Color,
-            codeBackground: Color,
-            isDark: Boolean
-        ): MarkdownPreviewColors = MarkdownPreviewColors(
-            background = background.toPreviewCssHex(),
-            onSurface = onSurface.toPreviewCssHex(),
-            onSurfaceVariant = onSurfaceVariant.toPreviewCssHex(),
-            surfaceVariant = surfaceVariant.toPreviewCssHex(),
-            outline = outline.toPreviewCssHex(),
-            outlineVariant = outlineVariant.toPreviewCssHex(),
-            primary = primary.toPreviewCssHex(),
-            codeBackground = codeBackground.toPreviewCssHex(),
-            colorScheme = if (isDark) "dark" else "light"
+        fun from(background: Color, onSurface: Color, onSurfaceVariant: Color, surfaceVariant: Color, outline: Color, outlineVariant: Color, primary: Color, codeBackground: Color, isDark: Boolean) = MarkdownPreviewColors(
+            background.toPreviewCssHex(), onSurface.toPreviewCssHex(), onSurfaceVariant.toPreviewCssHex(), surfaceVariant.toPreviewCssHex(), outline.toPreviewCssHex(), outlineVariant.toPreviewCssHex(), primary.toPreviewCssHex(), codeBackground.toPreviewCssHex(), if (isDark) "dark" else "light"
         )
     }
 }
