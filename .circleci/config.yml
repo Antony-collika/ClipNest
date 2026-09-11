@@ -71,6 +71,9 @@ jobs:
           name: Validate Release APK
           command: |
             export KEYSTORE_PATH="$HOME/xboard-release.jks"
+            export STORE_PASSWORD="$KEYSTORE_PASSWORD"
+            export KEY_ALIAS="$KEY_ALIAS"
+            export KEY_PASSWORD="$KEY_PASSWORD"
             ./gradlew assembleRelease --no-daemon
 
       - save_cache:
