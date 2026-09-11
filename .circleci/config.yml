@@ -1,0 +1,104 @@
+version: 2.1
+
+jobs:
+  build-and-test:
+    docker:
+      - image: cimg/android:2026.08
+    resource_class: medium
+    working_directory: ~/project
+    steps:
+      - checkout
+
+      - run:
+          name: Set up JDK 21
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y openjdk-21-jdk
+            echo 'export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64' >> "$BASH_ENV"
+            echo 'export PATH=$JAVA_HOME/bin:$PATH' >> "$BASH_ENV"
+            java -version
+
+      - restore_cache:
+          keys:
+            - gradle-v1-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}
+            - gradle-v1-
+
+      - run:
+          name: Prepare Gradle wrapper
+          command: |
+            if [ ! -f "gradlew" ]; then
+              gradle wrapper
+            fi
+            chmod +x gradlew
+            ./gradlew --version
+
+      - run:
+          name: Validate Android network configuration
+          command: |
+            grep -q 'android.permission.INTERNET' app/src/main/AndroidManifest.xml
+            if grep -RniE 'GEMINI_API_KEY\s*=|AIza[0-9A-Za-z_-]{20,}' app --exclude-dir=build; then
+              echo 'Gemini API key material must not be committed to the Android app.'
+              exit 1
+            fi
+
+      - run:
+          name: Restore Debug Keystore
+          command: |
+            if [ -f "debug.keystore.base64" ] && [ ! -f "debug.keystore" ]; then
+              base64 -d debug.keystore.base64 > debug.keystore || base64 --decode debug.keystore.base64 > debug.keystore
+            fi
+            if [ ! -f "debug.keystore" ]; then
+              keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+            fi
+
+      - run:
+          name: Run Unit Tests
+          command: ./gradlew testDebugUnitTest --no-daemon
+
+      - store_test_results:
+          path: app/build/test-results/testDebugUnitTest
+
+      - run:
+          name: Restore Release Keystore
+          command: |
+            if [ -z "$KEYSTORE_BASE64" ]; then
+              echo "KEYSTORE_BASE64 CircleCI environment variable is missing"
+              exit 1
+            fi
+            echo "$KEYSTORE_BASE64" | base64 --decode > "$HOME/xboard-release.jks"
+
+      - run:
+          name: Validate Release APK
+          command: |
+            export KEYSTORE_PATH="$HOME/xboard-release.jks"
+            export STORE_PASSWORD="$KEYSTORE_PASSWORD"
+            export KEY_ALIAS="$KEY_ALIAS"
+            export KEY_PASSWORD="$KEY_PASSWORD"
+            ./gradlew assembleRelease --no-daemon
+
+      - save_cache:
+          key: gradle-v1-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}
+          paths:
+            - ~/.gradle/caches
+            - ~/.gradle/wrapper
+
+      - store_artifacts:
+          path: app/build/outputs/apk/release/app-release.apk
+          destination: ClipNest-release-validation-apk
+
+      - store_artifacts:
+          path: app/build/reports/tests/testDebugUnitTest
+          destination: ClipNest-test-report
+
+workflows:
+  build-and-test:
+    jobs:
+      - build-and-test:
+          filters:
+            branches:
+              only:
+                - Draft
+                - Editor
+                - Note
+                - circleci-project-setup
+                - main
