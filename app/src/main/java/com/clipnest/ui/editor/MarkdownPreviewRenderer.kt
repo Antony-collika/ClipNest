@@ -41,10 +41,10 @@ object MarkdownPreviewRenderer {
             val level = match.groupValues[1].toInt()
             val title = match.groupValues[2]
             val id = "md-heading-${headingIndex++}"
-            tocItems.append("<button class=\\\"toc-item toc-level-$level\\\" onclick=\\\"jumpToHeading('$id')\\\">$title</button>")
-            "<h$level id=\\\"$id\\\">$title</h$level>"
+            tocItems.append("<button class=\"toc-item toc-level-$level\" onclick=\"jumpToHeading('$id')\">$title</button>")
+            "<h$level id=\"$id\">$title</h$level>"
         }
-        val toc = if (tocItems.isNotEmpty()) tocItems.toString() else "<div class=\\\"toc-empty\\\">No headings</div>"
+        val toc = if (tocItems.isNotEmpty()) tocItems.toString() else "<div class=\"toc-empty\">No headings</div>"
 
         return """
             <!doctype html>
@@ -64,12 +64,7 @@ object MarkdownPreviewRenderer {
                   overflow-wrap: anywhere;
                   overflow-x: hidden;
                 }
-                h1, h2, h3, h4, h5, h6 {
-                  color: ${colors.onSurface};
-                  line-height: 1.25;
-                  margin: 0.6em 0 0.45em;
-                  scroll-margin-top: 56px;
-                }
+                h1, h2, h3, h4, h5, h6 { color: ${colors.onSurface}; line-height: 1.25; margin: 0.6em 0 0.45em; scroll-margin-top: 56px; }
                 h1, h2 { border-bottom: 1px solid ${colors.outlineVariant}; padding-bottom: 0.2em; }
                 p { margin: 0.7em 0; }
                 a { color: ${colors.primary}; }
@@ -86,7 +81,6 @@ object MarkdownPreviewRenderer {
                 th, td { border: 1px solid ${colors.outlineVariant}; padding: 8px 6px; vertical-align: top; text-align: left; white-space: normal; overflow-wrap: anywhere; word-break: break-word; min-width: 0; max-width: 0; }
                 th { color: ${colors.onSurface}; font-weight: 700; }
                 td { color: ${colors.onSurface}; }
-
                 .preview-toc-bar { position: sticky; top: 0; z-index: 20; display: flex; justify-content: flex-end; height: 42px; padding: 4px 2px; background: ${colors.background}; border-bottom: 1px solid ${colors.outlineVariant}; }
                 .toc-toggle { width: 38px; height: 34px; border: 0; border-radius: 8px; background: transparent; color: ${colors.primary}; font-size: 20px; cursor: pointer; }
                 .toc-toggle:active { background: ${colors.surfaceVariant}; }
