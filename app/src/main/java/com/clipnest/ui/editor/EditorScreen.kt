@@ -153,12 +153,11 @@ fun EditorScreen(
             }
     ) {
         Column(Modifier.fillMaxSize()) {
-            if (uiState.mode == EditorMode.NOTE) {
-                EditorNoteBreadcrumbBar(
-                    origin = uiState.noteOrigin,
-                    onExit = { viewModel.flushPendingSaveAndExit(context.contentResolver, onExit) }
-                )
-            }
+            EditorNoteBreadcrumbBar(
+                mode = uiState.mode,
+                origin = uiState.noteOrigin,
+                onExit = { viewModel.flushPendingSaveAndExit(context.contentResolver, onExit) }
+            )
             EditorToolbox(
                 isMarkdownToolsExpanded = uiState.isMarkdownToolsExpanded,
                 isPreviewVisible = uiState.showMarkdownPreview,
@@ -179,16 +178,14 @@ fun EditorScreen(
                 onHorizontalRule = viewModel::insertMarkdownHorizontalRule,
                 onTogglePreview = viewModel::toggleMarkdownPreview
             )
-            if (uiState.mode == EditorMode.NOTE) {
-                EditorNoteTitleField(
-                    value = uiState.title,
-                    onValueChange = viewModel::onTitleChange,
-                    editorTextSize = editorTextSize,
-                    textColor = MaterialTheme.colorScheme.onSurface,
-                    hintColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
-                )
-                EditorNoteTitleDivider()
-            }
+            EditorNoteTitleField(
+                value = uiState.title,
+                onValueChange = viewModel::onTitleChange,
+                editorTextSize = editorTextSize,
+                textColor = MaterialTheme.colorScheme.onSurface,
+                hintColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+            )
+            EditorNoteTitleDivider()
             AndroidView(
                 factory = {
                     NativeEditorView(it).apply {

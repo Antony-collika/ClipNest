@@ -3,13 +3,16 @@ package com.clipnest.ui.editor
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -29,16 +32,24 @@ import androidx.compose.ui.unit.sp
 import com.clipnest.data.local.EditorTextSize
 
 /**
- * Breadcrumb row shown only in [EditorMode.NOTE]: a back action on the left
- * (plain "Taking note" or "<origin>/New Note" when [origin] is set) and a
- * "Done" action on the right. Both actions invoke the same [onExit] callback
- * — autosave already persists on every change, so neither icon "saves"
- * anything the other doesn't; they only differ in the exit intent they
- * communicate to the user. Split into two affordances instead of one so
- * users who expect an explicit save/confirm step still see one.
+ * Breadcrumb row above the toolbar. Always visible (Title/Divider/Content
+ * below are also always visible) — only the label and the right-hand
+ * action change with [mode]:
+ *
+ * - [EditorMode.PLAIN]: left side reads "Editor mode" (no back icon), right
+ *   side reads "Save to Note" with a Save icon.
+ * - [EditorMode.NOTE]: left side shows a back arrow plus "Taking note" (or
+ *   "<origin>/New Note" when [origin] is set), right side reads "Done" with
+ *   a Check icon.
+ *
+ * Both right-side actions call the same [onExit] — autosave already
+ * persists on every change, so neither one "saves" anything the other
+ * doesn't; "Save to Note" and "Done" just communicate different intent to
+ * the user depending on which mode they're in.
  */
 @Composable
 fun EditorNoteBreadcrumbBar(
+    mode: EditorMode,
     origin: EditorNoteOrigin?,
     onExit: () -> Unit,
     modifier: Modifier = Modifier
@@ -52,44 +63,59 @@ fun EditorNoteBreadcrumbBar(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(
-                onClick = onExit,
-                modifier = Modifier.testTag("note_breadcrumb_back")
-            ) {
-                Icon(
-                    Icons.Default.ArrowBack,
-                    contentDescription = stringResource(com.clipnest.R.string.back),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            if (mode == EditorMode.NOTE) {
+                IconButton(
+                    onClick = onExit,
+                    modifier = Modifier.testTag("note_breadcrumb_back")
+                ) {
+                    Icon(
+                        Icons.Default.ArrowBack,
+                        contentDescription = stringResource(com.clipnest.R.string.back),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                Spacer(Modifier.width(12.dp))
             }
             Text(
-                text = origin?.let { stringResource(com.clipnest.R.string.note_breadcrumb_with_origin, it.label) }
-                    ?: stringResource(com.clipnest.R.string.note_breadcrumb_default),
+                text = when {
+                    mode != EditorMode.NOTE -> stringResource(com.clipnest.R.string.editor_mode_label)
+                    origin != null -> stringResource(com.clipnest.R.string.note_breadcrumb_with_origin, origin.label)
+                    else -> stringResource(com.clipnest.R.string.note_breadcrumb_default)
+                },
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         TextButton(
             onClick = onExit,
-            modifier = Modifier.testTag("note_breadcrumb_done")
+            modifier = Modifier.testTag("note_breadcrumb_action")
         ) {
             Icon(
-                Icons.Default.Check,
+                if (mode == EditorMode.NOTE) Icons.Default.Check else Icons.Default.Save,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(end = 4.dp)
             )
-            Text(stringResource(com.clipnest.R.string.done), color = MaterialTheme.colorScheme.primary)
+            Text(
+                text = if (mode == EditorMode.NOTE)
+                    stringResource(com.clipnest.R.string.done)
+                else
+                    stringResource(com.clipnest.R.string.save_to_note),
+                color = MaterialTheme.colorScheme.primary
+            )
         }
     }
 }
 
 /**
- * Title field shown only in [EditorMode.NOTE], above the shared content
- * editor. Font size tracks [editorTextSize] (base size + 2sp, bold) instead
- * of a hardcoded style, so it stays proportional when the user changes the
- * app-wide editor text size. Height is intentionally NOT fixed — it wraps
- * to content — so larger text sizes don't get clipped.
+ * Title field above the shared content editor. Always visible, in both
+ * [EditorMode.PLAIN] and [EditorMode.NOTE] — same placeholder behavior in
+ * either mode, no mode branching here. Font size tracks [editorTextSize]
+ * (base size + 2sp, bold) instead of a hardcoded style, so it stays
+ * proportional when the user changes the app-wide editor text size. Height
+ * is intentionally NOT fixed — it wraps to content — so larger text sizes
+ * don't get clipped.
  */
 @Composable
 fun EditorNoteTitleField(
