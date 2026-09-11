@@ -309,8 +309,18 @@ private fun MarkdownPreviewDialog(html: String, backgroundColor: Color, contentC
         AnimatedVisibility(visibleState = visibility, enter = fadeIn(tween(280)) + slideInVertically(tween(280), initialOffsetY = { -it / 6 }), exit = fadeOut(tween(220)) + slideOutVertically(tween(220), targetOffsetY = { -it / 6 })) {
             Surface(modifier = Modifier.fillMaxWidth(0.92f).fillMaxHeight(0.88f).widthIn(max = 720.dp).shadow(24.dp, shape).clip(shape).testTag("markdown_preview_dialog"), shape = shape, color = backgroundColor, contentColor = contentColor) {
                 Column(Modifier.fillMaxSize()) {
-                    Row(Modifier.fillMaxWidth().height(PREVIEW_HEADER_HEIGHT).padding(start = 16.dp, end = 4.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-                        Text(stringResource(com.clipnest.R.string.preview_markdown), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
+                    Row(Modifier.fillMaxWidth().height(PREVIEW_HEADER_HEIGHT).padding(start = 8.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(
+                            onClick = {},
+                            modifier = Modifier.size(44.dp).testTag("markdown_preview_toc")
+                        ) {
+                            Icon(Icons.Default.FormatListBulleted, "Table of contents", tint = contentColor)
+                        }
+                        Text(
+                            stringResource(com.clipnest.R.string.preview_markdown),
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+                        )
                         IconButton(::dismiss, Modifier.size(44.dp).testTag("markdown_preview_close")) { Icon(Icons.Default.Close, stringResource(com.clipnest.R.string.close), tint = contentColor) }
                     }
                     HorizontalDivider(color = contentColor.copy(alpha = 0.18f))
