@@ -75,9 +75,58 @@ object MarkdownPreviewRenderer {
             </html>
         """.trimIndent()
     }
+
+    fun extractHeadings(markdown: String): List<MarkdownHeading> {
+        val headings = mutableListOf<MarkdownHeading>()
+        val lines = markdown.replace("\r\n", "\n").replace('\r', '\n').lines()
+        var index = 0
+        var inFence = false
+        var line = 0
+        while (line < lines.size) {
+            val current = lines[line]
+            val trimmed = current.trim()
+            if (trimmed.startsWith("```") || trimmed.startsWith("~~~")) {
+                inFence = !inFence
+                line++
+                continue
+            }
+            if (!inFence) {
+                val atx = Regex("^#{1,6}\\s+(.+?)\\s*#*\\s*$").find(trimmed)
+                if (atx != null) {
+                    val level = trimmed.takeWhile { it == '#' }.length
+                    headings += MarkdownHeading(level, cleanHeadingTitle(atx.groupValues[1]), index++)
+                    line++
+                    continue
+                }
+                if (line + 1 < lines.size && trimmed.isNotEmpty()) {
+                    val next = lines[line + 1].trim()
+                    val level = when {
+                        next.matches(Regex("^=+\\s*$")) -> 1
+                        next.matches(Regex("^-+\\s*$")) -> 2
+                        else -> 0
+                    }
+                    if (level != 0) {
+                        headings += MarkdownHeading(level, cleanHeadingTitle(trimmed), index++)
+                        line += 2
+                        continue
+                    }
+                }
+            }
+            line++
+        }
+        return headings
+    }
+
+    private fun cleanHeadingTitle(title: String): String = title
+        .replace(Regex("!\\[([^]]*)]\\([^)]*\\)"), "$1")
+        .replace(Regex("\\[([^]]+)]\\([^)]*\\)"), "$1")
+        .replace(Regex("[*_~`]"), "")
+        .trim()
 }
 
 private fun Color.toPreviewCssHex(): String = String.format(Locale.US, "#%06X", toArgb() and 0xFFFFFF)
+
+data class MarkdownHeading(val level: Int, val title: String, val index: Int)
 
 data class MarkdownPreviewColors(
     val background: String,

@@ -33,6 +33,9 @@ internal fun MarkdownPreviewWebView(
                 webViewClient = object : WebViewClient() {
                     override fun onPageFinished(view: WebView?, url: String?) {
                         onReady()
+                        jumpToHeadingIndex?.let { index ->
+                            view?.evaluateJavascript("jumpToHeading('md-heading-$index')", null)
+                        }
                     }
                 }
             }
@@ -46,10 +49,11 @@ internal fun MarkdownPreviewWebView(
                 webView.post {
                     if (webView.tag == html) webView.scrollTo(0, previousScrollY)
                 }
-            }
-            jumpToHeadingIndex?.let { index ->
-                webView.post {
-                    webView.evaluateJavascript("jumpToHeading('md-heading-$index')", null)
+            } else {
+                jumpToHeadingIndex?.let { index ->
+                    webView.post {
+                        webView.evaluateJavascript("jumpToHeading('md-heading-$index')", null)
+                    }
                 }
             }
         },

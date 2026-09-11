@@ -14,8 +14,12 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -55,6 +59,7 @@ import com.clipnest.data.local.EditorTextSize
 import com.clipnest.data.local.ViewerTextSize
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private const val PREVIEW_SMALL_DOCUMENT_THRESHOLD = 100_000
@@ -97,6 +102,8 @@ fun EditorScreen(
         )
     }
     var previewHtml by remember { mutableStateOf("") }
+    var tocHeadings by remember { mutableStateOf<List<MarkdownHeading>>(emptyList()) }
+    var tocIndexing by remember { mutableStateOf(false) }
     var editorVisible by remember { mutableStateOf(true) }
 
     DisposableEffect(lifecycleOwner) {
@@ -121,6 +128,8 @@ fun EditorScreen(
 
     LaunchedEffect(uiState.documentRevision, uiState.showMarkdownPreview, previewColors, viewerTextSize) {
         if (!uiState.showMarkdownPreview) return@LaunchedEffect
+        tocIndexing = true
+        tocHeadings = emptyList()
         val size = viewModel.currentDocumentText().length
         val debounce = when {
             size >= PREVIEW_LARGE_DOCUMENT_THRESHOLD -> PREVIEW_HUGE_DEBOUNCE_MS
@@ -133,7 +142,19 @@ fun EditorScreen(
         val rendered = withContext(Dispatchers.Default) {
             MarkdownPreviewRenderer.render(snapshot.text, previewColors, viewerTextSize.px)
         }
-        if (snapshot.isCurrent(viewModel.uiState.value.documentRevision) && viewModel.uiState.value.showMarkdownPreview) previewHtml = rendered
+        if (snapshot.isCurrent(viewModel.uiState.value.documentRevision) && viewModel.uiState.value.showMarkdownPreview) {
+            previewHtml = rendered
+            launch {
+                val headings = withContext(Dispatchers.Default) {
+                    MarkdownPreviewRenderer.extractHeadings(snapshot.text)
+                }
+                val current = viewModel.uiState.value
+                if (current.showMarkdownPreview && current.documentRevision == snapshot.revision) {
+                    tocHeadings = headings
+                    tocIndexing = false
+                }
+            }
+        }
     }
 
     LaunchedEffect(uiState.showMarkdownPreview) {
@@ -206,7 +227,14 @@ fun EditorScreen(
     }
 
     if (uiState.showMarkdownPreview) {
-        MarkdownPreviewDialog(previewHtml, previewBackground, previewTextColor, viewModel::toggleMarkdownPreview)
+        MarkdownPreviewDialog(
+            html = previewHtml,
+            headings = tocHeadings,
+            tocIndexing = tocIndexing,
+            backgroundColor = previewBackground,
+            contentColor = previewTextColor,
+            onDismiss = viewModel::toggleMarkdownPreview
+        )
     }
 
     if (uiState.showSaveNewFileDialog) {
@@ -298,11 +326,20 @@ private fun EditorToolButton(tag: String, description: String, icon: androidx.co
 }
 
 @Composable
-private fun MarkdownPreviewDialog(html: String, backgroundColor: Color, contentColor: Color, onDismiss: () -> Unit) {
+private fun MarkdownPreviewDialog(
+    html: String,
+    headings: List<MarkdownHeading>,
+    tocIndexing: Boolean,
+    backgroundColor: Color,
+    contentColor: Color,
+    onDismiss: () -> Unit
+) {
     val surfaceColor = backgroundColor.toArgb()
     val shape = RoundedCornerShape(18.dp)
     val visibility = remember { MutableTransitionState(true) }
     var ready by remember(html) { mutableStateOf(false) }
+    var showToc by remember { mutableStateOf(false) }
+    var pendingHeadingIndex by remember { mutableStateOf<Int?>(null) }
     fun dismiss() { if (visibility.targetState) visibility.targetState = false }
     LaunchedEffect(visibility.currentState, visibility.targetState) { if (!visibility.currentState && !visibility.targetState) onDismiss() }
     Dialog(onDismissRequest = ::dismiss, properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = true, dismissOnClickOutside = true)) {
@@ -310,23 +347,45 @@ private fun MarkdownPreviewDialog(html: String, backgroundColor: Color, contentC
             Surface(modifier = Modifier.fillMaxWidth(0.92f).fillMaxHeight(0.88f).widthIn(max = 720.dp).shadow(24.dp, shape).clip(shape).testTag("markdown_preview_dialog"), shape = shape, color = backgroundColor, contentColor = contentColor) {
                 Column(Modifier.fillMaxSize()) {
                     Row(Modifier.fillMaxWidth().height(PREVIEW_HEADER_HEIGHT).padding(start = 8.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(
-                            onClick = {},
-                            modifier = Modifier.size(44.dp).testTag("markdown_preview_toc")
-                        ) {
-                            Icon(Icons.Default.FormatListBulleted, "Table of contents", tint = contentColor)
+                        if (showToc) {
+                            IconButton(onClick = { showToc = false }, Modifier.size(44.dp).testTag("markdown_preview_toc_back")) {
+                                Icon(Icons.Default.ArrowBack, "Back", tint = contentColor)
+                            }
+                            Text("Table of Contents", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
+                        } else {
+                            IconButton(onClick = { showToc = true }, Modifier.size(44.dp).testTag("markdown_preview_toc")) {
+                                Icon(Icons.Default.FormatListBulleted, "Table of contents", tint = contentColor)
+                            }
+                            Text(stringResource(com.clipnest.R.string.preview_markdown), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
                         }
-                        Text(
-                            stringResource(com.clipnest.R.string.preview_markdown),
-                            modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
-                        )
                         IconButton(::dismiss, Modifier.size(44.dp).testTag("markdown_preview_close")) { Icon(Icons.Default.Close, stringResource(com.clipnest.R.string.close), tint = contentColor) }
                     }
                     HorizontalDivider(color = contentColor.copy(alpha = 0.18f))
                     Box(Modifier.fillMaxSize().padding(start = 20.dp, end = 20.dp, bottom = 20.dp)) {
-                        if (html.isNotBlank()) MarkdownPreviewWebView(html, surfaceColor) { ready = true }
-                        MarkdownPreviewLoadingOverlay(!ready, backgroundColor, contentColor)
+                        if (showToc) {
+                            if (tocIndexing) {
+                                Text("🔹Loading . . .", modifier = Modifier.fillMaxWidth().padding(20.dp), style = MaterialTheme.typography.bodyLarge)
+                            } else if (headings.isNotEmpty()) {
+                                LazyColumn(Modifier.fillMaxSize().testTag("markdown_toc_list")) {
+                                    items(headings, key = { it.index }) { heading ->
+                                        Text(
+                                            heading.title,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable {
+                                                    pendingHeadingIndex = heading.index
+                                                    showToc = false
+                                                }
+                                                .padding(start = ((heading.level - 1) * 18).dp, top = 10.dp, bottom = 10.dp, end = 8.dp),
+                                            style = MaterialTheme.typography.bodyLarge
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            if (html.isNotBlank()) MarkdownPreviewWebView(html, surfaceColor, pendingHeadingIndex) { ready = true }
+                            MarkdownPreviewLoadingOverlay(!ready, backgroundColor, contentColor)
+                        }
                     }
                 }
             }
