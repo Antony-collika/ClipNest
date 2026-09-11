@@ -24,7 +24,7 @@ class MarkdownPreviewRendererTest {
             colors
         )
 
-        assertTrue(html.contains("<h1>Title</h1>"))
+        assertTrue(html.contains("<h1 id=\"md-heading-0\">Title</h1>"))
         assertTrue(html.contains("<strong>bold</strong>"))
         assertTrue(html.contains("<em>italic</em>"))
         assertTrue(html.contains("<blockquote>"))
@@ -53,7 +53,24 @@ class MarkdownPreviewRendererTest {
     fun escapesRawHtmlInUserContent() {
         val html = MarkdownPreviewRenderer.render("<script>alert('x')</script>", colors)
 
-        assertTrue(!html.contains("<script"))
-        assertTrue(!html.contains("</script>"))
+        assertTrue(html.contains("function toggleToc()"))
+        assertTrue(!html.contains("<script>alert('x')</script>"))
+        assertTrue(!html.contains("alert('x')"))
+    }
+
+    @Test
+    fun buildsTableOfContentsForHeadings() {
+        val html = MarkdownPreviewRenderer.render(
+            "# Overview\n\n## Setup\n\n### Configuration",
+            colors
+        )
+
+        assertTrue(html.contains("id=\"md-heading-0\""))
+        assertTrue(html.contains("id=\"md-heading-1\""))
+        assertTrue(html.contains("id=\"md-heading-2\""))
+        assertTrue(html.contains("toc-level-1"))
+        assertTrue(html.contains("toc-level-2"))
+        assertTrue(html.contains("toc-level-3"))
+        assertTrue(html.contains("jumpToHeading('md-heading-1')"))
     }
 }
