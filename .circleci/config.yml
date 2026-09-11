@@ -18,10 +18,6 @@ jobs:
             echo 'export PATH=$JAVA_HOME/bin:$PATH' >> "$BASH_ENV"
             java -version
 
-      - run:
-          name: Restore Gradle cache
-          command: |
-            echo 'Gradle cache is restored by CircleCI cache step when available.'
       - restore_cache:
           keys:
             - gradle-v1-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}
@@ -76,11 +72,9 @@ jobs:
           command: ./gradlew assembleRelease --no-daemon
           environment:
             KEYSTORE_PATH: /home/circleci/xboard-release.jks
-
-      - run:
-          name: Save Gradle cache
-          command: |
-            echo 'Gradle cache will be saved after the build.'
+            STORE_PASSWORD: ${STORE_PASSWORD}
+            KEY_ALIAS: ${KEY_ALIAS}
+            KEY_PASSWORD: ${KEY_PASSWORD}
 
       - save_cache:
           key: gradle-v1-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}
