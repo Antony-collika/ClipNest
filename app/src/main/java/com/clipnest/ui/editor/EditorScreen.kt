@@ -240,7 +240,7 @@ fun EditorScreen(
     if (uiState.showSaveNewFileDialog) {
         SaveNewFileDialog(
             defaultFolderUri = uiState.defaultSaveFolderUri,
-            initialFileName = uiState.documentName,
+            initialFileName = uiState.title.ifBlank { uiState.documentName },
             onChooseFolder = onRequestSaveFolder,
             onDismiss = viewModel::dismissSaveNewFileDialog,
             onConfirm = { fileName, format ->
