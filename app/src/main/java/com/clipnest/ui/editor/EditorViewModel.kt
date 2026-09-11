@@ -115,12 +115,18 @@ class EditorViewModel(
     private fun loadEditor() {
         viewModelScope.launch(Dispatchers.IO) {
             val text = fileManager.readEditor()
+            val title = fileManager.readEditorTitle()
             withContext(Dispatchers.Main.immediate) {
-                if (!editorLoaded) {
+                if (!editorLoaded && !_uiState.value.isDirty) {
                     _uiState.value.content.setFallback(text, TextRange(text.length))
                     nativeEditor?.setEditorText(text, text.length)
                     editorDocumentGeneration++
-                    _uiState.value = _uiState.value.copy(documentRevision = _uiState.value.documentRevision + 1, isDirty = false, lastSavedTimestamp = System.currentTimeMillis())
+                    _uiState.value = _uiState.value.copy(
+                        documentRevision = _uiState.value.documentRevision + 1,
+                        isDirty = false,
+                        title = title,
+                        lastSavedTimestamp = System.currentTimeMillis()
+                    )
                 }
                 editorLoaded = true
             }
@@ -183,7 +189,18 @@ class EditorViewModel(
     private fun decodeUtf8(bytes: ByteArray): String { val offset = if (bytes.size >= 3 && bytes[0] == 0xEF.toByte() && bytes[1] == 0xBB.toByte() && bytes[2] == 0xBF.toByte()) 3 else 0; return bytes.copyOfRange(offset, bytes.size).toString(Charsets.UTF_8) }
     private fun writeExternalDocument(uri: Uri, resolver: ContentResolver, text: String) { val output = if (uri.scheme == ContentResolver.SCHEME_FILE) File(uri.path ?: error("File URI has no path")).outputStream() else resolver.openOutputStream(uri, "wt") ?: resolver.openOutputStream(uri) ?: error("Unable to save file"); output.use { it.write(text.toByteArray(Charsets.UTF_8)); it.flush() } }
     private fun queryDisplayName(uri: Uri, resolver: ContentResolver): String = runCatching { resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { if (it.moveToFirst()) it.getString(0) else null } }.getOrNull()?.takeIf(String::isNotBlank) ?: uri.lastPathSegment?.substringAfterLast('/')?.takeIf(String::isNotBlank) ?: appContext.withAppLanguage(settings.value.language).getString(com.clipnest.R.string.open_file)
-    private fun writeDocumentSnapshot(state: EditorUiState, resolver: ContentResolver, text: String = state.content.text) { if (state.externalDocumentSaveAsOnly) return; val uri = state.externalDocumentUri?.let(Uri::parse); if (uri == null) { if (state.isDirty) fileManager.writeEditor(text) } else if (state.isDirty) writeExternalDocument(uri, resolver, text) }
+    private fun writeDocumentSnapshot(state: EditorUiState, resolver: ContentResolver, text: String = state.content.text) {
+        if (state.externalDocumentSaveAsOnly) return
+        val uri = state.externalDocumentUri?.let(Uri::parse)
+        if (uri == null) {
+            if (state.isDirty) {
+                fileManager.writeEditor(text)
+                fileManager.writeEditorTitle(state.title)
+            }
+        } else if (state.isDirty) {
+            writeExternalDocument(uri, resolver, text)
+        }
+    }
 
     fun returnToInternalEditor(contentResolver: ContentResolver, onComplete: () -> Unit = {}) {
         val state = _uiState.value
@@ -203,7 +220,7 @@ class EditorViewModel(
     fun configureNoteMode(origin: EditorNoteOrigin?) { _uiState.value = _uiState.value.copy(mode = EditorMode.NOTE, noteOrigin = origin) }
 
     /** Title edits ride the same debounced autosave as content edits below — no separate save path. */
-    fun onTitleChange(newTitle: String) { _uiState.value = _uiState.value.copy(title = newTitle, isDirty = true); scheduleDebouncedAutoSave() }
+    fun onTitleChange(newTitle: String) { editorLoaded = true; _uiState.value = _uiState.value.copy(title = newTitle, isDirty = true); scheduleDebouncedAutoSave() }
 
     /**
      * Cancels any pending debounced autosave and writes immediately, then calls [onComplete].
@@ -215,6 +232,7 @@ class EditorViewModel(
         val state = _uiState.value
         val text = currentDocumentText()
         val revision = state.documentRevision
+        _uiState.value.content.setFallback(text, nativeEditor?.let { TextRange(it.selectionStart, it.selectionEnd) } ?: TextRange(text.length))
         viewModelScope.launch(Dispatchers.IO) {
             val saved = runCatching { writeDocumentSnapshot(state, contentResolver, text) }.isSuccess
             withContext(Dispatchers.Main.immediate) {
@@ -260,7 +278,19 @@ class EditorViewModel(
     fun deleteSelectedText() { nativeEditor?.let { if (it.selectionStart != it.selectionEnd) replaceSelection("") else emitToast(com.clipnest.R.string.select_text_to_delete) } }
     private fun replaceSelection(replacement: String) { nativeEditor?.let { replaceRange(it.selectionStart, it.selectionEnd, replacement, it.selectionStart + replacement.length, it.selectionStart + replacement.length) } }
     private fun scheduleDebouncedAutoSave() { autoSaveJob?.cancel(); autoSaveJob = viewModelScope.launch { delay(1500); if (_uiState.value.isDirty) saveCurrentDocumentSilently() } }
-    fun saveCurrentDocumentSilently() { val state = _uiState.value; val text = currentDocumentText(); val revision = state.documentRevision; viewModelScope.launch(Dispatchers.IO) { val saved = runCatching { writeDocumentSnapshot(state, appContext.contentResolver, text) }.isSuccess; withContext(Dispatchers.Main.immediate) { if (saved && _uiState.value.documentRevision == revision) _uiState.value = _uiState.value.copy(isDirty = false, lastSavedTimestamp = System.currentTimeMillis()) } } }
+    fun saveCurrentDocumentSilently() {
+        if (!_uiState.value.isDirty) return
+        val text = currentDocumentText()
+        val state = _uiState.value
+        val revision = state.documentRevision
+        _uiState.value.content.setFallback(text, nativeEditor?.let { TextRange(it.selectionStart, it.selectionEnd) } ?: TextRange(text.length))
+        viewModelScope.launch(Dispatchers.IO) {
+            val saved = runCatching { writeDocumentSnapshot(state, appContext.contentResolver, text) }.isSuccess
+            withContext(Dispatchers.Main.immediate) {
+                if (saved && _uiState.value.documentRevision == revision) _uiState.value = _uiState.value.copy(isDirty = false, lastSavedTimestamp = System.currentTimeMillis())
+            }
+        }
+    }
     fun onSaveClicked(contentResolver: ContentResolver = appContext.contentResolver) { val state = _uiState.value; if (state.externalDocumentSaveAsOnly || state.externalDocumentUri == null) _uiState.value = state.copy(showSaveNewFileDialog = true) else saveExternalDocument(Uri.parse(state.externalDocumentUri), contentResolver) }
     private fun saveExternalDocument(uri: Uri, resolver: ContentResolver) { val text = currentDocumentText(); val revision = _uiState.value.documentRevision; viewModelScope.launch(Dispatchers.IO) { val ok = runCatching { writeExternalDocument(uri, resolver, text) }.isSuccess; withContext(Dispatchers.Main.immediate) { if (ok) { if (_uiState.value.documentRevision == revision) _uiState.value = _uiState.value.copy(isDirty = false, lastSavedTimestamp = System.currentTimeMillis()); emitToast(com.clipnest.R.string.saved_current_file) } else { _uiState.value = _uiState.value.copy(showSaveNewFileDialog = true); emitToast(com.clipnest.R.string.could_not_save_open_file) } } } }
     fun dismissSaveNewFileDialog() { _uiState.value = _uiState.value.copy(showSaveNewFileDialog = false) }
