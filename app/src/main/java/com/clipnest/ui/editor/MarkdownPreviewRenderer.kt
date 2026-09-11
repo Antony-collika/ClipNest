@@ -26,16 +26,13 @@ object MarkdownPreviewRenderer {
     fun render(markdown: String, colors: MarkdownPreviewColors, viewerTextSizePx: Int = 16): String {
         val renderedBody = renderer.render(parser.parse(markdown))
         var headingIndex = 0
-        val tocItems = StringBuilder()
         val headingRegex = Regex("<h([1-6])>(.*?)</h\\1>", setOf(RegexOption.DOT_MATCHES_ALL))
         val body = headingRegex.replace(renderedBody) { match ->
             val level = match.groupValues[1].toInt()
             val title = match.groupValues[2]
             val id = "md-heading-${headingIndex++}"
-            tocItems.append("<button class=\"toc-item toc-level-$level\" onclick=\"jumpToHeading('$id')\">$title</button>")
             "<h$level id=\"$id\">$title</h$level>"
         }
-        val toc = if (tocItems.isNotEmpty()) tocItems.toString() else "<div class=\"toc-empty\">No headings</div>"
 
         return """
             <!doctype html>
@@ -47,7 +44,7 @@ object MarkdownPreviewRenderer {
                 * { box-sizing: border-box; }
                 html, body { margin: 0; padding: 0; min-height: 100%; scroll-behavior: smooth; }
                 body { background: ${colors.background}; color: ${colors.onSurface}; font-family: sans-serif; font-size: ${viewerTextSizePx.coerceIn(10, 32)}px; line-height: 1.5; overflow-wrap: anywhere; overflow-x: hidden; }
-                h1, h2, h3, h4, h5, h6 { color: ${colors.onSurface}; line-height: 1.25; margin: 0.6em 0 0.45em; scroll-margin-top: 56px; }
+                h1, h2, h3, h4, h5, h6 { color: ${colors.onSurface}; line-height: 1.25; margin: 0.6em 0 0.45em; scroll-margin-top: 12px; }
                 h1, h2 { border-bottom: 1px solid ${colors.outlineVariant}; padding-bottom: 0.2em; }
                 p { margin: 0.7em 0; }
                 a { color: ${colors.primary}; }
@@ -64,34 +61,15 @@ object MarkdownPreviewRenderer {
                 th, td { border: 1px solid ${colors.outlineVariant}; padding: 8px 6px; vertical-align: top; text-align: left; white-space: normal; overflow-wrap: anywhere; word-break: break-word; min-width: 0; max-width: 0; }
                 th { color: ${colors.onSurface}; font-weight: 700; }
                 td { color: ${colors.onSurface}; }
-                .preview-toc-bar { position: sticky; top: 0; z-index: 20; display: flex; justify-content: flex-end; height: 42px; padding: 4px 2px; background: ${colors.background}; border-bottom: 1px solid ${colors.outlineVariant}; }
-                .toc-toggle { width: 38px; height: 34px; border: 0; border-radius: 8px; background: transparent; color: ${colors.primary}; font-size: 20px; cursor: pointer; }
-                .toc-toggle:active { background: ${colors.surfaceVariant}; }
-                .toc-panel { position: fixed; top: 46px; right: 8px; z-index: 30; width: min(82vw, 360px); max-height: 70vh; overflow-y: auto; padding: 8px; border: 1px solid ${colors.outlineVariant}; border-radius: 12px; background: ${colors.background}; box-shadow: 0 8px 28px rgba(0,0,0,.24); display: none; }
-                .toc-panel.open { display: block; }
-                .toc-title { padding: 6px 8px 8px; color: ${colors.onSurface}; font-weight: 700; font-size: .9em; }
-                .toc-item { display: block; width: 100%; border: 0; border-radius: 7px; background: transparent; color: ${colors.onSurface}; padding: 7px 8px; text-align: left; font: inherit; cursor: pointer; }
-                .toc-item:hover, .toc-item:active { background: ${colors.surfaceVariant}; }
-                .toc-level-2 { padding-left: 20px; }
-                .toc-level-3 { padding-left: 32px; }
-                .toc-level-4 { padding-left: 44px; }
-                .toc-level-5 { padding-left: 56px; }
-                .toc-level-6 { padding-left: 68px; }
-                .toc-empty { padding: 8px; color: ${colors.onSurfaceVariant}; }
               </style>
               <script>
-                function toggleToc() { document.getElementById('toc-panel').classList.toggle('open'); }
                 function jumpToHeading(id) {
                   var target = document.getElementById(id);
                   if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  var panel = document.getElementById('toc-panel');
-                  if (panel) panel.classList.remove('open');
                 }
               </script>
             </head>
             <body>
-              <div class="preview-toc-bar"><button class="toc-toggle" aria-label="Table of contents" title="Table of contents" onclick="toggleToc()">☰</button></div>
-              <div id="toc-panel" class="toc-panel"><div class="toc-title">Table of contents</div>$toc</div>
               $body
             </body>
             </html>
