@@ -233,10 +233,12 @@
     <string name="export_pinned">Đã ghim</string>
     <string name="export_url_type">URL</string>
     <string name="export_combined_type">Kết hợp</string>
-<string name="note_breadcrumb_default">Đang ghi chú</string>
-<string name="note_breadcrumb_with_origin">%1$s/Memo mới</string>
-<string name="note_title_placeholder">Tiêu đề hể we go</string>
-<string name="edit_note">Memo</string>
-<string name="done">😎</string>
-<string name="back">Im bách</string>
-</resources>
+<!-- res/values-vi/strings.xml (Tiếng Việt) -->
+<string name="editor_mode_label">Chế độ Nháp</string>
+<string name="save_to_note">Lưu as Note</string>
+<string name="note_breadcrumb_default">Đang nốt</string>
+<string name="note_breadcrumb_with_origin">%1$s/nốt mới</string>
+<string name="note_title_placeholder">Ghi gì cũng được</string>
+<string name="edit_note">Đang memoa</string>
+<string name="done">👌</string>
+<string name="back">am bách</string></resources>
