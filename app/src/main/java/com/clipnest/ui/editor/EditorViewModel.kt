@@ -50,7 +50,11 @@ data class EditorUiState(
     val documentName: String = "Editor",
     val externalDocumentUri: String? = null,
     val externalDocumentSaveAsOnly: Boolean = false,
-    val externalDocumentFileCount: Int = 0
+    val externalDocumentFileCount: Int = 0,
+    // --- Note-mode fields; unused while mode == EditorMode.PLAIN ---
+    val mode: EditorMode = EditorMode.PLAIN,
+    val title: String = "",
+    val noteOrigin: EditorNoteOrigin? = null
 )
 
 sealed class EditorEvent {
@@ -192,6 +196,33 @@ class EditorViewModel(
 
     private fun resetSearchState() { _isSearchOpen.value = false; _searchQuery.value = ""; searchMatchStarts = emptyList(); _searchMatchCount.value = 0; _activeSearchMatch.value = 0 }
     fun onDocumentTextChanged() { editorLoaded = true; _uiState.value = _uiState.value.copy(documentRevision = _uiState.value.documentRevision + 1, isDirty = true); if (_searchQuery.value.isNotBlank()) scheduleSearchResults(_searchQuery.value, true); scheduleDebouncedAutoSave() }
+
+    // --- Note-mode support (EditorMode.NOTE); no-ops on the existing PLAIN flow ---
+
+    /** Switches this ViewModel into note-taking chrome. Call once, e.g. right after the note tab creates the screen. */
+    fun configureNoteMode(origin: EditorNoteOrigin?) { _uiState.value = _uiState.value.copy(mode = EditorMode.NOTE, noteOrigin = origin) }
+
+    /** Title edits ride the same debounced autosave as content edits below — no separate save path. */
+    fun onTitleChange(newTitle: String) { _uiState.value = _uiState.value.copy(title = newTitle, isDirty = true); scheduleDebouncedAutoSave() }
+
+    /**
+     * Cancels any pending debounced autosave and writes immediately, then calls [onComplete].
+     * Use this from the breadcrumb back/done actions before navigating away, so exiting never
+     * races the 1500ms autosave debounce in [scheduleDebouncedAutoSave].
+     */
+    fun flushPendingSaveAndExit(contentResolver: ContentResolver = appContext.contentResolver, onComplete: () -> Unit = {}) {
+        autoSaveJob?.cancel()
+        val state = _uiState.value
+        val text = currentDocumentText()
+        val revision = state.documentRevision
+        viewModelScope.launch(Dispatchers.IO) {
+            val saved = runCatching { writeDocumentSnapshot(state, contentResolver, text) }.isSuccess
+            withContext(Dispatchers.Main.immediate) {
+                if (saved && _uiState.value.documentRevision == revision) _uiState.value = _uiState.value.copy(isDirty = false, lastSavedTimestamp = System.currentTimeMillis())
+                onComplete()
+            }
+        }
+    }
     @Deprecated("Use the native editor directly") fun onContentChange(newValue: TextFieldValue, coalesceUndo: Boolean = false) { setEditorSelection(newValue.selection.min, newValue.selection.max) }
     private fun openSearch() { _isSearchOpen.value = true }
     fun openSearchPublic() = openSearch()
