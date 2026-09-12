@@ -1,8 +1,6 @@
 package com.clipnest.ui.settings
 
-import android.content.ClipData
 import android.content.Context
-import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -29,7 +27,6 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
@@ -41,7 +38,6 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
@@ -62,7 +58,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.clipnest.ai.AiProviderType
 import com.clipnest.ai.GeminiModelCatalog
@@ -70,9 +65,6 @@ import com.clipnest.data.local.AppLanguage
 import com.clipnest.data.local.EditorTextSize
 import com.clipnest.data.local.ThemePreset
 import com.clipnest.data.local.ViewerTextSize
-import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -86,7 +78,6 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val userSettings by viewModel.userSettings.collectAsStateWithLifecycle()
-    val exportedFiles by viewModel.exportedFiles.collectAsStateWithLifecycle()
     var geminiApiKey by remember { mutableStateOf("") }
     var apiKeyStatusVersion by remember { mutableStateOf(0) }
     val hasGeminiApiKey = remember(apiKeyStatusVersion) { viewModel.geminiApiKeyConfigured() }
@@ -253,27 +244,6 @@ fun SettingsScreen(
         }
 
         item {
-            if (exportedFiles.isNotEmpty()) {
-                SettingsSectionHeader(title = stringResource(com.clipnest.R.string.exported_documents), icon = Icons.Default.Folder)
-                OutlinedCard(shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        exportedFiles.forEachIndexed { index, file ->
-                            if (index > 0) HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(file.name, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
-                                    val dateStr = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(file.lastModified()))
-                                    Text(stringResource(com.clipnest.R.string.file_details, dateStr, file.length()), style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
-                                }
-                                IconButton(onClick = { shareFile(context, file) }) { Icon(Icons.Default.Share, contentDescription = stringResource(com.clipnest.R.string.share_file), tint = MaterialTheme.colorScheme.primary) }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        item {
             SettingsSectionHeader(title = stringResource(com.clipnest.R.string.privacy_security), icon = Icons.Default.Security)
             Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)), modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -338,25 +308,6 @@ private fun AiProviderModelRow(
 private fun folderLabel(context: Context, uri: String): String {
     val segment = android.net.Uri.parse(uri).lastPathSegment.orEmpty()
     return context.getString(com.clipnest.R.string.selected_folder, segment.substringAfterLast(':').ifBlank { context.getString(com.clipnest.R.string.selected_folder_fallback) })
-}
-
-private fun shareFile(context: Context, file: File) {
-    try {
-        val contentUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-        val sendIntent = Intent(Intent.ACTION_SEND).apply {
-            putExtra(Intent.EXTRA_STREAM, contentUri)
-            type = when {
-                file.name.endsWith(".md", ignoreCase = true) -> "text/markdown"
-                file.name.endsWith(".json", ignoreCase = true) -> "application/json"
-                else -> "text/plain"
-            }
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            clipData = ClipData.newRawUri(file.name, contentUri)
-        }
-        context.startActivity(Intent.createChooser(sendIntent, context.getString(com.clipnest.R.string.share_named_file, file.name)))
-    } catch (_: Exception) {
-        Toast.makeText(context, context.getString(com.clipnest.R.string.could_not_open_file), Toast.LENGTH_SHORT).show()
-    }
 }
 
 @Composable
