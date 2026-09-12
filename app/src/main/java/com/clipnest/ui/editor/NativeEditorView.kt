@@ -177,122 +177,28 @@ class NativeEditorView @JvmOverloads constructor(
     }
 
     fun hideKeyboardAndClearFocus() {
-        clearFocus()
+        requestFocus()
         (context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager)
             ?.hideSoftInputFromWindow(windowToken, 0)
     }
 
-    fun setEditorTextColor(color: Int) {
-        setTextColor(color)
-    }
-
+    fun setEditorTextColor(color: Int) { setTextColor(color) }
     private fun maxScrollY(): Int = (computeVerticalScrollRange() - computeVerticalScrollExtent()).coerceAtLeast(0)
     private fun scrollToClamped(targetY: Int) { scrollTo(scrollX, targetY.coerceIn(0, maxScrollY())) }
-
-    private fun scrollForDrag(targetY: Int) {
-        val maxScrollY = maxScrollY()
-        val resistedY = when {
-            targetY < 0 -> -overscrollDistance(-targetY)
-            targetY > maxScrollY -> maxScrollY + overscrollDistance(targetY - maxScrollY)
-            else -> targetY
-        }
-        scrollTo(scrollX, resistedY)
-    }
-
-    private fun overscrollDistance(distance: Int): Int =
-        (distance * 0.75f).toInt().coerceAtMost(overscrollLimitPx)
-
-    private fun springBackToBounds(maxScrollY: Int) {
-        if (flingScroller.springBack(scrollX, scrollY, 0, 0, 0, maxScrollY)) {
-            postInvalidateOnAnimation()
-        } else {
-            scrollToClamped(scrollY)
-        }
-    }
-
+    private fun scrollForDrag(targetY: Int) { val maxScrollY = maxScrollY(); val resistedY = when { targetY < 0 -> -overscrollDistance(-targetY); targetY > maxScrollY -> maxScrollY + overscrollDistance(targetY - maxScrollY); else -> targetY }; scrollTo(scrollX, resistedY) }
+    private fun overscrollDistance(distance: Int): Int = (distance * 0.75f).toInt().coerceAtMost(overscrollLimitPx)
+    private fun springBackToBounds(maxScrollY: Int) { if (flingScroller.springBack(scrollX, scrollY, 0, 0, 0, maxScrollY)) postInvalidateOnAnimation() else scrollToClamped(scrollY) }
     fun setTextChangeListener(listener: ((NativeEditorView) -> Unit)?) { textChangeListener = listener }
     fun setEditorTextSize(size: EditorTextSize) { setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, size.sp.toFloat()); setLineSpacing(0f, size.lineHeightSp.toFloat() / size.sp.toFloat()) }
-
-    /** Starts a nested-safe transaction. All edits are exposed as one undo/redo boundary. */
-    fun beginTransaction() {
-        if (transactionDepth == 0) {
-            transactionBeforeText = text?.toString().orEmpty()
-            transactionBeforeSelectionStart = selectionStart
-            transactionBeforeSelectionEnd = selectionEnd
-        }
-        transactionDepth++
-    }
-
-    /** Commits the outermost transaction as one replace operation and one change notification. */
-    fun endTransaction() {
-        if (transactionDepth == 0) return
-        transactionDepth--
-        if (transactionDepth != 0) return
-        val before = transactionBeforeText ?: return
-        transactionBeforeText = null
-        val after = text?.toString().orEmpty()
-        if (before == after) return
-        val prefix = commonPrefix(before, after)
-        val suffix = commonSuffix(before, after, prefix)
-        val removedEnd = before.length - suffix
-        val insertedEnd = after.length - suffix
-        undoStack.addLast(EditOperation(prefix, before.substring(prefix, removedEnd), after.substring(prefix, insertedEnd), transactionBeforeSelectionStart, transactionBeforeSelectionEnd, selectionStart, selectionEnd))
-        redoStack.clear()
-        trimHistory()
-        textChangeListener?.invoke(this)
-    }
-
-    fun <T> transaction(block: NativeEditorView.() -> T): T {
-        beginTransaction()
-        return try { block() } finally { endTransaction() }
-    }
-
-    fun replaceText(start: Int, end: Int, replacement: CharSequence, selectionStart: Int? = null, selectionEnd: Int? = null) {
-        val safeStart = start.coerceIn(0, length())
-        val safeEnd = end.coerceIn(safeStart, length())
-        val beforeStart = this.selectionStart
-        val beforeEnd = this.selectionEnd
-        val removed = text?.subSequence(safeStart, safeEnd)?.toString().orEmpty()
-        val inserted = replacement.toString()
-        internalMutation = true
-        try {
-            text?.replace(safeStart, safeEnd, inserted)
-            val targetStart = (selectionStart ?: safeStart + inserted.length).coerceIn(0, length())
-            val targetEnd = (selectionEnd ?: targetStart).coerceIn(targetStart, length())
-            setSelection(targetStart, targetEnd)
-        } finally { internalMutation = false }
-        if (transactionDepth == 0) {
-            undoStack.addLast(EditOperation(safeStart, removed, inserted, beforeStart, beforeEnd, selectionStart ?: safeStart + inserted.length, selectionEnd ?: selectionStart ?: safeStart + inserted.length))
-            redoStack.clear()
-            trimHistory()
-            textChangeListener?.invoke(this)
-        }
-    }
-
-    fun setEditorText(value: CharSequence, selectionStart: Int = value.length, selectionEnd: Int = selectionStart) {
-        internalMutation = true
-        try { setText(value); setSelection(selectionStart.coerceIn(0, length()), selectionEnd.coerceIn(0, length())); undoStack.clear(); redoStack.clear() }
-        finally { internalMutation = false }
-    }
-
+    fun beginTransaction() { if (transactionDepth == 0) { transactionBeforeText = text?.toString().orEmpty(); transactionBeforeSelectionStart = selectionStart; transactionBeforeSelectionEnd = selectionEnd }; transactionDepth++ }
+    fun endTransaction() { if (transactionDepth == 0) return; transactionDepth--; if (transactionDepth != 0) return; val before = transactionBeforeText ?: return; transactionBeforeText = null; val after = text?.toString().orEmpty(); if (before == after) return; val prefix = commonPrefix(before, after); val suffix = commonSuffix(before, after, prefix); val removedEnd = before.length - suffix; val insertedEnd = after.length - suffix; undoStack.addLast(EditOperation(prefix, before.substring(prefix, removedEnd), after.substring(prefix, insertedEnd), transactionBeforeSelectionStart, transactionBeforeSelectionEnd, selectionStart, selectionEnd)); redoStack.clear(); trimHistory(); textChangeListener?.invoke(this) }
+    fun <T> transaction(block: NativeEditorView.() -> T): T { beginTransaction(); return try { block() } finally { endTransaction() } }
+    fun replaceText(start: Int, end: Int, replacement: CharSequence, selectionStart: Int? = null, selectionEnd: Int? = null) { val safeStart = start.coerceIn(0, length()); val safeEnd = end.coerceIn(safeStart, length()); val beforeStart = this.selectionStart; val beforeEnd = this.selectionEnd; val removed = text?.subSequence(safeStart, safeEnd)?.toString().orEmpty(); val inserted = replacement.toString(); internalMutation = true; try { text?.replace(safeStart, safeEnd, inserted); val targetStart = (selectionStart ?: safeStart + inserted.length).coerceIn(0, length()); val targetEnd = (selectionEnd ?: targetStart).coerceIn(targetStart, length()); setSelection(targetStart, targetEnd) } finally { internalMutation = false }; if (transactionDepth == 0) { undoStack.addLast(EditOperation(safeStart, removed, inserted, beforeStart, beforeEnd, selectionStart ?: safeStart + inserted.length, selectionEnd ?: selectionStart ?: safeStart + inserted.length)); redoStack.clear(); trimHistory(); textChangeListener?.invoke(this) } }
+    fun setEditorText(value: CharSequence, selectionStart: Int = value.length, selectionEnd: Int = selectionStart) { internalMutation = true; try { setText(value); setSelection(selectionStart.coerceIn(0, length()), selectionEnd.coerceIn(0, length())); undoStack.clear(); redoStack.clear() } finally { internalMutation = false } }
     fun undo() { undoStack.removeLastOrNull()?.let { operation -> applyOperation(operation, true); redoStack.addLast(operation) } }
     fun redo() { redoStack.removeLastOrNull()?.let { operation -> applyOperation(operation, false); undoStack.addLast(operation) } }
     fun withInternalMutation(block: () -> Unit) { internalMutation = true; try { block() } finally { internalMutation = false } }
-
-    private fun applyOperation(operation: EditOperation, undo: Boolean) {
-        internalMutation = true
-        try {
-            val start = operation.start
-            val currentLength = if (undo) operation.inserted.length else operation.removed.length
-            val replacement = if (undo) operation.removed else operation.inserted
-            text?.replace(start.coerceIn(0, length()), (start + currentLength).coerceIn(start, length()), replacement)
-            val targetStart = if (undo) operation.beforeSelectionStart else operation.afterSelectionStart
-            val targetEnd = if (undo) operation.beforeSelectionEnd else operation.afterSelectionEnd
-            setSelection(targetStart.coerceIn(0, length()), targetEnd.coerceIn(targetStart, length()))
-        } finally { internalMutation = false }
-        textChangeListener?.invoke(this)
-    }
-
+    private fun applyOperation(operation: EditOperation, undo: Boolean) { internalMutation = true; try { val start = operation.start; val currentLength = if (undo) operation.inserted.length else operation.removed.length; val replacement = if (undo) operation.removed else operation.inserted; text?.replace(start.coerceIn(0, length()), (start + currentLength).coerceIn(start, length()), replacement); val targetStart = if (undo) operation.beforeSelectionStart else operation.afterSelectionStart; val targetEnd = if (undo) operation.beforeSelectionEnd else operation.afterSelectionEnd; setSelection(targetStart.coerceIn(0, length()), targetEnd.coerceIn(targetStart, length())) } finally { internalMutation = false }; textChangeListener?.invoke(this) }
     private fun trimHistory() { while (undoStack.size > 100) undoStack.removeFirst() }
     private fun commonPrefix(a: String, b: String): Int { val max = minOf(a.length, b.length); var i = 0; while (i < max && a[i] == b[i]) i++; return i }
     private fun commonSuffix(a: String, b: String, prefix: Int): Int { val max = minOf(a.length, b.length) - prefix; var i = 0; while (i < max && a[a.length - 1 - i] == b[b.length - 1 - i]) i++; return i }
