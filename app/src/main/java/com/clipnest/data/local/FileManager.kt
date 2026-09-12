@@ -109,6 +109,9 @@ class FileManager(private val context: android.content.Context) {
         }
     }
 
+    // Kept temporarily as an empty compatibility surface for the existing Settings screen state.
+    fun listExportedFiles(): List<File> = emptyList()
+
     private fun buildFileName(baseName: String, format: ExportFormat): String {
         val sanitized = sanitizeFileName(baseName)
         val extension = if (format.isEncrypted) ".json" else format.extension
