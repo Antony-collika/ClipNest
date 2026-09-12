@@ -8,9 +8,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -28,9 +33,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.clipnest.data.local.ExportFormat
+
+enum class SaveFileMode {
+    MARKDOWN,
+    PLAIN_TEXT,
+    ENCRYPTED
+}
 
 @Composable
 fun SaveNewFileDialog(
@@ -45,7 +58,18 @@ fun SaveNewFileDialog(
     var fileName by remember(initialFileName, defaultDocumentName) {
         mutableStateOf(initialFileName.substringBeforeLast('.').ifBlank { defaultDocumentName })
     }
-    var selectedFormat by remember { mutableStateOf(ExportFormat.MARKDOWN) }
+    var selectedMode by remember { mutableStateOf(SaveFileMode.MARKDOWN) }
+    var password by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
+
+    val previewExtension = when (selectedMode) {
+        SaveFileMode.MARKDOWN -> ".md"
+        SaveFileMode.PLAIN_TEXT -> ".txt"
+        SaveFileMode.ENCRYPTED -> ".json"
+    }
+    val previewName = fileName.trim().ifBlank { "Untitled" }.let {
+        if (it.endsWith(previewExtension, ignoreCase = true)) it else "$it$previewExtension"
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -70,9 +94,7 @@ fun SaveNewFileDialog(
                         focusedLabelColor = MaterialTheme.colorScheme.primary,
                         cursorColor = MaterialTheme.colorScheme.primary
                     ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("save_new_filename_input")
+                    modifier = Modifier.fillMaxWidth().testTag("save_new_filename_input")
                 )
 
                 Spacer(modifier = Modifier.height(14.dp))
@@ -81,39 +103,60 @@ fun SaveNewFileDialog(
                     text = stringResource(com.clipnest.R.string.format),
                     style = MaterialTheme.typography.labelLarge
                 )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 2.dp)
-                ) {
-                    RadioButton(
-                        selected = selectedFormat == ExportFormat.MARKDOWN,
-                        onClick = { selectedFormat = ExportFormat.MARKDOWN },
-                        colors = RadioButtonDefaults.colors(
-                            selectedColor = MaterialTheme.colorScheme.primary,
-                            unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
-                        ),
-                        modifier = Modifier.testTag("save_new_format_markdown")
-                    )
-                    Text(stringResource(com.clipnest.R.string.markdown_format))
+                SaveModeRadio(
+                    selected = selectedMode == SaveFileMode.MARKDOWN,
+                    label = stringResource(com.clipnest.R.string.markdown_format),
+                    onClick = { selectedMode = SaveFileMode.MARKDOWN },
+                    tag = "save_new_format_markdown"
+                )
+                SaveModeRadio(
+                    selected = selectedMode == SaveFileMode.PLAIN_TEXT,
+                    label = stringResource(com.clipnest.R.string.plain_text_format),
+                    onClick = { selectedMode = SaveFileMode.PLAIN_TEXT },
+                    tag = "save_new_format_plain_text"
+                )
+                SaveModeRadio(
+                    selected = selectedMode == SaveFileMode.ENCRYPTED,
+                    label = "Encrypted (.json)",
+                    onClick = { selectedMode = SaveFileMode.ENCRYPTED },
+                    tag = "save_new_format_encrypted"
+                )
 
-                    Spacer(modifier = Modifier.width(10.dp))
-
-                    RadioButton(
-                        selected = selectedFormat == ExportFormat.PLAIN_TEXT,
-                        onClick = { selectedFormat = ExportFormat.PLAIN_TEXT },
-                        colors = RadioButtonDefaults.colors(
-                            selectedColor = MaterialTheme.colorScheme.primary,
-                            unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
+                if (selectedMode == SaveFileMode.ENCRYPTED) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        label = { Text("Password") },
+                        singleLine = true,
+                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                Icon(
+                                    imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                                )
+                            }
+                        },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                            focusedLabelColor = MaterialTheme.colorScheme.primary,
+                            cursorColor = MaterialTheme.colorScheme.primary
                         ),
-                        modifier = Modifier.testTag("save_new_format_plain_text")
+                        modifier = Modifier.fillMaxWidth().testTag("save_new_password_input")
                     )
-                    Text(stringResource(com.clipnest.R.string.plain_text_format))
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "File will be saved as:\n$previewName",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag("save_new_filename_preview")
+                )
 
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = if (defaultFolderUri.isNullOrBlank()) {
                         stringResource(com.clipnest.R.string.save_location_not_set)
@@ -135,8 +178,22 @@ fun SaveNewFileDialog(
         },
         confirmButton = {
             Button(
-                onClick = { if (fileName.isNotBlank()) onConfirm(fileName, selectedFormat) },
-                enabled = fileName.isNotBlank(),
+                onClick = {
+                    if (fileName.isNotBlank() && (selectedMode != SaveFileMode.ENCRYPTED || password.isNotEmpty())) {
+                        if (selectedMode == SaveFileMode.ENCRYPTED) {
+                            ExportFormat.MARKDOWN.encryptionPassword = password
+                            onConfirm(fileName, ExportFormat.MARKDOWN)
+                        } else {
+                            ExportFormat.MARKDOWN.encryptionPassword = null
+                            ExportFormat.PLAIN_TEXT.encryptionPassword = null
+                            onConfirm(
+                                fileName,
+                                if (selectedMode == SaveFileMode.MARKDOWN) ExportFormat.MARKDOWN else ExportFormat.PLAIN_TEXT
+                            )
+                        }
+                    }
+                },
+                enabled = fileName.isNotBlank() && (selectedMode != SaveFileMode.ENCRYPTED || password.isNotEmpty()),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary
@@ -157,6 +214,29 @@ fun SaveNewFileDialog(
         },
         modifier = Modifier.testTag("save_new_file_dialog")
     )
+}
+
+@Composable
+private fun SaveModeRadio(
+    selected: Boolean,
+    label: String,
+    onClick: () -> Unit,
+    tag: String
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().testTag(tag)
+    ) {
+        RadioButton(
+            selected = selected,
+            onClick = onClick,
+            colors = RadioButtonDefaults.colors(
+                selectedColor = MaterialTheme.colorScheme.primary,
+                unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        )
+        Text(label)
+    }
 }
 
 private fun folderLabel(uri: String, fallback: String): String {
