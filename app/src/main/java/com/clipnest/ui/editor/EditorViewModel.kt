@@ -51,7 +51,6 @@ data class EditorUiState(
     val externalDocumentUri: String? = null,
     val externalDocumentSaveAsOnly: Boolean = false,
     val externalDocumentFileCount: Int = 0,
-    // --- Note-mode fields; unused while mode == EditorMode.PLAIN ---
     val mode: EditorMode = EditorMode.PLAIN,
     val title: String = "",
     val noteOrigin: EditorNoteOrigin? = null
@@ -77,6 +76,8 @@ class EditorViewModel(
     val isSearchOpen: StateFlow<Boolean> = _isSearchOpen.asStateFlow()
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+    private val _replaceQuery = MutableStateFlow("")
+    val replaceQuery: StateFlow<String> = _replaceQuery.asStateFlow()
     private val _searchMatchCount = MutableStateFlow(0)
     val searchMatchCount: StateFlow<Int> = _searchMatchCount.asStateFlow()
     private val _activeSearchMatch = MutableStateFlow(0)
@@ -121,12 +122,7 @@ class EditorViewModel(
                     _uiState.value.content.setFallback(text, TextRange(text.length))
                     nativeEditor?.setEditorText(text, text.length)
                     editorDocumentGeneration++
-                    _uiState.value = _uiState.value.copy(
-                        documentRevision = _uiState.value.documentRevision + 1,
-                        isDirty = false,
-                        title = title,
-                        lastSavedTimestamp = System.currentTimeMillis()
-                    )
+                    _uiState.value = _uiState.value.copy(documentRevision = _uiState.value.documentRevision + 1, isDirty = false, title = title, lastSavedTimestamp = System.currentTimeMillis())
                 }
                 editorLoaded = true
             }
@@ -182,9 +178,7 @@ class EditorViewModel(
     private fun readContentUri(uri: Uri, resolver: ContentResolver): ByteArray {
         var failure: Throwable? = null
         fun attempt(block: () -> ByteArray?): ByteArray? = runCatching(block).onFailure { failure = it }.getOrNull()
-        return attempt { resolver.openInputStream(uri)?.use { it.readBytes() } }
-            ?: attempt { resolver.openFileDescriptor(uri, "r")?.let { android.os.ParcelFileDescriptor.AutoCloseInputStream(it).use { input -> input.readBytes() } } }
-            ?: throw IllegalStateException("Unable to read content URI: $uri", failure)
+        return attempt { resolver.openInputStream(uri)?.use { it.readBytes() } } ?: attempt { resolver.openFileDescriptor(uri, "r")?.let { android.os.ParcelFileDescriptor.AutoCloseInputStream(it).use { input -> input.readBytes() } } } ?: throw IllegalStateException("Unable to read content URI: $uri", failure)
     }
     private fun decodeUtf8(bytes: ByteArray): String { val offset = if (bytes.size >= 3 && bytes[0] == 0xEF.toByte() && bytes[1] == 0xBB.toByte() && bytes[2] == 0xBF.toByte()) 3 else 0; return bytes.copyOfRange(offset, bytes.size).toString(Charsets.UTF_8) }
     private fun writeExternalDocument(uri: Uri, resolver: ContentResolver, text: String) { val output = if (uri.scheme == ContentResolver.SCHEME_FILE) File(uri.path ?: error("File URI has no path")).outputStream() else resolver.openOutputStream(uri, "wt") ?: resolver.openOutputStream(uri) ?: error("Unable to save file"); output.use { it.write(text.toByteArray(Charsets.UTF_8)); it.flush() } }
@@ -193,13 +187,8 @@ class EditorViewModel(
         if (state.externalDocumentSaveAsOnly) return
         val uri = state.externalDocumentUri?.let(Uri::parse)
         if (uri == null) {
-            if (state.isDirty) {
-                fileManager.writeEditor(text)
-                fileManager.writeEditorTitle(state.title)
-            }
-        } else if (state.isDirty) {
-            writeExternalDocument(uri, resolver, text)
-        }
+            if (state.isDirty) { fileManager.writeEditor(text); fileManager.writeEditorTitle(state.title) }
+        } else if (state.isDirty) writeExternalDocument(uri, resolver, text)
     }
 
     fun returnToInternalEditor(contentResolver: ContentResolver, onComplete: () -> Unit = {}) {
@@ -211,22 +200,11 @@ class EditorViewModel(
     }
     private fun internalDocumentName() = appContext.withAppLanguage(settings.value.language).getString(com.clipnest.R.string.editor)
 
-    private fun resetSearchState() { _isSearchOpen.value = false; _searchQuery.value = ""; searchMatchStarts = emptyList(); _searchMatchCount.value = 0; _activeSearchMatch.value = 0 }
+    private fun resetSearchState() { _isSearchOpen.value = false; _searchQuery.value = ""; _replaceQuery.value = ""; searchMatchStarts = emptyList(); _searchMatchCount.value = 0; _activeSearchMatch.value = 0 }
     fun onDocumentTextChanged() { editorLoaded = true; _uiState.value = _uiState.value.copy(documentRevision = _uiState.value.documentRevision + 1, isDirty = true); if (_searchQuery.value.isNotBlank()) scheduleSearchResults(_searchQuery.value, true); scheduleDebouncedAutoSave() }
 
-    // --- Note-mode support (EditorMode.NOTE); no-ops on the existing PLAIN flow ---
-
-    /** Switches this ViewModel into note-taking chrome. Call once, e.g. right after the note tab creates the screen. */
     fun configureNoteMode(origin: EditorNoteOrigin?) { _uiState.value = _uiState.value.copy(mode = EditorMode.NOTE, noteOrigin = origin) }
-
-    /** Title edits ride the same debounced autosave as content edits below — no separate save path. */
     fun onTitleChange(newTitle: String) { editorLoaded = true; _uiState.value = _uiState.value.copy(title = newTitle, isDirty = true); scheduleDebouncedAutoSave() }
-
-    /**
-     * Cancels any pending debounced autosave and writes immediately, then calls [onComplete].
-     * Use this from the breadcrumb back/done actions before navigating away, so exiting never
-     * races the 1500ms autosave debounce in [scheduleDebouncedAutoSave].
-     */
     fun flushPendingSaveAndExit(contentResolver: ContentResolver = appContext.contentResolver, onComplete: () -> Unit = {}) {
         autoSaveJob?.cancel()
         val state = _uiState.value
@@ -235,10 +213,7 @@ class EditorViewModel(
         _uiState.value.content.setFallback(text, nativeEditor?.let { TextRange(it.selectionStart, it.selectionEnd) } ?: TextRange(text.length))
         viewModelScope.launch(Dispatchers.IO) {
             val saved = runCatching { writeDocumentSnapshot(state, contentResolver, text) }.isSuccess
-            withContext(Dispatchers.Main.immediate) {
-                if (saved && _uiState.value.documentRevision == revision) _uiState.value = _uiState.value.copy(isDirty = false, lastSavedTimestamp = System.currentTimeMillis())
-                onComplete()
-            }
+            withContext(Dispatchers.Main.immediate) { if (saved && _uiState.value.documentRevision == revision) _uiState.value = _uiState.value.copy(isDirty = false, lastSavedTimestamp = System.currentTimeMillis()); onComplete() }
         }
     }
     @Deprecated("Use the native editor directly") fun onContentChange(newValue: TextFieldValue, coalesceUndo: Boolean = false) { setEditorSelection(newValue.selection.min, newValue.selection.max) }
@@ -246,11 +221,44 @@ class EditorViewModel(
     fun openSearchPublic() = openSearch()
     fun closeSearch() { resetSearchState(); nativeEditor?.let { setEditorSelection(it.selectionEnd) } }
     fun setSearchQuery(query: String) { _searchQuery.value = query; scheduleSearchResults(query, false) }
+    fun setReplaceQuery(query: String) { _replaceQuery.value = query }
     private fun scheduleSearchResults(query: String, preserveSelection: Boolean) { searchJob?.cancel(); if (query.isBlank()) { searchMatchStarts = emptyList(); _searchMatchCount.value = 0; _activeSearchMatch.value = 0; return }; searchJob = viewModelScope.launch { delay(180); val text = currentDocumentText(); val revision = _uiState.value.documentRevision; val selection = nativeEditor?.let { TextRange(it.selectionStart, it.selectionEnd) } ?: TextRange.Zero; val matches = withContext(Dispatchers.Default) { EditorSearchEngine.findMatches(text, query) }; if (_searchQuery.value != query || _uiState.value.documentRevision != revision) return@launch; applySearchResults(query, matches, selection, preserveSelection) } }
     private fun applySearchResults(query: String, matches: List<Int>, selection: TextRange, preserveSelection: Boolean) { searchMatchStarts = matches; _searchMatchCount.value = matches.size; if (matches.isEmpty()) { _activeSearchMatch.value = 0; if (!preserveSelection) emitToast(com.clipnest.R.string.no_matches); return }; if (preserveSelection) { _activeSearchMatch.value = matches.indexOfFirst { it == selection.min && it + query.length == selection.max }.coerceAtLeast(0); return }; val at = matches.indexOfFirst { it >= selection.start }; selectSearchMatch(if (at >= 0) at else 0) }
     fun nextSearchMatch() { if (searchMatchStarts.isNotEmpty()) selectSearchMatch((_activeSearchMatch.value + 1) % searchMatchStarts.size) }
     fun previousSearchMatch() { if (searchMatchStarts.isNotEmpty()) selectSearchMatch((_activeSearchMatch.value - 1 + searchMatchStarts.size) % searchMatchStarts.size) }
     private fun selectSearchMatch(index: Int) { val start = searchMatchStarts.getOrNull(index) ?: return; _activeSearchMatch.value = index; setEditorSelection(start, start + _searchQuery.value.length) }
+
+    fun replaceCurrentMatch() {
+        val editor = nativeEditor ?: return
+        val query = _searchQuery.value
+        val replacement = _replaceQuery.value
+        val start = searchMatchStarts.getOrNull(_activeSearchMatch.value) ?: return
+        val end = start + query.length
+        if (query.isBlank() || end > editor.length()) return
+        val current = editor.text?.subSequence(start, end)?.toString() ?: return
+        if (current != query) { scheduleSearchResults(query, false); return }
+        editor.replaceText(start, end, replacement, start + replacement.length, start + replacement.length)
+    }
+
+    fun replaceAllMatches() {
+        val editor = nativeEditor ?: return
+        val query = _searchQuery.value
+        val replacement = _replaceQuery.value
+        val matches = searchMatchStarts
+        if (query.isBlank() || matches.isEmpty()) return
+        val active = _activeSearchMatch.value.coerceIn(0, matches.lastIndex)
+        val activeStart = matches[active]
+        val delta = replacement.length - query.length
+        val activeMatchesBefore = matches.count { it < activeStart }
+        val finalStart = (activeStart + activeMatchesBefore * delta).coerceIn(0, editor.length())
+        val finalEnd = (finalStart + replacement.length).coerceIn(finalStart, editor.length())
+        editor.transaction {
+            for (start in matches.asReversed()) {
+                replaceText(start, start + query.length, replacement)
+            }
+            setSelection(finalStart, finalEnd)
+        }
+    }
 
     fun pasteFromClipboard(context: Context) { val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager; val clip = runCatching { clipboard.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString() }.getOrNull(); if (clip.isNullOrEmpty()) { emitToast(com.clipnest.R.string.clipboard_empty); return }; replaceSelection(clip.replace("\r\n", "\n").replace('\r', '\n')); emitToast(com.clipnest.R.string.pasted) }
     fun copySelectedText(context: Context) { val editor = nativeEditor ?: return; if (editor.selectionStart == editor.selectionEnd) { emitToast(com.clipnest.R.string.select_text_to_copy); return }; val selected = editor.text?.subSequence(editor.selectionStart, editor.selectionEnd).toString(); (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(android.content.ClipData.newPlainText("Editor selection", selected)); emitToast(com.clipnest.R.string.copied) }
@@ -286,9 +294,7 @@ class EditorViewModel(
         _uiState.value.content.setFallback(text, nativeEditor?.let { TextRange(it.selectionStart, it.selectionEnd) } ?: TextRange(text.length))
         viewModelScope.launch(Dispatchers.IO) {
             val saved = runCatching { writeDocumentSnapshot(state, appContext.contentResolver, text) }.isSuccess
-            withContext(Dispatchers.Main.immediate) {
-                if (saved && _uiState.value.documentRevision == revision) _uiState.value = _uiState.value.copy(isDirty = false, lastSavedTimestamp = System.currentTimeMillis())
-            }
+            withContext(Dispatchers.Main.immediate) { if (saved && _uiState.value.documentRevision == revision) _uiState.value = _uiState.value.copy(isDirty = false, lastSavedTimestamp = System.currentTimeMillis()) }
         }
     }
     fun onSaveClicked(contentResolver: ContentResolver = appContext.contentResolver) { val state = _uiState.value; if (state.externalDocumentSaveAsOnly || state.externalDocumentUri == null) _uiState.value = state.copy(showSaveNewFileDialog = true) else saveExternalDocument(Uri.parse(state.externalDocumentUri), contentResolver) }
