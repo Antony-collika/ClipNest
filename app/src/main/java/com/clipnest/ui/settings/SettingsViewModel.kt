@@ -21,23 +21,16 @@ import com.clipnest.security.SecureApiKeyStore
 import com.clipnest.service.CaptureNotificationManager
 import com.clipnest.ui.localization.withAppLanguage
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.yield
-import java.io.File
 
 data class SettingsUiState(
-    val userSettings: UserSettings = UserSettings(),
-    val exportedFiles: List<File> = emptyList()
+    val userSettings: UserSettings = UserSettings()
 )
 
 sealed class SettingsEvent {
@@ -54,9 +47,7 @@ class SettingsViewModel(
     private val secureApiKeyStore = SecureApiKeyStore(appContext)
     private val _eventFlow = MutableSharedFlow<SettingsEvent>()
     val eventFlow: SharedFlow<SettingsEvent> = _eventFlow.asSharedFlow()
-    private val _exportedFiles = MutableStateFlow<List<File>>(emptyList())
-    val exportedFiles: StateFlow<List<File>> = _exportedFiles.asStateFlow()
-    private val _hasGeminiApiKey = MutableStateFlow(secureApiKeyStore.hasGeminiApiKey())
+    private val _hasGeminiApiKey = kotlinx.coroutines.flow.MutableStateFlow(secureApiKeyStore.hasGeminiApiKey())
     val hasGeminiApiKey: StateFlow<Boolean> = _hasGeminiApiKey.asStateFlow()
 
     val userSettings: StateFlow<UserSettings> = settingsDataStore.userSettingsFlow.stateIn(
@@ -65,11 +56,6 @@ class SettingsViewModel(
         initialValue = UserSettings()
     )
 
-    init {
-        viewModelScope.launch { yield(); refreshExportedFiles() }
-    }
-
-    fun refreshExportedFiles() { viewModelScope.launch { _exportedFiles.value = withContext(Dispatchers.IO) { fileManager.listExportedFiles() } } }
     fun setLanguage(language: AppLanguage) { viewModelScope.launch { settingsDataStore.setLanguage(language) } }
     fun setThemePreset(themePreset: ThemePreset) { viewModelScope.launch { settingsDataStore.setThemePreset(themePreset) } }
     fun setEditorTextSize(size: EditorTextSize) { viewModelScope.launch { settingsDataStore.setEditorTextSize(size) } }
