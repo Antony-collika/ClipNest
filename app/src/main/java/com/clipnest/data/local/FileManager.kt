@@ -3,12 +3,19 @@ package com.clipnest.data.local
 import android.content.ContentResolver
 import android.net.Uri
 import android.provider.DocumentsContract
+import com.clipnest.data.repository.EncryptedDocumentCodec
 import java.io.File
 import java.nio.charset.StandardCharsets
 
 enum class ExportFormat(val extension: String, val displayName: String, val mimeType: String) {
     MARKDOWN(".md", "Markdown (.md)", "text/markdown"),
-    PLAIN_TEXT(".txt", "Plain text (.txt)", "text/plain")
+    PLAIN_TEXT(".txt", "Plain text (.txt)", "text/plain");
+
+    // The password is supplied only for the current save operation and is cleared by FileManager after use.
+    var encryptionPassword: String? = null
+
+    val isEncrypted: Boolean
+        get() = !encryptionPassword.isNullOrEmpty()
 }
 
 class FileManager(private val context: android.content.Context) {
@@ -45,9 +52,19 @@ class FileManager(private val context: android.content.Context) {
     }
 
     fun saveNewFile(baseName: String, format: ExportFormat, content: String): File {
-        val finalName = buildFileName(baseName, format)
-        return File(documentsDir, finalName).also {
-            it.writeText(content, StandardCharsets.UTF_8)
+        return try {
+            val finalName = buildFileName(baseName, format)
+            val output = if (format.isEncrypted) {
+                val password = requireNotNull(format.encryptionPassword)
+                EncryptedDocumentCodec.encode(content, password)
+            } else {
+                content
+            }
+            File(documentsDir, finalName).also {
+                it.writeText(output, StandardCharsets.UTF_8)
+            }
+        } finally {
+            format.encryptionPassword = null
         }
     }
 
@@ -58,40 +75,47 @@ class FileManager(private val context: android.content.Context) {
         format: ExportFormat,
         content: String
     ): Uri? {
-        val parentDocumentUri = if (DocumentsContract.isTreeUri(treeUri)) {
-            val treeDocumentId = DocumentsContract.getTreeDocumentId(treeUri)
-            DocumentsContract.buildDocumentUriUsingTree(treeUri, treeDocumentId)
-        } else {
-            treeUri
+        try {
+            val parentDocumentUri = if (DocumentsContract.isTreeUri(treeUri)) {
+                val treeDocumentId = DocumentsContract.getTreeDocumentId(treeUri)
+                DocumentsContract.buildDocumentUriUsingTree(treeUri, treeDocumentId)
+            } else {
+                treeUri
+            }
+            val encrypted = format.isEncrypted
+            val mimeType = if (encrypted) "application/json" else format.mimeType
+            val finalName = buildFileName(baseName, format)
+            val documentUri = DocumentsContract.createDocument(
+                contentResolver,
+                parentDocumentUri,
+                mimeType,
+                finalName
+            ) ?: return null
+
+            val output = if (encrypted) {
+                val password = requireNotNull(format.encryptionPassword)
+                EncryptedDocumentCodec.encode(content, password)
+            } else {
+                content
+            }
+            val bytes = output.toByteArray(StandardCharsets.UTF_8)
+            contentResolver.openOutputStream(documentUri, "wt")?.use { stream ->
+                stream.write(bytes)
+                stream.flush()
+            } ?: return null
+            return documentUri
+        } finally {
+            format.encryptionPassword = null
         }
-        val documentUri = DocumentsContract.createDocument(
-            contentResolver,
-            parentDocumentUri,
-            format.mimeType,
-            buildFileName(baseName, format)
-        ) ?: return null
-
-        val bytes = content.toByteArray(StandardCharsets.UTF_8)
-        contentResolver.openOutputStream(documentUri, "wt")?.use { output ->
-            output.write(bytes)
-            output.flush()
-        } ?: return null
-        return documentUri
-    }
-
-    fun listExportedFiles(): List<File> {
-        return documentsDir.listFiles()
-            ?.filter { it.isFile && it.name != EDITOR_FILE_NAME && it.name != EDITOR_TITLE_FILE_NAME }
-            ?.sortedByDescending { it.lastModified() }
-            ?: emptyList()
     }
 
     private fun buildFileName(baseName: String, format: ExportFormat): String {
         val sanitized = sanitizeFileName(baseName)
-        return if (sanitized.endsWith(format.extension, ignoreCase = true)) {
+        val extension = if (format.isEncrypted) ".json" else format.extension
+        return if (sanitized.endsWith(extension, ignoreCase = true)) {
             sanitized
         } else {
-            "$sanitized${format.extension}"
+            "$sanitized$extension"
         }
     }
 
