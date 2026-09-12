@@ -511,7 +511,7 @@ private fun MainTopBar(
                                     focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
                                     unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent
                                 ),
-                                modifier = Modifier.weight(1f).focusRequester(searchFocusRequester).testTag("main_search_input")
+                                modifier = Modifier.fillMaxWidth().focusRequester(searchFocusRequester).testTag("main_search_input")
                             )
                         }
                     }
