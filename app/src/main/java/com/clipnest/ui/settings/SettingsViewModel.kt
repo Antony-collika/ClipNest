@@ -30,7 +30,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-a sealed class SettingsEvent {
+sealed class SettingsEvent {
     data class ShowToast(val message: String) : SettingsEvent()
 }
 
