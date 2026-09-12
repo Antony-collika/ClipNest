@@ -27,9 +27,26 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.clipnest.data.local.EditorTextSize
+
+/**
+ * Tính toán cỡ chữ Title thông minh dựa trên EditorTextSize.
+ * Giữ tỷ lệ phân cấp thị giác ổn định ở mọi mức size.
+ */
+fun getSmartTitleSize(editorTextSize: EditorTextSize): TextUnit {
+    val baseSp = editorTextSize.sp
+    return when (editorTextSize) {
+        EditorTextSize.VERY_SMALL,
+        EditorTextSize.SMALL -> (baseSp + 4).sp
+        EditorTextSize.DEFAULT -> (baseSp + 3).sp
+        EditorTextSize.LARGE -> (baseSp + 4).sp
+        EditorTextSize.VERY_LARGE,
+        EditorTextSize.HUGE -> (baseSp + 6).sp
+    }
+}
 
 /**
  * Breadcrumb row above the toolbar. Always visible (Title/Divider/Content
@@ -57,7 +74,7 @@ fun EditorNoteBreadcrumbBar(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 2.dp)
+            .padding(horizontal = 4.dp, vertical = 1.5.dp)
             .testTag("note_breadcrumb_bar"),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
@@ -112,8 +129,7 @@ fun EditorNoteBreadcrumbBar(
  * Title field above the shared content editor. Always visible, in both
  * [EditorMode.PLAIN] and [EditorMode.NOTE] — same placeholder behavior in
  * either mode, no mode branching here. Font size tracks [editorTextSize]
- * (base size + 2sp, bold) instead of a hardcoded style, so it stays
- * proportional when the user changes the app-wide editor text size. Height
+ * using smart scaling logic to maintain visual hierarchy. Height
  * is intentionally NOT fixed — it wraps to content — so larger text sizes
  * don't get clipped.
  */
@@ -126,14 +142,16 @@ fun EditorNoteTitleField(
     hintColor: Color,
     modifier: Modifier = Modifier
 ) {
-    val titleFontSize = (editorTextSize.sp + 2).sp
+    // Sử dụng hàm tính toán thông minh thay vì cộng cố định +2
+    val titleFontSize = getSmartTitleSize(editorTextSize)
+
     BasicTextField(
         value = value,
         onValueChange = onValueChange,
         modifier = modifier
             .fillMaxWidth()
             .wrapContentHeight()
-            .padding(horizontal = 18.dp, vertical = 10.dp)
+            .padding(horizontal = 18.dp, vertical = 8.dp)
             .testTag("note_title_input"),
         singleLine = true,
         textStyle = TextStyle(color = textColor, fontSize = titleFontSize, fontWeight = FontWeight.Bold),
