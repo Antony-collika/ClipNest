@@ -1,0 +1,5 @@
+<resources>
+    <string name="replace_hint">Replace with...</string>
+    <string name="replace">Replace</string>
+    <string name="replace_all">Replace all</string>
+</resources>
