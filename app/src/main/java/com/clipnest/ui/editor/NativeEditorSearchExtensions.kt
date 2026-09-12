@@ -11,11 +11,11 @@ fun NativeEditorView.scrollSelectionIntoView(start: Int, end: Int = start) {
     val selectionBottom = textLayout.getLineBottom(endLine)
     val viewportTop = scrollY + paddingTop
     val viewportBottom = scrollY + height - paddingBottom
-    val maxScrollY = (computeVerticalScrollRange() - computeVerticalScrollExtent()).coerceAtLeast(0)
     val target = when {
         selectionTop < viewportTop -> selectionTop - paddingTop
         selectionBottom > viewportBottom -> selectionBottom - height + paddingBottom
         else -> return
     }
+    val maxScrollY = (textLayout.height + paddingTop + paddingBottom - height).coerceAtLeast(0)
     scrollTo(scrollX, target.coerceIn(0, maxScrollY))
 }
