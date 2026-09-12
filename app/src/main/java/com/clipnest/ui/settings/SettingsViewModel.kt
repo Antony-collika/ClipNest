@@ -25,15 +25,12 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-data class SettingsUiState(
-    val userSettings: UserSettings = UserSettings()
-)
-
-sealed class SettingsEvent {
+a sealed class SettingsEvent {
     data class ShowToast(val message: String) : SettingsEvent()
 }
 
