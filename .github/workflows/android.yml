@@ -1,3 +1,4 @@
+# Standard CI for the editor/external save behavior validation.
 name: Android CI/CD
 
 on:
