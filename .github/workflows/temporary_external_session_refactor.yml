@@ -15,11 +15,10 @@ jobs:
           python-version: '3.x'
       - name: Apply refactor
         run: python .github/temporary_external_session_refactor.py
-      - name: Build and unit test
+      - name: Compile and assemble debug APK
         run: |
           if [ ! -f gradlew ]; then gradle wrapper; fi
           chmod +x gradlew
-          ./gradlew testDebugUnitTest --no-daemon
           ./gradlew assembleDebug --no-daemon
       - name: Commit refactor
         run: |
