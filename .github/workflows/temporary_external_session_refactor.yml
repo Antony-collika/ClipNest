@@ -1,0 +1,31 @@
+name: Temporary external-session refactor
+on:
+  push:
+    branches: [Draft]
+permissions:
+  contents: write
+jobs:
+  refactor:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Apply refactor
+        run: python .github/temporary_external_session_refactor.py
+      - name: Build and unit test
+        run: |
+          if [ ! -f gradlew ]; then gradle wrapper; fi
+          chmod +x gradlew
+          ./gradlew testDebugUnitTest --no-daemon
+          ./gradlew assembleDebug --no-daemon
+      - name: Commit refactor
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/com/clipnest/ui/editor/EditorViewModel.kt app/src/main/java/com/clipnest/ui/editor/EditorScreen.kt app/src/main/java/com/clipnest/MainActivity.kt
+          git diff --cached --quiet && exit 0
+          git commit -m 'Fix external document session lifecycle'
+          git push
