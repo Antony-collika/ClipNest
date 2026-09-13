@@ -1,5 +1,7 @@
 package com.clipnest.ui.editor
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -15,7 +17,6 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -28,6 +29,7 @@ import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,7 +38,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
@@ -47,8 +48,10 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -87,23 +90,45 @@ fun EditorScreen(
     val previewTextColor = if (isDark) Color(0xFFF4F4F4) else Color(0xFF171717)
     val previewMutedColor = if (isDark) Color(0xFFCACACA) else Color(0xFF5E5E5E)
     val previewColors = remember(isDark) {
-        MarkdownPreviewColors.from(
-            previewBackground,
-            previewTextColor,
-            previewMutedColor,
-            if (isDark) Color(0xFF3A3A3A) else Color(0xFFE8E8E8),
-            if (isDark) Color(0xFF777777) else Color(0xFF8A8A8A),
-            if (isDark) Color(0xFF555555) else Color(0xFFC7C7C7),
-            previewTextColor,
-            if (isDark) Color(0xFF3A3A3A) else Color(0xFFE8E8E8),
-            isDark
-        )
+        MarkdownPreviewColors.from(previewBackground, previewTextColor, previewMutedColor, if (isDark) Color(0xFF3A3A3A) else Color(0xFFE8E8E8), if (isDark) Color(0xFF777777) else Color(0xFF8A8A8A), if (isDark) Color(0xFF555555) else Color(0xFFC7C7C7), previewTextColor, if (isDark) Color(0xFF3A3A3A) else Color(0xFFE8E8E8), isDark)
     }
     var previewHtml by remember { mutableStateOf("") }
     var tocHeadings by remember { mutableStateOf<List<MarkdownHeading>>(emptyList()) }
     var tocIndexing by remember { mutableStateOf(false) }
     var editorVisible by remember { mutableStateOf(true) }
+    var titleFocused by remember { mutableStateOf(false) }
+    var titleFieldValue by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue()) }
 
+    LaunchedEffect(uiState.title) {
+        if (uiState.title != titleFieldValue.text) titleFieldValue = TextFieldValue(uiState.title, TextRange(uiState.title.length))
+    }
+
+    fun updateTitle(value: TextFieldValue) { titleFieldValue = value; viewModel.onTitleChange(value.text) }
+    fun titleClipboard(): ClipboardManager = context.getSystemService(ClipboardManager::class.java)
+    fun copyTitle() {
+        val selection = titleFieldValue.selection
+        if (selection.collapsed) return
+        titleClipboard().setPrimaryClip(ClipData.newPlainText("Title", titleFieldValue.text.substring(selection.min, selection.max)))
+    }
+    fun cutTitle() {
+        val selection = titleFieldValue.selection
+        if (selection.collapsed) return
+        titleClipboard().setPrimaryClip(ClipData.newPlainText("Title", titleFieldValue.text.substring(selection.min, selection.max)))
+        updateTitle(titleFieldValue.copy(text = titleFieldValue.text.removeRange(selection.min, selection.max), selection = TextRange(selection.min)))
+    }
+    fun pasteTitle() {
+        val clip = runCatching { titleClipboard().primaryClip?.getItemAt(0)?.coerceToText(context)?.toString() }.getOrNull() ?: return
+        val normalized = clip.replace("\r\n", "\n").replace('\r', '\n')
+        val selection = titleFieldValue.selection
+        val text = titleFieldValue.text.replaceRange(selection.min, selection.max, normalized)
+        updateTitle(titleFieldValue.copy(text = text, selection = TextRange(selection.min + normalized.length)))
+    }
+    fun selectAllTitle() { updateTitle(titleFieldValue.copy(selection = TextRange(0, titleFieldValue.text.length))) }
+    fun deleteTitle() {
+        val selection = titleFieldValue.selection
+        if (selection.collapsed) return
+        updateTitle(titleFieldValue.copy(text = titleFieldValue.text.removeRange(selection.min, selection.max), selection = TextRange(selection.min)))
+    }
 
     LaunchedEffect(Unit) {
         viewModel.eventFlow.collect { event ->
@@ -120,72 +145,42 @@ fun EditorScreen(
         tocIndexing = true
         tocHeadings = emptyList()
         val size = viewModel.currentDocumentText().length
-        val debounce = when {
-            size >= PREVIEW_LARGE_DOCUMENT_THRESHOLD -> PREVIEW_HUGE_DEBOUNCE_MS
-            size >= PREVIEW_SMALL_DOCUMENT_THRESHOLD -> PREVIEW_LARGE_DEBOUNCE_MS
-            else -> PREVIEW_SMALL_DEBOUNCE_MS
-        }
+        val debounce = when { size >= PREVIEW_LARGE_DOCUMENT_THRESHOLD -> PREVIEW_HUGE_DEBOUNCE_MS; size >= PREVIEW_SMALL_DOCUMENT_THRESHOLD -> PREVIEW_LARGE_DEBOUNCE_MS; else -> PREVIEW_SMALL_DEBOUNCE_MS }
         delay(debounce)
         if (!viewModel.uiState.value.showMarkdownPreview) return@LaunchedEffect
         val snapshot = viewModel.currentDocumentSnapshot()
         val isCsvDocument = uiState.documentName.endsWith(".csv", ignoreCase = true)
-        val rendered = withContext(Dispatchers.Default) {
-            if (isCsvDocument) {
-                CsvPreviewRenderer.render(snapshot.text, previewColors, viewerTextSize.px)
-            } else {
-                MarkdownPreviewRenderer.render(snapshot.text, previewColors, viewerTextSize.px)
-            }
-        }
+        val rendered = withContext(Dispatchers.Default) { if (isCsvDocument) CsvPreviewRenderer.render(snapshot.text, previewColors, viewerTextSize.px) else MarkdownPreviewRenderer.render(snapshot.text, previewColors, viewerTextSize.px) }
         if (snapshot.isCurrent(viewModel.uiState.value.documentRevision) && viewModel.uiState.value.showMarkdownPreview) {
             previewHtml = rendered
-            if (isCsvDocument) {
-                tocHeadings = emptyList()
-                tocIndexing = false
-            } else {
-                launch {
-                    val headings = withContext(Dispatchers.Default) {
-                        MarkdownPreviewRenderer.extractHeadings(snapshot.text)
-                    }
-                    val current = viewModel.uiState.value
-                    if (current.showMarkdownPreview && current.documentRevision == snapshot.revision) {
-                        tocHeadings = headings
-                        tocIndexing = false
-                    }
-                }
+            if (isCsvDocument) { tocHeadings = emptyList(); tocIndexing = false } else launch {
+                val headings = withContext(Dispatchers.Default) { MarkdownPreviewRenderer.extractHeadings(snapshot.text) }
+                val current = viewModel.uiState.value
+                if (current.showMarkdownPreview && current.documentRevision == snapshot.revision) { tocHeadings = headings; tocIndexing = false }
             }
         }
     }
 
-    LaunchedEffect(uiState.showMarkdownPreview) {
-        if (uiState.showMarkdownPreview) viewModel.hideNativeKeyboard()
-        else viewModel.hideNativeKeyboard()
-    }
+    LaunchedEffect(uiState.showMarkdownPreview) { viewModel.hideNativeKeyboard() }
 
-    Box(
-        modifier.fillMaxSize()
-            .imePadding()
-            .onGloballyPositioned { coordinates ->
-                val bounds = coordinates.boundsInWindow()
-                val windowWidth = context.resources.displayMetrics.widthPixels.toFloat()
-                val visible = bounds.right > 0f && bounds.left < windowWidth
-                if (visible != editorVisible) editorVisible = visible
-                if (!visible) viewModel.hideNativeKeyboard()
-            }
-    ) {
+    Box(modifier.fillMaxSize().imePadding().onGloballyPositioned { coordinates ->
+        val bounds = coordinates.boundsInWindow()
+        val windowWidth = context.resources.displayMetrics.widthPixels.toFloat()
+        val visible = bounds.right > 0f && bounds.left < windowWidth
+        if (visible != editorVisible) editorVisible = visible
+        if (!visible) viewModel.hideNativeKeyboard()
+    }) {
         Column(Modifier.fillMaxSize()) {
-            EditorNoteBreadcrumbBar(
-                mode = uiState.mode,
-                origin = uiState.noteOrigin,
-                onExit = { viewModel.flushPendingSaveAndExit(context.contentResolver, onExit) }
-            )
+            EditorNoteBreadcrumbBar(mode = uiState.mode, origin = uiState.noteOrigin, onExit = { viewModel.flushPendingSaveAndExit(context.contentResolver, onExit) })
             EditorToolbox(
                 isMarkdownToolsExpanded = uiState.isMarkdownToolsExpanded,
                 isPreviewVisible = uiState.showMarkdownPreview,
-                onPaste = { viewModel.pasteFromClipboard(context) },
-                onCopy = { viewModel.copySelectedText(context) },
-                onCut = { viewModel.cutSelectedText(context) },
-                onSelectAll = viewModel::selectAll,
-                onDelete = viewModel::deleteSelectedText,
+                titleFocused = titleFocused,
+                onPaste = if (titleFocused) ::pasteTitle else { { viewModel.pasteFromClipboard(context) } },
+                onCopy = if (titleFocused) ::copyTitle else { { viewModel.copySelectedText(context) } },
+                onCut = if (titleFocused) ::cutTitle else { { viewModel.cutSelectedText(context) } },
+                onSelectAll = if (titleFocused) ::selectAllTitle else viewModel::selectAll,
+                onDelete = if (titleFocused) ::deleteTitle else viewModel::deleteSelectedText,
                 onUndo = viewModel::undo,
                 onRedo = viewModel::redo,
                 onHeading = viewModel::insertMarkdownHeading,
@@ -198,103 +193,28 @@ fun EditorScreen(
                 onHorizontalRule = viewModel::insertMarkdownHorizontalRule,
                 onTogglePreview = viewModel::toggleMarkdownPreview
             )
-            EditorNoteTitleField(
-                value = uiState.title,
-                onValueChange = viewModel::onTitleChange,
-                editorTextSize = editorTextSize,
-                textColor = MaterialTheme.colorScheme.onSurface,
-                hintColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
-            )
+            EditorNoteTitleField(value = titleFieldValue, onValueChange = ::updateTitle, onFocusChanged = { titleFocused = it }, editorTextSize = editorTextSize, textColor = MaterialTheme.colorScheme.onSurface, hintColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f))
             EditorNoteTitleDivider()
             AndroidView(
-                factory = {
-                    NativeEditorView(it).apply {
-                        setEditorTextSize(editorTextSize)
-                        setEditorTextColor(editorTextColor)
-                        viewModel.bindNativeEditor(this)
-                    }
-                },
-                update = {
-                    it.setEditorTextSize(editorTextSize)
-                    it.setEditorTextColor(editorTextColor)
-                    if (uiState.showMarkdownPreview || !editorVisible) it.hideKeyboardAndClearFocus()
-                    viewModel.bindNativeEditor(it)
-                },
+                factory = { NativeEditorView(it).apply { setEditorTextSize(editorTextSize); setEditorTextColor(editorTextColor); viewModel.bindNativeEditor(this) } },
+                update = { it.setEditorTextSize(editorTextSize); it.setEditorTextColor(editorTextColor); if (uiState.showMarkdownPreview || !editorVisible) it.hideKeyboardAndClearFocus(); viewModel.bindNativeEditor(it) },
                 modifier = Modifier.fillMaxWidth().weight(1f).testTag("editor_text_input")
             )
         }
     }
 
-    if (uiState.showMarkdownPreview) {
-        MarkdownPreviewDialog(
-            html = previewHtml,
-            headings = tocHeadings,
-            tocIndexing = tocIndexing,
-            backgroundColor = previewBackground,
-            contentColor = previewTextColor,
-            onDismiss = viewModel::toggleMarkdownPreview
-        )
-    }
-
-    if (uiState.showSaveNewFileDialog) {
-        SaveNewFileDialog(
-            defaultFolderUri = uiState.defaultSaveFolderUri,
-            initialFileName = uiState.title.ifBlank { uiState.documentName },
-            onChooseFolder = onRequestSaveFolder,
-            onDismiss = viewModel::dismissSaveNewFileDialog,
-            onConfirm = { fileName, format ->
-                viewModel.confirmSaveToNewFile(fileName, format, context.contentResolver)
-            }
-        )
-    }
-
-    if (uiState.showExternalUnsavedChangesDialog) {
-        AlertDialog(
-            onDismissRequest = viewModel::cancelExternalExit,
-            title = { Text("Unsaved changes") },
-            text = { Text("This external file has unsaved changes. What would you like to do?") },
-            confirmButton = {
-                Column(horizontalAlignment = Alignment.End) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        TextButton(onClick = { viewModel.chooseExternalSave(context.contentResolver) }) { Text("Save") }
-                        TextButton(onClick = viewModel::chooseExternalSaveAs) { Text("Save as") }
-                        TextButton(onClick = { viewModel.chooseExternalNoSave(context.contentResolver) }) { Text("Don't save") }
-                    }
-                    TextButton(onClick = viewModel::cancelExternalExit) { Text("Cancel") }
-                }
-            },
-            dismissButton = {}
-        )
-    }
-
-    openWithDiagnostic?.let {
-        AlertDialog(
-            onDismissRequest = viewModel::dismissOpenWithDiagnostic,
-            title = { Text(stringResource(com.clipnest.R.string.open_with_fallback_title)) },
-            text = { Text(stringResource(com.clipnest.R.string.open_with_fallback_message)) },
-            confirmButton = { TextButton(onClick = viewModel::dismissOpenWithDiagnostic) { Text(stringResource(com.clipnest.R.string.close)) } },
-            dismissButton = {
-                TextButton(onClick = { viewModel.dismissOpenWithDiagnostic(); onRequestOpenFile() }) {
-                    Text(stringResource(com.clipnest.R.string.open_with_fallback_open_file))
-                }
-            }
-        )
-    }
-
-    pendingEncryptedOpen?.let { pending ->
-        DecryptOpenDialog(
-            displayName = pending.displayName,
-            isError = pending.error,
-            onDismiss = viewModel::dismissPendingEncryptedOpen,
-            onConfirm = { password -> viewModel.confirmDecryptAndOpen(password, context.contentResolver) }
-        )
-    }
+    if (uiState.showMarkdownPreview) MarkdownPreviewDialog(html = previewHtml, headings = tocHeadings, tocIndexing = tocIndexing, backgroundColor = previewBackground, contentColor = previewTextColor, onDismiss = viewModel::toggleMarkdownPreview)
+    if (uiState.showSaveNewFileDialog) SaveNewFileDialog(defaultFolderUri = uiState.defaultSaveFolderUri, initialFileName = uiState.title.ifBlank { uiState.documentName }, onChooseFolder = onRequestSaveFolder, onDismiss = viewModel::dismissSaveNewFileDialog, onConfirm = { fileName, format -> viewModel.confirmSaveToNewFile(fileName, format, context.contentResolver) })
+    if (uiState.showExternalUnsavedChangesDialog) AlertDialog(onDismissRequest = viewModel::cancelExternalExit, title = { Text("Unsaved changes") }, text = { Text("This external file has unsaved changes. What would you like to do?") }, confirmButton = { Column(horizontalAlignment = Alignment.End) { Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { TextButton(onClick = { viewModel.chooseExternalSave(context.contentResolver) }) { Text("Save") }; TextButton(onClick = viewModel::chooseExternalSaveAs) { Text("Save as") }; TextButton(onClick = { viewModel.chooseExternalNoSave(context.contentResolver) }) { Text("Don't save") } }; TextButton(onClick = viewModel::cancelExternalExit) { Text("Cancel") } } }, dismissButton = {})
+    openWithDiagnostic?.let { AlertDialog(onDismissRequest = viewModel::dismissOpenWithDiagnostic, title = { Text(stringResource(com.clipnest.R.string.open_with_fallback_title)) }, text = { Text(stringResource(com.clipnest.R.string.open_with_fallback_message)) }, confirmButton = { TextButton(onClick = viewModel::dismissOpenWithDiagnostic) { Text(stringResource(com.clipnest.R.string.close)) } }, dismissButton = { TextButton(onClick = { viewModel.dismissOpenWithDiagnostic(); onRequestOpenFile() }) { Text(stringResource(com.clipnest.R.string.open_with_fallback_open_file)) } }) }
+    pendingEncryptedOpen?.let { pending -> DecryptOpenDialog(displayName = pending.displayName, isError = pending.error, onDismiss = viewModel::dismissPendingEncryptedOpen, onConfirm = { password -> viewModel.confirmDecryptAndOpen(password, context.contentResolver) }) }
 }
 
 @Composable
 private fun EditorToolbox(
     isMarkdownToolsExpanded: Boolean,
     isPreviewVisible: Boolean,
+    titleFocused: Boolean,
     onPaste: () -> Unit,
     onCopy: () -> Unit,
     onCut: () -> Unit,
@@ -312,6 +232,8 @@ private fun EditorToolbox(
     onHorizontalRule: () -> Unit,
     onTogglePreview: () -> Unit
 ) {
+    val contentToolsEnabled = !titleFocused
+    val disabledTint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
     Surface(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f), modifier = Modifier.fillMaxWidth().testTag("editor_toolbox")) {
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(1.dp), verticalAlignment = Alignment.CenterVertically) {
             EditorToolButton("editor_action_cut", "Cut", Icons.Default.ContentCut, onCut)
@@ -319,48 +241,40 @@ private fun EditorToolbox(
             EditorToolButton("editor_action_paste", stringResource(com.clipnest.R.string.paste), Icons.Default.ContentPaste, onPaste)
             EditorToolButton("editor_action_select_all", stringResource(com.clipnest.R.string.select_all), Icons.Default.SelectAll, onSelectAll)
             EditorToolButton("editor_action_delete", stringResource(com.clipnest.R.string.delete_selected), Icons.Default.Delete, onDelete)
-            EditorToolButton("editor_action_undo", stringResource(com.clipnest.R.string.undo), Icons.AutoMirrored.Filled.Undo, onUndo)
-            EditorToolButton("editor_action_redo", stringResource(com.clipnest.R.string.redo), Icons.AutoMirrored.Filled.Redo, onRedo)
-            EditorToolButton("markdown_action_view", if (isPreviewVisible) stringResource(com.clipnest.R.string.hide_markdown_preview) else stringResource(com.clipnest.R.string.show_markdown_preview), if (isPreviewVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility, onTogglePreview)
-            MarkdownTextButton("markdown_action_h1", "H1", stringResource(com.clipnest.R.string.markdown_h1)) { onHeading(1) }
-            MarkdownTextButton("markdown_action_h2", "H2", stringResource(com.clipnest.R.string.markdown_h2)) { onHeading(2) }
-            MarkdownTextButton("markdown_action_h3", "H3", stringResource(com.clipnest.R.string.markdown_h3)) { onHeading(3) }
-            MarkdownTextButton("markdown_action_bold", "B", stringResource(com.clipnest.R.string.markdown_bold), bold = true, onClick = onBold)
-            MarkdownTextButton("markdown_action_italic", "I", stringResource(com.clipnest.R.string.markdown_italic), italic = true, onClick = onItalic)
-            MarkdownTextButton("markdown_action_quote", "❝", stringResource(com.clipnest.R.string.markdown_quote), onClick = onQuote)
-            MarkdownTextButton("markdown_action_code", "</>", stringResource(com.clipnest.R.string.markdown_code), onClick = onCode)
-            MarkdownTextButton("markdown_action_bullets", "•", stringResource(com.clipnest.R.string.markdown_bullets), onClick = onBullets)
-            MarkdownTextButton("markdown_action_numbers", "1.", stringResource(com.clipnest.R.string.markdown_numbers), onClick = onNumbers)
-            MarkdownTextButton("markdown_action_rule", "—", stringResource(com.clipnest.R.string.markdown_horizontal_rule), onClick = onHorizontalRule)
+            EditorToolButton("editor_action_undo", stringResource(com.clipnest.R.string.undo), Icons.AutoMirrored.Filled.Undo, onUndo, enabled = contentToolsEnabled, tint = if (contentToolsEnabled) MaterialTheme.colorScheme.primary else disabledTint)
+            EditorToolButton("editor_action_redo", stringResource(com.clipnest.R.string.redo), Icons.AutoMirrored.Filled.Redo, onRedo, enabled = contentToolsEnabled, tint = if (contentToolsEnabled) MaterialTheme.colorScheme.primary else disabledTint)
+            EditorToolButton("markdown_action_view", if (isPreviewVisible) stringResource(com.clipnest.R.string.hide_markdown_preview) else stringResource(com.clipnest.R.string.show_markdown_preview), if (isPreviewVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility, onTogglePreview, enabled = contentToolsEnabled, tint = if (contentToolsEnabled) MaterialTheme.colorScheme.primary else disabledTint)
+            MarkdownTextButton("markdown_action_h1", "H1", stringResource(com.clipnest.R.string.markdown_h1), enabled = contentToolsEnabled) { onHeading(1) }
+            MarkdownTextButton("markdown_action_h2", "H2", stringResource(com.clipnest.R.string.markdown_h2), enabled = contentToolsEnabled) { onHeading(2) }
+            MarkdownTextButton("markdown_action_h3", "H3", stringResource(com.clipnest.R.string.markdown_h3), enabled = contentToolsEnabled) { onHeading(3) }
+            MarkdownTextButton("markdown_action_bold", "B", stringResource(com.clipnest.R.string.markdown_bold), bold = true, enabled = contentToolsEnabled, onClick = onBold)
+            MarkdownTextButton("markdown_action_italic", "I", stringResource(com.clipnest.R.string.markdown_italic), italic = true, enabled = contentToolsEnabled, onClick = onItalic)
+            MarkdownTextButton("markdown_action_quote", "❝", stringResource(com.clipnest.R.string.markdown_quote), enabled = contentToolsEnabled, onClick = onQuote)
+            MarkdownTextButton("markdown_action_code", "</>", stringResource(com.clipnest.R.string.markdown_code), enabled = contentToolsEnabled, onClick = onCode)
+            MarkdownTextButton("markdown_action_bullets", "•", stringResource(com.clipnest.R.string.markdown_bullets), enabled = contentToolsEnabled, onClick = onBullets)
+            MarkdownTextButton("markdown_action_numbers", "1.", stringResource(com.clipnest.R.string.markdown_numbers), enabled = contentToolsEnabled, onClick = onNumbers)
+            MarkdownTextButton("markdown_action_rule", "—", stringResource(com.clipnest.R.string.markdown_horizontal_rule), enabled = contentToolsEnabled, onClick = onHorizontalRule)
         }
     }
 }
 
 @Composable
-private fun MarkdownTextButton(tag: String, label: String, description: String, bold: Boolean = false, italic: Boolean = false, onClick: () -> Unit) {
-    Surface(color = Color.Transparent, contentColor = MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(6.dp), modifier = Modifier.size(48.dp).testTag(tag).semantics { role = Role.Button; contentDescription = description }) {
-        Box(Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures(onTap = { onClick() }) }, contentAlignment = Alignment.Center) {
-            Text(label, style = MaterialTheme.typography.labelMedium.copy(fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal, fontStyle = if (italic) FontStyle.Italic else FontStyle.Normal))
+private fun MarkdownTextButton(tag: String, label: String, description: String, bold: Boolean = false, italic: Boolean = false, enabled: Boolean = true, onClick: () -> Unit) {
+    val contentColor = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+    Surface(color = Color.Transparent, contentColor = contentColor, shape = RoundedCornerShape(6.dp), modifier = Modifier.size(48.dp).testTag(tag).semantics { role = Role.Button; contentDescription = description }) {
+        Box(Modifier.fillMaxSize().clickable(enabled = enabled, onClick = onClick), contentAlignment = Alignment.Center) {
+            Text(label, style = MaterialTheme.typography.labelMedium.copy(color = contentColor, fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal, fontStyle = if (italic) FontStyle.Italic else FontStyle.Normal))
         }
     }
 }
 
 @Composable
-private fun EditorToolButton(tag: String, description: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit, tint: Color = MaterialTheme.colorScheme.primary) {
-    IconButton(onClick, Modifier.size(48.dp).testTag(tag).semantics { role = Role.Button; contentDescription = description }) {
-        Icon(icon, null, tint = tint, modifier = Modifier.size(22.dp))
-    }
+private fun EditorToolButton(tag: String, description: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit, enabled: Boolean = true, tint: Color = MaterialTheme.colorScheme.primary) {
+    IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(48.dp).testTag(tag).semantics { role = Role.Button; contentDescription = description }) { Icon(icon, null, tint = tint, modifier = Modifier.size(22.dp)) }
 }
 
 @Composable
-private fun MarkdownPreviewDialog(
-    html: String,
-    headings: List<MarkdownHeading>,
-    tocIndexing: Boolean,
-    backgroundColor: Color,
-    contentColor: Color,
-    onDismiss: () -> Unit
-) {
+private fun MarkdownPreviewDialog(html: String, headings: List<MarkdownHeading>, tocIndexing: Boolean, backgroundColor: Color, contentColor: Color, onDismiss: () -> Unit) {
     val surfaceColor = backgroundColor.toArgb()
     val shape = RoundedCornerShape(18.dp)
     val visibility = remember { MutableTransitionState(true) }
@@ -375,14 +289,10 @@ private fun MarkdownPreviewDialog(
                 Column(Modifier.fillMaxSize()) {
                     Row(Modifier.fillMaxWidth().height(PREVIEW_HEADER_HEIGHT).padding(start = 8.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         if (showToc) {
-                            IconButton(onClick = { showToc = false }, Modifier.size(44.dp).testTag("markdown_preview_toc_back")) {
-                                Icon(Icons.Default.ArrowBack, "Back", tint = contentColor)
-                            }
+                            IconButton(onClick = { showToc = false }, Modifier.size(44.dp).testTag("markdown_preview_toc_back")) { Icon(Icons.Default.ArrowBack, "Back", tint = contentColor) }
                             Text("Table of Contents", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
                         } else {
-                            IconButton(onClick = { showToc = true }, Modifier.size(44.dp).testTag("markdown_preview_toc")) {
-                                Icon(Icons.Default.FormatListBulleted, "Table of contents", tint = contentColor)
-                            }
+                            IconButton(onClick = { showToc = true }, Modifier.size(44.dp).testTag("markdown_preview_toc")) { Icon(Icons.Default.FormatListBulleted, "Table of contents", tint = contentColor) }
                             Text(stringResource(com.clipnest.R.string.preview_markdown), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
                         }
                         IconButton(::dismiss, Modifier.size(44.dp).testTag("markdown_preview_close")) { Icon(Icons.Default.Close, stringResource(com.clipnest.R.string.close), tint = contentColor) }
@@ -390,23 +300,10 @@ private fun MarkdownPreviewDialog(
                     HorizontalDivider(color = contentColor.copy(alpha = 0.18f))
                     Box(Modifier.fillMaxSize().padding(start = 20.dp, end = 20.dp, bottom = 20.dp)) {
                         if (showToc) {
-                            if (tocIndexing) {
-                                Text("🔹Loading . . .", modifier = Modifier.fillMaxWidth().padding(20.dp), style = MaterialTheme.typography.bodyLarge)
-                            } else if (headings.isNotEmpty()) {
+                            if (tocIndexing) Text("🔹Loading . . .", modifier = Modifier.fillMaxWidth().padding(20.dp), style = MaterialTheme.typography.bodyLarge)
+                            else if (headings.isNotEmpty()) {
                                 LazyColumn(Modifier.fillMaxSize().testTag("markdown_toc_list")) {
-                                    items(headings, key = { it.index }) { heading ->
-                                        Text(
-                                            heading.title,
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .clickable {
-                                                    pendingHeadingIndex = heading.index
-                                                    showToc = false
-                                                }
-                                                .padding(start = ((heading.level - 1) * 18).dp, top = 10.dp, bottom = 10.dp, end = 8.dp),
-                                            style = MaterialTheme.typography.bodyLarge
-                                        )
-                                    }
+                                    items(headings, key = { it.index }) { heading -> Text(heading.title, modifier = Modifier.fillMaxWidth().clickable { pendingHeadingIndex = heading.index; showToc = false }.padding(start = ((heading.level - 1) * 18).dp, top = 10.dp, bottom = 10.dp, end = 8.dp), style = MaterialTheme.typography.bodyLarge) }
                                 }
                             }
                         } else {
@@ -422,9 +319,7 @@ private fun MarkdownPreviewDialog(
 
 @Composable
 private fun MarkdownPreviewLoadingOverlay(visible: Boolean, backgroundColor: Color, contentColor: Color) {
-    AnimatedVisibility(visible, enter = fadeIn(tween(120)), exit = fadeOut(tween(180))) {
-        Box(Modifier.fillMaxSize().background(backgroundColor)) { MarkdownPreviewShimmer(backgroundColor, contentColor) }
-    }
+    AnimatedVisibility(visible, enter = fadeIn(tween(120)), exit = fadeOut(tween(180))) { Box(Modifier.fillMaxSize().background(backgroundColor)) { MarkdownPreviewShimmer(backgroundColor, contentColor) } }
 }
 
 @Composable
@@ -432,9 +327,7 @@ private fun MarkdownPreviewShimmer(backgroundColor: Color, contentColor: Color) 
     val transition = rememberInfiniteTransition(label = "markdown_preview_shimmer")
     val progress by transition.animateFloat(-1f, 2f, infiniteRepeatable(tween(1100, easing = LinearEasing), RepeatMode.Restart), label = "markdown_preview_shimmer_progress")
     val base = contentColor.copy(alpha = .10f); val highlight = contentColor.copy(alpha = .20f)
-    Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        MarkdownShimmerLine(progress, base, highlight, .72f); MarkdownShimmerLine(progress, base, highlight, .92f); MarkdownShimmerLine(progress, base, highlight, .58f); Spacer(Modifier.weight(1f))
-    }
+    Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) { MarkdownShimmerLine(progress, base, highlight, .72f); MarkdownShimmerLine(progress, base, highlight, .92f); MarkdownShimmerLine(progress, base, highlight, .58f); Spacer(Modifier.weight(1f)) }
 }
 
 @Composable

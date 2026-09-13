@@ -22,11 +22,13 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -135,14 +137,14 @@ fun EditorNoteBreadcrumbBar(
  */
 @Composable
 fun EditorNoteTitleField(
-    value: String,
-    onValueChange: (String) -> Unit,
+    value: TextFieldValue,
+    onValueChange: (TextFieldValue) -> Unit,
+    onFocusChanged: (Boolean) -> Unit,
     editorTextSize: EditorTextSize,
     textColor: Color,
     hintColor: Color,
     modifier: Modifier = Modifier
 ) {
-    // Sử dụng hàm tính toán thông minh thay vì cộng cố định +2
     val titleFontSize = getSmartTitleSize(editorTextSize)
 
     BasicTextField(
@@ -152,12 +154,13 @@ fun EditorNoteTitleField(
             .fillMaxWidth()
             .wrapContentHeight()
             .padding(horizontal = 18.dp, vertical = 8.dp)
+            .onFocusChanged { onFocusChanged(it.isFocused) }
             .testTag("note_title_input"),
         singleLine = true,
         textStyle = TextStyle(color = textColor, fontSize = titleFontSize, fontWeight = FontWeight.Bold),
         decorationBox = { inner ->
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
-                if (value.isEmpty()) {
+                if (value.text.isEmpty()) {
                     Text(
                         text = stringResource(com.clipnest.R.string.note_title_placeholder),
                         color = hintColor,
