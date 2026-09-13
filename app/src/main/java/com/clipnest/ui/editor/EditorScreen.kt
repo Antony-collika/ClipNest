@@ -98,9 +98,24 @@ fun EditorScreen(
     var editorVisible by remember { mutableStateOf(true) }
     var titleFocused by remember { mutableStateOf(false) }
     var titleFieldValue by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue()) }
+    var nativeEditorView by remember { mutableStateOf<NativeEditorView?>(null) }
 
     LaunchedEffect(uiState.title) {
         if (uiState.title != titleFieldValue.text) titleFieldValue = TextFieldValue(uiState.title, TextRange(uiState.title.length))
+    }
+
+    LaunchedEffect(uiState.externalDocumentUri, uiState.documentName, uiState.externalDocumentFileCount) {
+        if (uiState.externalDocumentUri != null && uiState.externalDocumentFileCount == 1) {
+            val fileName = uiState.documentName
+            val lastDot = fileName.lastIndexOf('.')
+            val title = if (lastDot > 0) fileName.substring(0, lastDot) else fileName
+            titleFieldValue = TextFieldValue(title, TextRange(title.length))
+        }
+        if (uiState.externalDocumentUri != null) {
+            withFrameNanos { }
+            nativeEditorView?.setSelection(0)
+            nativeEditorView?.scrollTo(0, 0)
+        }
     }
 
     fun updateTitle(value: TextFieldValue) { titleFieldValue = value; viewModel.onTitleChange(value.text) }
@@ -196,15 +211,15 @@ fun EditorScreen(
             EditorNoteTitleField(value = titleFieldValue, onValueChange = ::updateTitle, onFocusChanged = { titleFocused = it }, editorTextSize = editorTextSize, textColor = MaterialTheme.colorScheme.onSurface, hintColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f))
             EditorNoteTitleDivider()
             AndroidView(
-                factory = { NativeEditorView(it).apply { setEditorTextSize(editorTextSize); setEditorTextColor(editorTextColor); viewModel.bindNativeEditor(this) } },
-                update = { it.setEditorTextSize(editorTextSize); it.setEditorTextColor(editorTextColor); if (uiState.showMarkdownPreview || !editorVisible) it.hideKeyboardAndClearFocus(); viewModel.bindNativeEditor(it) },
+                factory = { NativeEditorView(it).apply { setEditorTextSize(editorTextSize); setEditorTextColor(editorTextColor); nativeEditorView = this; viewModel.bindNativeEditor(this) } },
+                update = { it.setEditorTextSize(editorTextSize); it.setEditorTextColor(editorTextColor); nativeEditorView = it; if (uiState.showMarkdownPreview || !editorVisible) it.hideKeyboardAndClearFocus(); viewModel.bindNativeEditor(it) },
                 modifier = Modifier.fillMaxWidth().weight(1f).testTag("editor_text_input")
             )
         }
     }
 
     if (uiState.showMarkdownPreview) MarkdownPreviewDialog(html = previewHtml, headings = tocHeadings, tocIndexing = tocIndexing, backgroundColor = previewBackground, contentColor = previewTextColor, onDismiss = viewModel::toggleMarkdownPreview)
-    if (uiState.showSaveNewFileDialog) SaveNewFileDialog(defaultFolderUri = uiState.defaultSaveFolderUri, initialFileName = uiState.title.ifBlank { uiState.documentName }, onChooseFolder = onRequestSaveFolder, onDismiss = viewModel::dismissSaveNewFileDialog, onConfirm = { fileName, format -> viewModel.confirmSaveToNewFile(fileName, format, context.contentResolver) })
+    if (uiState.showSaveNewFileDialog) SaveNewFileDialog(defaultFolderUri = uiState.defaultSaveFolderUri, initialFileName = titleFieldValue.text.ifBlank { uiState.documentName }, onChooseFolder = onRequestSaveFolder, onDismiss = viewModel::dismissSaveNewFileDialog, onConfirm = { fileName, format -> viewModel.confirmSaveToNewFile(fileName, format, context.contentResolver) })
     if (uiState.showExternalUnsavedChangesDialog) AlertDialog(onDismissRequest = viewModel::cancelExternalExit, title = { Text("Unsaved changes") }, text = { Text("This external file has unsaved changes. What would you like to do?") }, confirmButton = { Column(horizontalAlignment = Alignment.End) { Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { TextButton(onClick = { viewModel.chooseExternalSave(context.contentResolver) }) { Text("Save") }; TextButton(onClick = viewModel::chooseExternalSaveAs) { Text("Save as") }; TextButton(onClick = { viewModel.chooseExternalNoSave(context.contentResolver) }) { Text("Don't save") } }; TextButton(onClick = viewModel::cancelExternalExit) { Text("Cancel") } } }, dismissButton = {})
     openWithDiagnostic?.let { AlertDialog(onDismissRequest = viewModel::dismissOpenWithDiagnostic, title = { Text(stringResource(com.clipnest.R.string.open_with_fallback_title)) }, text = { Text(stringResource(com.clipnest.R.string.open_with_fallback_message)) }, confirmButton = { TextButton(onClick = viewModel::dismissOpenWithDiagnostic) { Text(stringResource(com.clipnest.R.string.close)) } }, dismissButton = { TextButton(onClick = { viewModel.dismissOpenWithDiagnostic(); onRequestOpenFile() }) { Text(stringResource(com.clipnest.R.string.open_with_fallback_open_file)) } }) }
     pendingEncryptedOpen?.let { pending -> DecryptOpenDialog(displayName = pending.displayName, isError = pending.error, onDismiss = viewModel::dismissPendingEncryptedOpen, onConfirm = { password -> viewModel.confirmDecryptAndOpen(password, context.contentResolver) }) }
