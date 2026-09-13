@@ -45,7 +45,7 @@ jobs:
           PY
 
       - name: Run unit tests and debug build
-        run: ./gradlew testDebugUnitTest assembleDebug --no-daemon
+        run: bash ./gradlew testDebugUnitTest assembleDebug --no-daemon
 
       - name: Commit and push
         shell: bash
