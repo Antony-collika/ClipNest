@@ -1,6 +1,7 @@
 package com.clipnest.ui.editor
 
 import android.content.Context
+import android.graphics.drawable.ColorDrawable
 import android.text.TextWatcher
 import android.util.AttributeSet
 import android.view.Gravity
@@ -182,7 +183,12 @@ class NativeEditorView @JvmOverloads constructor(
             ?.hideSoftInputFromWindow(windowToken, 0)
     }
 
-    fun setEditorTextColor(color: Int) { setTextColor(color) }
+    fun setEditorTextColor(color: Int) {
+        setTextColor(color)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            textCursorDrawable = ColorDrawable(color)
+        }
+    }
     private fun maxScrollY(): Int = (computeVerticalScrollRange() - computeVerticalScrollExtent()).coerceAtLeast(0)
     private fun scrollToClamped(targetY: Int) { scrollTo(scrollX, targetY.coerceIn(0, maxScrollY())) }
     private fun scrollForDrag(targetY: Int) { val maxScrollY = maxScrollY(); val resistedY = when { targetY < 0 -> -overscrollDistance(-targetY); targetY > maxScrollY -> maxScrollY + overscrollDistance(targetY - maxScrollY); else -> targetY }; scrollTo(scrollX, resistedY) }
