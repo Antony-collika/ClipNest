@@ -54,55 +54,117 @@ object EncryptedDocumentCodec {
 
     fun encode(content: String, password: String): String {
         require(password.isNotEmpty()) { "Password must not be empty" }
+        val passwordChars = password.toCharArray()
+        return try {
+            encode(content, passwordChars)
+        } finally {
+            passwordChars.fill('\u0000')
+        }
+    }
+
+    /**
+     * Encrypts using a caller-owned mutable password buffer. The buffer is never
+     * retained and is not cleared here; the caller remains responsible for it.
+     */
+    fun encode(content: String, password: CharArray): String {
+        require(password.isNotEmpty()) { "Password must not be empty" }
         val salt = ByteArray(SALT_LENGTH_BYTES).also(secureRandom::nextBytes)
         val nonce = ByteArray(NONCE_LENGTH_BYTES).also(secureRandom::nextBytes)
-        val key = deriveKey(password, salt, PBKDF2_ITERATIONS)
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.ENCRYPT_MODE, key, GCMParameterSpec(TAG_LENGTH_BITS, nonce))
-        cipher.updateAAD(envelopeAad())
-        val ciphertext = cipher.doFinal(content.toByteArray(StandardCharsets.UTF_8))
-        return adapter.toJson(
-            EncryptedDocument(
-                iterations = PBKDF2_ITERATIONS,
-                salt = base64Encoder.encodeToString(salt),
-                nonce = base64Encoder.encodeToString(nonce),
-                ciphertext = base64Encoder.encodeToString(ciphertext)
+        var key: SecretKeySpec? = null
+        var plaintextBytes: ByteArray? = null
+        var ciphertext: ByteArray? = null
+        return try {
+            key = deriveKey(password, salt, PBKDF2_ITERATIONS)
+            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(Cipher.ENCRYPT_MODE, key, GCMParameterSpec(TAG_LENGTH_BITS, nonce))
+            cipher.updateAAD(envelopeAad())
+            plaintextBytes = content.toByteArray(StandardCharsets.UTF_8)
+            ciphertext = cipher.doFinal(plaintextBytes)
+            adapter.toJson(
+                EncryptedDocument(
+                    iterations = PBKDF2_ITERATIONS,
+                    salt = base64Encoder.encodeToString(salt),
+                    nonce = base64Encoder.encodeToString(nonce),
+                    ciphertext = base64Encoder.encodeToString(ciphertext)
+                )
             )
-        )
+        } finally {
+            plaintextBytes?.fill(0)
+            ciphertext?.fill(0)
+            salt.fill(0)
+            nonce.fill(0)
+            key?.let { wipeKeyMaterial(it) }
+        }
     }
 
     fun decode(json: String, password: String): String {
+        require(password.isNotEmpty()) { "Password must not be empty" }
+        val passwordChars = password.toCharArray()
+        return try {
+            decode(json, passwordChars)
+        } finally {
+            passwordChars.fill('\u0000')
+        }
+    }
+
+    /**
+     * Decrypts using a caller-owned mutable password buffer. The buffer is never
+     * retained and is not cleared here; the caller remains responsible for it.
+     */
+    fun decode(json: String, password: CharArray): String {
+        require(password.isNotEmpty()) { "Password must not be empty" }
         val envelope = adapter.fromJson(json) ?: throw IllegalArgumentException("Encrypted document is empty")
         require(envelope.format == EncryptedDocument.FORMAT) { "Unsupported encrypted document format" }
         require(envelope.version == EncryptedDocument.VERSION) { "Unsupported encrypted document version" }
         require(envelope.cipher == EncryptedDocument.CIPHER) { "Unsupported encryption cipher" }
         require(envelope.kdf == EncryptedDocument.KDF) { "Unsupported key derivation function" }
         require(envelope.iterations in 100_000..1_000_000) { "Unsupported key derivation cost" }
+
+        var salt: ByteArray? = null
+        var nonce: ByteArray? = null
+        var ciphertext: ByteArray? = null
+        var plaintextBytes: ByteArray? = null
+        var key: SecretKeySpec? = null
         return try {
-            val salt = base64Decoder.decode(envelope.salt)
-            val nonce = base64Decoder.decode(envelope.nonce)
-            val ciphertext = base64Decoder.decode(envelope.ciphertext)
+            salt = base64Decoder.decode(envelope.salt)
+            nonce = base64Decoder.decode(envelope.nonce)
+            ciphertext = base64Decoder.decode(envelope.ciphertext)
             require(salt.size == SALT_LENGTH_BYTES) { "Invalid document salt" }
             require(nonce.size == NONCE_LENGTH_BYTES) { "Invalid document nonce" }
             require(ciphertext.size > TAG_LENGTH_BITS / 8) { "Invalid document ciphertext" }
-            val key = deriveKey(password, salt, envelope.iterations)
+            key = deriveKey(password, salt, envelope.iterations)
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
             cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(TAG_LENGTH_BITS, nonce))
             cipher.updateAAD(envelopeAad())
-            String(cipher.doFinal(ciphertext), StandardCharsets.UTF_8)
+            plaintextBytes = cipher.doFinal(ciphertext)
+            String(plaintextBytes, StandardCharsets.UTF_8)
         } catch (error: Exception) {
             throw IllegalArgumentException("Invalid password or encrypted document", error)
+        } finally {
+            salt?.fill(0)
+            nonce?.fill(0)
+            ciphertext?.fill(0)
+            plaintextBytes?.fill(0)
+            key?.let { wipeKeyMaterial(it) }
         }
     }
 
-    private fun deriveKey(password: String, salt: ByteArray, iterations: Int): SecretKeySpec {
-        val spec = PBEKeySpec(password.toCharArray(), salt, iterations, KEY_LENGTH_BITS)
+    private fun deriveKey(password: CharArray, salt: ByteArray, iterations: Int): SecretKeySpec {
+        val spec = PBEKeySpec(password, salt, iterations, KEY_LENGTH_BITS)
         return try {
             val secret = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec)
-            SecretKeySpec(secret.encoded, "AES")
+            try {
+                SecretKeySpec(secret.encoded, "AES")
+            } finally {
+                secret.encoded?.fill(0)
+            }
         } finally {
             spec.clearPassword()
         }
+    }
+
+    private fun wipeKeyMaterial(key: SecretKeySpec) {
+        runCatching { key.encoded.fill(0) }
     }
 
     private fun envelopeAad(): ByteArray =
