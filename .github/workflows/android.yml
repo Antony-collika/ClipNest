@@ -6,10 +6,12 @@ on:
     branches:
       - Draft
       - Editor
+      - Optimization
   pull_request:
     branches:
       - Draft
       - Editor
+      - Optimization
   workflow_dispatch:
 
 jobs:
