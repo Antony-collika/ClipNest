@@ -202,16 +202,12 @@ class EditorViewModel(
     }
 
     fun chooseExternalSaveAs() {
-        val state = _uiState.value
-        val extension = if (state.externalDocumentEncrypted) ".cne" else {
-            val name = state.documentName
-            if (name.contains('.')) "." + name.substringAfterLast('.') else ".txt"
-        }
-        val base = state.documentName.substringBeforeLast('.', state.documentName).ifBlank { "ClipNest_Document" }
-        val suggested = if (base.endsWith(extension, ignoreCase = true)) base else base + extension
-        val mime = if (state.externalDocumentEncrypted) "application/octet-stream" else "text/plain"
-        _uiState.value = _uiState.value.copy(showExternalUnsavedChangesDialog = false)
-        viewModelScope.launch { _eventFlow.emit(EditorEvent.RequestExternalSaveAs(suggested, mime)) }
+        // Save As is part of Return-to-editor. Reuse the normal Save File dialog so
+        // the destination format, including encrypted .cne, can be selected.
+        _uiState.value = _uiState.value.copy(
+            showExternalUnsavedChangesDialog = false,
+            showSaveNewFileDialog = true
+        )
     }
 
     fun completeExternalSaveAs(uri: Uri?, contentResolver: ContentResolver) {
@@ -508,12 +504,92 @@ class EditorViewModel(
             withContext(Dispatchers.Main.immediate) { if (saved && _uiState.value.documentRevision == revision) _uiState.value = _uiState.value.copy(isDirty = false, lastSavedTimestamp = System.currentTimeMillis()) }
         }
     }
-    fun onSaveClicked(contentResolver: ContentResolver = appContext.contentResolver) { val state = _uiState.value; if (state.externalDocumentSaveAsOnly || state.externalDocumentUri == null) _uiState.value = state.copy(showSaveNewFileDialog = true) else saveExternalDocument(Uri.parse(state.externalDocumentUri), contentResolver) }
-    private fun saveExternalDocument(uri: Uri, resolver: ContentResolver) { val text = currentDocumentText(); val revision = _uiState.value.documentRevision; val encrypted = _uiState.value.externalDocumentEncrypted; viewModelScope.launch(Dispatchers.IO) { val ok = runCatching { writeExternalDocument(uri, resolver, text, encrypted, currentDocumentPassword) }.isSuccess; withContext(Dispatchers.Main.immediate) { if (ok) { if (_uiState.value.documentRevision == revision) _uiState.value = _uiState.value.copy(isDirty = false, lastSavedTimestamp = System.currentTimeMillis()); emitToast(com.clipnest.R.string.saved_current_file) } else { _uiState.value = _uiState.value.copy(showSaveNewFileDialog = true); emitToast(com.clipnest.R.string.could_not_save_open_file) } } } }
-    fun dismissSaveNewFileDialog() { _uiState.value = _uiState.value.copy(showSaveNewFileDialog = false) }
-    fun confirmSaveToNewFile(fileName: String, format: ExportFormat, contentResolver: ContentResolver) { if (fileName.isBlank()) return; val folder = _uiState.value.defaultSaveFolderUri; if (folder.isNullOrBlank()) { pendingSave = PendingSave(fileName.trim(), format); dismissSaveNewFileDialog(); viewModelScope.launch { _eventFlow.emit(EditorEvent.RequestSaveFolder) } } else saveToFolder(contentResolver, Uri.parse(folder), fileName.trim(), format) }
+    fun onSaveClicked(contentResolver: ContentResolver = appContext.contentResolver) {
+        val state = _uiState.value
+        if (state.externalDocumentUri != null) {
+            // External Save is persistence only; it never leaves the external session.
+            // Merged documents have no single source URI, so they use the Save File dialog.
+            if (state.externalDocumentSaveAsOnly) {
+                _uiState.value = state.copy(showSaveNewFileDialog = true)
+            } else {
+                saveExternalDocument(Uri.parse(state.externalDocumentUri), contentResolver)
+            }
+        } else {
+            _uiState.value = state.copy(showSaveNewFileDialog = true)
+        }
+    }
+
+    private fun saveExternalDocument(uri: Uri, resolver: ContentResolver) {
+        val text = currentDocumentText()
+        val revision = _uiState.value.documentRevision
+        val encrypted = _uiState.value.externalDocumentEncrypted
+        viewModelScope.launch(Dispatchers.IO) {
+            val ok = runCatching {
+                writeExternalDocument(uri, resolver, text, encrypted, currentDocumentPassword)
+            }.isSuccess
+            withContext(Dispatchers.Main.immediate) {
+                if (ok) {
+                    if (_uiState.value.documentRevision == revision) {
+                        _uiState.value = _uiState.value.copy(
+                            isDirty = false,
+                            lastSavedTimestamp = System.currentTimeMillis()
+                        )
+                    }
+                    emitToast(com.clipnest.R.string.saved_current_file)
+                } else {
+                    emitToast(com.clipnest.R.string.could_not_save_open_file)
+                }
+            }
+        }
+    }
+
+    fun dismissSaveNewFileDialog() {
+        val wasExternalExitSaveAs = pendingExternalExitAction != null
+        _uiState.value = _uiState.value.copy(showSaveNewFileDialog = false)
+        if (wasExternalExitSaveAs) {
+            _uiState.value = _uiState.value.copy(showExternalUnsavedChangesDialog = true)
+        }
+    }
+
+    fun confirmSaveToNewFile(fileName: String, format: ExportFormat, contentResolver: ContentResolver) {
+        if (fileName.isBlank()) return
+        val folder = _uiState.value.defaultSaveFolderUri
+        if (folder.isNullOrBlank()) {
+            pendingSave = PendingSave(fileName.trim(), format)
+            _uiState.value = _uiState.value.copy(showSaveNewFileDialog = false)
+            viewModelScope.launch { _eventFlow.emit(EditorEvent.RequestSaveFolder) }
+        } else {
+            saveToFolder(contentResolver, Uri.parse(folder), fileName.trim(), format)
+        }
+    }
     fun setDefaultSaveFolder(uri: Uri, resolver: ContentResolver) { runCatching { resolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION) }; viewModelScope.launch { settingsDataStore.setDefaultSaveFolderUri(uri.toString()) }; _uiState.value = _uiState.value.copy(defaultSaveFolderUri = uri.toString()); val request = pendingSave ?: return; pendingSave = null; saveToFolder(resolver, uri, request.fileName, request.format) }
-    private fun saveToFolder(resolver: ContentResolver, folder: Uri, fileName: String, format: ExportFormat) { val text = currentDocumentText(); val revision = _uiState.value.documentRevision; val savedExtension = if (format.isEncrypted) ".cne" else format.extension; viewModelScope.launch(Dispatchers.IO) { val saved = runCatching { fileManager.saveNewFileToTree(resolver, folder, fileName, format, text) }.getOrNull(); withContext(Dispatchers.Main.immediate) { if (saved == null) emitToast(com.clipnest.R.string.could_not_save_file) else { _uiState.value = _uiState.value.copy(showSaveNewFileDialog = false, isDirty = if (_uiState.value.documentRevision == revision) false else _uiState.value.isDirty, lastSavedTimestamp = if (_uiState.value.documentRevision == revision) System.currentTimeMillis() else _uiState.value.lastSavedTimestamp); emitToast(com.clipnest.R.string.saved_file, fileName, savedExtension) } } } }
+    private fun saveToFolder(resolver: ContentResolver, folder: Uri, fileName: String, format: ExportFormat) {
+        val text = currentDocumentText()
+        val revision = _uiState.value.documentRevision
+        val savedExtension = if (format.isEncrypted) ".cne" else format.extension
+        viewModelScope.launch(Dispatchers.IO) {
+            val saved = runCatching {
+                fileManager.saveNewFileToTree(resolver, folder, fileName, format, text)
+            }.getOrNull()
+            withContext(Dispatchers.Main.immediate) {
+                if (saved == null) {
+                    emitToast(com.clipnest.R.string.could_not_save_file)
+                } else {
+                    val exitAction = pendingExternalExitAction
+                    _uiState.value = _uiState.value.copy(
+                        showSaveNewFileDialog = false,
+                        isDirty = if (_uiState.value.documentRevision == revision) false else _uiState.value.isDirty,
+                        lastSavedTimestamp = if (_uiState.value.documentRevision == revision) System.currentTimeMillis() else _uiState.value.lastSavedTimestamp
+                    )
+                    emitToast(com.clipnest.R.string.saved_file, fileName, savedExtension)
+                    if (exitAction != null) {
+                        finishExternalSession(resolver)
+                        continueExternalExit(exitAction, resolver)
+                    }
+                }
+            }
+        }
+    }
     fun onPauseOrExit() { /* External document sessions intentionally do not autosave on lifecycle changes. */ if (!hasExternalSession() && _uiState.value.isDirty) saveCurrentDocumentSilently() }
     private fun emitToast(message: String) { viewModelScope.launch { _eventFlow.emit(EditorEvent.ShowToast(message)) } }
     private fun emitToast(@StringRes resourceId: Int, vararg args: Any) { emitToast(appContext.withAppLanguage(settings.value.language).getString(resourceId, *args)) }

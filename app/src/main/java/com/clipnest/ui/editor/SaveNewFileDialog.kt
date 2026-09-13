@@ -65,7 +65,7 @@ fun SaveNewFileDialog(
     val previewExtension = when (selectedMode) {
         SaveFileMode.MARKDOWN -> ".md"
         SaveFileMode.PLAIN_TEXT -> ".txt"
-        SaveFileMode.ENCRYPTED -> ".json"
+        SaveFileMode.ENCRYPTED -> ".cne"
     }
     val previewName = fileName.trim().ifBlank { "Untitled" }.let {
         if (it.endsWith(previewExtension, ignoreCase = true)) it else "$it$previewExtension"
@@ -117,7 +117,7 @@ fun SaveNewFileDialog(
                 )
                 SaveModeRadio(
                     selected = selectedMode == SaveFileMode.ENCRYPTED,
-                    label = "Encrypted (.json)",
+                    label = "Encrypted (.cne)",
                     onClick = { selectedMode = SaveFileMode.ENCRYPTED },
                     tag = "save_new_format_encrypted"
                 )
