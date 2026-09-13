@@ -243,3 +243,81 @@ private fun folderLabel(uri: String, fallback: String): String {
     val segment = Uri.parse(uri).lastPathSegment.orEmpty()
     return segment.substringAfterLast(':').ifBlank { fallback }
 }
+
+/**
+ * Prompts for the password of a document ClipNest itself encrypted (identified by
+ * its `format` field, not by file extension). Shown instead of loading raw
+ * ciphertext into the editor. [isError] reflects a failed decrypt attempt; the
+ * caller clears it as soon as the person edits the password field again.
+ */
+@Composable
+fun DecryptOpenDialog(
+    displayName: String,
+    isError: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var password by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
+    var lastAttempted by remember { mutableStateOf<String?>(null) }
+    val showError = isError && password == lastAttempted
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(24.dp),
+        containerColor = MaterialTheme.colorScheme.surface,
+        title = {
+            Text(
+                text = stringResource(com.clipnest.R.string.decrypt_open_title),
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+            )
+        },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = stringResource(com.clipnest.R.string.decrypt_open_description, displayName),
+                    style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text(stringResource(com.clipnest.R.string.backup_password_label)) },
+                    singleLine = true,
+                    isError = showError,
+                    supportingText = if (showError) {
+                        { Text(stringResource(com.clipnest.R.string.decrypt_open_wrong_password)) }
+                    } else null,
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Icon(
+                                imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                            )
+                        }
+                    },
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("decrypt_open_password_input")
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { if (password.isNotEmpty()) { lastAttempted = password; onConfirm(password) } },
+                enabled = password.isNotEmpty(),
+                modifier = Modifier.testTag("decrypt_open_confirm")
+            ) {
+                Text(stringResource(com.clipnest.R.string.decrypt_open_confirm))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, modifier = Modifier.testTag("decrypt_open_cancel")) {
+                Text(stringResource(com.clipnest.R.string.cancel))
+            }
+        },
+        modifier = Modifier.testTag("decrypt_open_dialog")
+    )
+}

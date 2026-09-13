@@ -5,6 +5,10 @@
     <string name="backup_password_description">Choose any password you like. You will need the same password to import this file on another device.</string>
     <string name="restore_password_description">Enter the password used when this ClipNest file was exported.</string>
     <string name="backup_password_label">Password</string>
+    <string name="decrypt_open_title">Encrypted file</string>
+    <string name="decrypt_open_description">"%1$s" is an encrypted ClipNest document. Enter its password to open it.</string>
+    <string name="decrypt_open_wrong_password">Incorrect password. Please try again.</string>
+    <string name="decrypt_open_confirm">Unlock</string>
     <string name="vault">Vault</string>
     <string name="editor">Editor</string>
     <string name="selected_count">Selected %1$d</string>

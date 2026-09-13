@@ -208,7 +208,7 @@ class MainActivity : ComponentActivity() {
     }
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); handleIntent(intent) }
     private fun requestFolderSelection(onSelected: (Uri) -> Unit) { pendingFolderSelection = onSelected; folderPickerLauncher.launch(null) }
-    private fun requestOpenFile(onSelected: (Uri) -> Unit) { pendingOpenFileSelection = onSelected; openFileLauncher.launch(arrayOf("text/plain", "text/markdown", "text/x-markdown", "text/plain+md", "text/*", "application/octet-stream")) }
+    private fun requestOpenFile(onSelected: (Uri) -> Unit) { pendingOpenFileSelection = onSelected; openFileLauncher.launch(arrayOf("*/*")) }
     private fun requestBackupFile() { backupPasswordRequest.value = BackupPasswordAction.EXPORT }
     private fun requestRestoreFile() { backupPasswordRequest.value = BackupPasswordAction.IMPORT }
     private fun launchBackupFilePicker() { val date = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date()); backupFileLauncher.launch("ClipNest_Backup_$date.clipnest.json") }

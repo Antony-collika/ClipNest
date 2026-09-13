@@ -28,41 +28,19 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- Open text/Markdown documents from file managers and other apps. -->
-            <intent-filter>
+            <!-- Open any document from file managers and other apps (Open file / Open with). -->
+            <intent-filter tools:ignore="AppLinkUrlError">
                 <action android:name="android.intent.action.VIEW" />
                 <action android:name="android.intent.action.EDIT" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="text/*" />
-                <data android:mimeType="text/plain" />
-                <data android:mimeType="text/markdown" />
-                <data android:mimeType="text/x-markdown" />
-                <data android:mimeType="text/plain+md" />
+                <data android:mimeType="*/*" />
             </intent-filter>
             <!-- Some senders deliver a document URI through ACTION_SEND. -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <action android:name="android.intent.action.SEND_MULTIPLE" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="text/markdown" />
-                <data android:mimeType="text/x-markdown" />
-                <data android:mimeType="text/plain+md" />
-                <data android:mimeType="application/octet-stream" />
-            </intent-filter>
-            <!-- Some providers expose .txt/.md with a generic MIME type. -->
-            <intent-filter tools:ignore="AppLinkUrlError">
-                <action android:name="android.intent.action.VIEW" />
-                <action android:name="android.intent.action.EDIT" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="application/octet-stream" />
-                <data android:mimeType="*/*" android:pathPattern=".*\\.md" />
-                <data android:mimeType="*/*" android:pathPattern=".*\\.markdown" />
-                <data android:mimeType="*/*" android:pathPattern=".*\\.mdown" />
-                <data android:mimeType="*/*" android:pathPattern=".*\\.mkdn" />
-                <data android:mimeType="*/*" android:pathPattern=".*\\.mkd" />
-                <data android:mimeType="*/*" android:pathPattern=".*\\.mdwn" />
-                <data android:mimeType="*/*" android:pathPattern=".*\\.mdtxt" />
-                <data android:mimeType="*/*" android:pathPattern=".*\\.txt" />
+                <data android:mimeType="*/*" />
             </intent-filter>
         </activity>
 

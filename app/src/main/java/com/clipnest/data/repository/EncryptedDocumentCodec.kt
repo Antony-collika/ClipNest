@@ -43,6 +43,15 @@ object EncryptedDocumentCodec {
     private val base64Encoder = Base64.getEncoder()
     private val base64Decoder = Base64.getDecoder()
 
+    /**
+     * Detects whether [text] is a document encrypted by ClipNest, as opposed to
+     * an arbitrary JSON file the user opened. Only inspects the `format` field
+     * and never throws: any parse failure (not JSON, unrelated JSON shape, etc.)
+     * is treated as "not an encrypted ClipNest document".
+     */
+    fun isEncryptedDocument(text: String): Boolean =
+        runCatching { adapter.fromJson(text)?.format == EncryptedDocument.FORMAT }.getOrDefault(false)
+
     fun encode(content: String, password: String): String {
         require(password.isNotEmpty()) { "Password must not be empty" }
         val salt = ByteArray(SALT_LENGTH_BYTES).also(secureRandom::nextBytes)

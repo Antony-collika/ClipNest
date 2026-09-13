@@ -82,6 +82,7 @@ fun EditorScreen(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val openWithDiagnostic by viewModel.openWithDiagnostic.collectAsStateWithLifecycle()
+    val pendingEncryptedOpen by viewModel.pendingEncryptedOpen.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
     val isDark = MaterialTheme.colorScheme.background.red < 0.5f
     val editorTextColor = MaterialTheme.colorScheme.onBackground.toArgb()
@@ -139,19 +140,29 @@ fun EditorScreen(
         delay(debounce)
         if (!viewModel.uiState.value.showMarkdownPreview) return@LaunchedEffect
         val snapshot = viewModel.currentDocumentSnapshot()
+        val isCsvDocument = uiState.documentName.endsWith(".csv", ignoreCase = true)
         val rendered = withContext(Dispatchers.Default) {
-            MarkdownPreviewRenderer.render(snapshot.text, previewColors, viewerTextSize.px)
+            if (isCsvDocument) {
+                CsvPreviewRenderer.render(snapshot.text, previewColors, viewerTextSize.px)
+            } else {
+                MarkdownPreviewRenderer.render(snapshot.text, previewColors, viewerTextSize.px)
+            }
         }
         if (snapshot.isCurrent(viewModel.uiState.value.documentRevision) && viewModel.uiState.value.showMarkdownPreview) {
             previewHtml = rendered
-            launch {
-                val headings = withContext(Dispatchers.Default) {
-                    MarkdownPreviewRenderer.extractHeadings(snapshot.text)
-                }
-                val current = viewModel.uiState.value
-                if (current.showMarkdownPreview && current.documentRevision == snapshot.revision) {
-                    tocHeadings = headings
-                    tocIndexing = false
+            if (isCsvDocument) {
+                tocHeadings = emptyList()
+                tocIndexing = false
+            } else {
+                launch {
+                    val headings = withContext(Dispatchers.Default) {
+                        MarkdownPreviewRenderer.extractHeadings(snapshot.text)
+                    }
+                    val current = viewModel.uiState.value
+                    if (current.showMarkdownPreview && current.documentRevision == snapshot.revision) {
+                        tocHeadings = headings
+                        tocIndexing = false
+                    }
                 }
             }
         }
@@ -260,6 +271,15 @@ fun EditorScreen(
                     Text(stringResource(com.clipnest.R.string.open_with_fallback_open_file))
                 }
             }
+        )
+    }
+
+    pendingEncryptedOpen?.let { pending ->
+        DecryptOpenDialog(
+            displayName = pending.displayName,
+            isError = pending.error,
+            onDismiss = viewModel::dismissPendingEncryptedOpen,
+            onConfirm = { password -> viewModel.confirmDecryptAndOpen(password, context.contentResolver) }
         )
     }
 }

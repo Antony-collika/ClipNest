@@ -5,6 +5,10 @@
     <string name="backup_password_description">Đặt mật khẩu tùy ý. Bạn sẽ cần đúng mật khẩu này để nhập file trên thiết bị khác.</string>
     <string name="restore_password_description">Nhập mật khẩu đã dùng khi xuất file ClipNest này.</string>
     <string name="backup_password_label">Mật khẩu</string>
+    <string name="decrypt_open_title">File đã mã hóa</string>
+    <string name="decrypt_open_description">"%1$s" là file ClipNest đã mã hóa. Nhập mật khẩu để mở file.</string>
+    <string name="decrypt_open_wrong_password">Sai mật khẩu. Vui lòng thử lại.</string>
+    <string name="decrypt_open_confirm">Mở khóa</string>
     <string name="vault">Kho</string>
     <string name="editor">Soạn thảo</string>
     <string name="selected_count">Đã chọn %1$d</string>

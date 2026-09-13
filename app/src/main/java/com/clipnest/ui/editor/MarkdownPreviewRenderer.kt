@@ -124,6 +124,108 @@ object MarkdownPreviewRenderer {
         .trim()
 }
 
+object CsvPreviewRenderer {
+
+    /**
+     * Parses CSV/TSV text into rows of cells, following RFC 4180 conventions:
+     * - Cells may be wrapped in double quotes.
+     * - A quoted cell may contain the delimiter, newlines, and escaped quotes ("").
+     * - The delimiter is auto-detected between comma, semicolon, and tab by
+     *   checking which occurs most often outside of quotes on the header line.
+     */
+    fun parse(text: String): List<List<String>> {
+        if (text.isEmpty()) return emptyList()
+        val delimiter = detectDelimiter(text)
+        val rows = mutableListOf<List<String>>()
+        var row = mutableListOf<String>()
+        val cell = StringBuilder()
+        var inQuotes = false
+        var i = 0
+        val normalized = text.replace("\r\n", "\n").replace('\r', '\n')
+        fun endCell() { row.add(cell.toString()); cell.clear() }
+        fun endRow() { endCell(); rows.add(row); row = mutableListOf() }
+        while (i < normalized.length) {
+            val c = normalized[i]
+            when {
+                inQuotes -> when {
+                    c == '"' && i + 1 < normalized.length && normalized[i + 1] == '"' -> { cell.append('"'); i++ }
+                    c == '"' -> inQuotes = false
+                    else -> cell.append(c)
+                }
+                c == '"' -> inQuotes = true
+                c == delimiter -> endCell()
+                c == '\n' -> endRow()
+                else -> cell.append(c)
+            }
+            i++
+        }
+        if (cell.isNotEmpty() || row.isNotEmpty()) endRow()
+        return rows.filterNot { r -> r.size == 1 && r[0].isBlank() }
+    }
+
+    private fun detectDelimiter(text: String): Char {
+        val headerLine = text.lineSequence().firstOrNull { it.isNotBlank() } ?: return ','
+        val counts = listOf(',', ';', '\t').associateWith { d -> headerLine.count { it == d } }
+        return counts.maxByOrNull { it.value }?.takeIf { it.value > 0 }?.key ?: ','
+    }
+
+    fun render(csv: String, colors: MarkdownPreviewColors, viewerTextSizePx: Int = 16): String {
+        val rows = parse(csv)
+        val body = if (rows.isEmpty()) {
+            "<p>Empty CSV file.</p>"
+        } else {
+            val columnCount = rows.maxOf { it.size }
+            val header = rows.first()
+            val dataRows = rows.drop(1)
+            buildString {
+                append("<table><thead><tr>")
+                for (col in 0 until columnCount) {
+                    append("<th>").append(escapeHtml(header.getOrElse(col) { "" })).append("</th>")
+                }
+                append("</tr></thead><tbody>")
+                for (dataRow in dataRows) {
+                    append("<tr>")
+                    for (col in 0 until columnCount) {
+                        append("<td>").append(escapeHtml(dataRow.getOrElse(col) { "" })).append("</td>")
+                    }
+                    append("</tr>")
+                }
+                append("</tbody></table>")
+            }
+        }
+
+        return """
+            <!doctype html>
+            <html>
+            <head>
+              <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+              <style>
+                :root { color-scheme: ${colors.colorScheme}; }
+                * { box-sizing: border-box; }
+                html, body { margin: 0; padding: 0; min-height: 100%; scroll-behavior: smooth; }
+                body { background: ${colors.background}; color: ${colors.onSurface}; font-family: sans-serif; font-size: ${viewerTextSizePx.coerceIn(10, 32)}px; line-height: 1.5; overflow-wrap: anywhere; overflow-x: auto; padding: 8px; }
+                table { border-collapse: collapse; margin: 4px 0; }
+                thead { background: ${colors.surfaceVariant}; position: sticky; top: 0; }
+                th, td { border: 1px solid ${colors.outlineVariant}; padding: 8px 10px; vertical-align: top; text-align: left; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
+                th { color: ${colors.onSurface}; font-weight: 700; }
+                td { color: ${colors.onSurface}; }
+                tbody tr:nth-child(even) { background: ${colors.surfaceVariant}; }
+              </style>
+            </head>
+            <body>
+              $body
+            </body>
+            </html>
+        """.trimIndent()
+    }
+
+    private fun escapeHtml(value: String): String = value
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\"", "&quot;")
+}
+
 private fun Color.toPreviewCssHex(): String = String.format(Locale.US, "#%06X", toArgb() and 0xFFFFFF)
 
 data class MarkdownHeading(val level: Int, val title: String, val index: Int)
