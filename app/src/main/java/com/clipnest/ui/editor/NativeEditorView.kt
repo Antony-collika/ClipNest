@@ -74,6 +74,7 @@ class NativeEditorView @JvmOverloads constructor(
     private var downTouchX = 0f
     private var downTouchY = 0f
     private var scrollRemainderY = 0f
+    private var stableMaxScrollY = 0
     private val fastScrollHitWidthPx = dp(24)
     private val fastScrollThumbWidthPx = dp(4)
     private val fastScrollMinThumbHeightPx = dp(32)
@@ -95,16 +96,9 @@ class NativeEditorView @JvmOverloads constructor(
         inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
         imeOptions = EditorInfo.IME_FLAG_NO_EXTRACT_UI
         setTextIsSelectable(true)
-
-        // Large documents are especially sensitive to Android's extra text-layout work.
-        // These options mirror Markor's large-file safeguards.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            setFallbackLineSpacing(false)
-        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) setFallbackLineSpacing(false)
         setEmojiCompatEnabled(false)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_AUTO
-        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_AUTO
         staticCursorPaint.strokeWidth = dp(2).toFloat()
         staticCursorPaint.color = currentTextColor
         setCursorVisible(false)
@@ -112,33 +106,16 @@ class NativeEditorView @JvmOverloads constructor(
         addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
                 if (!internalMutation) {
-                    pendingBefore = PendingChange(
-                        start,
-                        s?.subSequence(start, start + count)?.toString().orEmpty(),
-                        s?.length ?: length(),
-                        selectionStart,
-                        selectionEnd
-                    )
+                    pendingBefore = PendingChange(start, s?.subSequence(start, start + count)?.toString().orEmpty(), s?.length ?: length(), selectionStart, selectionEnd)
                 }
             }
-
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
-
             override fun afterTextChanged(s: android.text.Editable?) {
                 if (internalMutation) return
                 val before = pendingBefore ?: return
                 val editable = s ?: return
                 val insertedLength = editable.length - before.originalLength + before.removed.length
-                val operation = EditOperation(
-                    start = before.start,
-                    removed = before.removed,
-                    insertedLength = insertedLength.coerceAtLeast(0),
-                    insertedContent = null,
-                    beforeSelectionStart = before.selectionStart,
-                    beforeSelectionEnd = before.selectionEnd,
-                    afterSelectionStart = selectionStart,
-                    afterSelectionEnd = selectionEnd
-                )
+                val operation = EditOperation(before.start, before.removed, insertedLength.coerceAtLeast(0), null, before.selectionStart, before.selectionEnd, selectionStart, selectionEnd)
                 if (transactionDepth == 0) {
                     recordUndo(operation)
                     textChangeListener?.invoke(this@NativeEditorView)
@@ -152,10 +129,18 @@ class NativeEditorView @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         drawStaticCursor(canvas)
-        val saveCount = canvas.save()
-        canvas.translate(0f, scrollY.toFloat())
+        // The fast-scroll thumb is a viewport overlay and must not move with document content.
         drawFastScrollThumb(canvas)
-        canvas.restoreToCount(saveCount)
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        updateStableScrollBounds()
+    }
+
+    override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+        super.onLayout(changed, left, top, right, bottom)
+        updateStableScrollBounds()
     }
 
     override fun onFocusChanged(focused: Boolean, direction: Int, previouslyFocusedRect: android.graphics.Rect?) {
@@ -181,8 +166,7 @@ class NativeEditorView @JvmOverloads constructor(
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        val action = event.actionMasked
-        when (action) {
+        when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 flingScroller.abortAnimation()
                 velocityTracker?.recycle()
@@ -234,54 +218,39 @@ class NativeEditorView @JvmOverloads constructor(
             MotionEvent.ACTION_UP -> {
                 velocityTracker?.addMovement(event)
                 if (draggingFastScroll) {
-                    velocityTracker?.recycle()
-                    velocityTracker = null
-                    draggingFastScroll = false
+                    velocityTracker?.recycle(); velocityTracker = null; draggingFastScroll = false
                     parent?.requestDisallowInterceptTouchEvent(false)
                     return true
                 }
                 if (draggingScroll) {
                     velocityTracker?.computeCurrentVelocity(1000, maximumFlingVelocity.toFloat())
                     val velocityY = velocityTracker?.yVelocity ?: 0f
-                    velocityTracker?.recycle()
-                    velocityTracker = null
-                    draggingScroll = false
-                    scrollRemainderY = 0f
+                    velocityTracker?.recycle(); velocityTracker = null
+                    draggingScroll = false; scrollRemainderY = 0f
                     parent?.requestDisallowInterceptTouchEvent(false)
                     val maxScrollY = maxScrollY()
                     if (scrollY < 0 || scrollY > maxScrollY) {
                         springBackToBounds(maxScrollY)
                     } else {
                         val scrollVelocity = -velocityY
-                        if (kotlin.math.abs(scrollVelocity) >= minimumFlingVelocity && maxScrollY > 0 &&
-                            ((scrollVelocity > 0f && scrollY < maxScrollY) || (scrollVelocity < 0f && scrollY > 0))) {
+                        if (kotlin.math.abs(scrollVelocity) >= minimumFlingVelocity && maxScrollY > 0 && ((scrollVelocity > 0f && scrollY < maxScrollY) || (scrollVelocity < 0f && scrollY > 0))) {
                             flingScroller.fling(scrollX, scrollY, 0, scrollVelocity.toInt(), 0, 0, 0, maxScrollY)
                             postInvalidateOnAnimation()
-                        } else {
-                            scrollToClamped(scrollY)
-                        }
+                        } else scrollToClamped(scrollY)
                     }
                     return true
                 }
-                velocityTracker?.recycle()
-                velocityTracker = null
+                velocityTracker?.recycle(); velocityTracker = null
                 return super.onTouchEvent(event)
             }
             MotionEvent.ACTION_CANCEL -> {
                 velocityTracker?.addMovement(event)
-                velocityTracker?.recycle()
-                velocityTracker = null
+                velocityTracker?.recycle(); velocityTracker = null
                 val wasFastScroll = draggingFastScroll
-                draggingFastScroll = false
-                draggingScroll = false
-                scrollRemainderY = 0f
+                draggingFastScroll = false; draggingScroll = false; scrollRemainderY = 0f
                 parent?.requestDisallowInterceptTouchEvent(false)
                 val maxScrollY = maxScrollY()
-                if (!wasFastScroll && (scrollY < 0 || scrollY > maxScrollY)) {
-                    springBackToBounds(maxScrollY)
-                } else {
-                    flingScroller.abortAnimation()
-                }
+                if (!wasFastScroll && (scrollY < 0 || scrollY > maxScrollY)) springBackToBounds(maxScrollY) else flingScroller.abortAnimation()
                 return super.onTouchEvent(event)
             }
         }
@@ -297,33 +266,21 @@ class NativeEditorView @JvmOverloads constructor(
     }
 
     override fun sendAccessibilityEventUnchecked(event: AccessibilityEvent) {
-        if (length() < ACCESSIBILITY_TEXT_LIMIT) {
-            super.sendAccessibilityEventUnchecked(event)
-        }
+        if (length() < ACCESSIBILITY_TEXT_LIMIT) super.sendAccessibilityEventUnchecked(event)
     }
 
-    override fun getAutofillType(): Int {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && length() >= ACCESSIBILITY_TEXT_LIMIT) {
-            View.AUTOFILL_TYPE_NONE
-        } else {
-            super.getAutofillType()
-        }
-    }
+    override fun getAutofillType(): Int = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && length() >= ACCESSIBILITY_TEXT_LIMIT) View.AUTOFILL_TYPE_NONE else super.getAutofillType()
 
     fun hideKeyboardAndClearFocus() {
         requestFocus()
-        (context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager)
-            ?.hideSoftInputFromWindow(windowToken, 0)
+        (context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager)?.hideSoftInputFromWindow(windowToken, 0)
     }
 
     fun setEditorTextColor(color: Int) {
         setTextColor(color)
         staticCursorPaint.color = color
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            textCursorDrawable = GradientDrawable().apply {
-                setColor(color)
-                setSize(dp(2), dp(24))
-            }
+            textCursorDrawable = GradientDrawable().apply { setColor(color); setSize(dp(2), dp(24)) }
         }
         invalidate()
     }
@@ -334,11 +291,16 @@ class NativeEditorView @JvmOverloads constructor(
         invalidate()
     }
 
+    private fun scrollMetrics(): Pair<Int, Int> {
+        val range = computeVerticalScrollRange().coerceAtLeast(0)
+        val extent = computeVerticalScrollExtent().coerceAtLeast(0)
+        return range to extent
+    }
+
     private fun drawFastScrollThumb(canvas: Canvas) {
-        val range = computeVerticalScrollRange()
-        val extent = computeVerticalScrollExtent()
-        val maxScroll = (range - extent).coerceAtLeast(0)
-        if (maxScroll <= 0 || height <= 0 || extent <= 0) return
+        val (range, extent) = scrollMetrics()
+        val maxScroll = maxScrollY()
+        if (range <= extent || maxScroll <= 0 || height <= 0 || extent <= 0) return
         val thumbHeight = (height.toFloat() * extent / range).toInt().coerceAtLeast(fastScrollMinThumbHeightPx).coerceAtMost(height)
         val travel = (height - thumbHeight).coerceAtLeast(0)
         val top = if (travel == 0) 0f else travel.toFloat() * scrollY.coerceIn(0, maxScroll) / maxScroll
@@ -350,11 +312,10 @@ class NativeEditorView @JvmOverloads constructor(
     }
 
     private fun isFastScrollHit(x: Float, y: Float): Boolean {
-        val range = computeVerticalScrollRange()
-        val extent = computeVerticalScrollExtent()
+        val (range, extent) = scrollMetrics()
         if (range <= extent || width <= 0 || height <= 0) return false
         if (x < width - fastScrollHitWidthPx) return false
-        val maxScroll = (range - extent).coerceAtLeast(0)
+        val maxScroll = maxScrollY()
         val thumbHeight = (height.toFloat() * extent / range).toInt().coerceAtLeast(fastScrollMinThumbHeightPx).coerceAtMost(height)
         val travel = (height - thumbHeight).coerceAtLeast(0)
         val top = if (travel == 0) 0f else travel.toFloat() * scrollY.coerceIn(0, maxScroll) / maxScroll
@@ -362,19 +323,49 @@ class NativeEditorView @JvmOverloads constructor(
     }
 
     private fun scrollToFastScroll(touchY: Float) {
-        val range = computeVerticalScrollRange()
-        val extent = computeVerticalScrollExtent()
-        val maxScroll = (range - extent).coerceAtLeast(0)
-        if (maxScroll <= 0) return
+        val (range, extent) = scrollMetrics()
+        val maxScroll = maxScrollY()
+        if (range <= extent || maxScroll <= 0) return
         val thumbHeight = (height.toFloat() * extent / range).toInt().coerceAtLeast(fastScrollMinThumbHeightPx).coerceAtMost(height)
         val travel = (height - thumbHeight).coerceAtLeast(0)
         val target = if (travel == 0) 0 else ((touchY - thumbHeight / 2f).coerceIn(0f, travel.toFloat()) * maxScroll / travel).toInt()
         scrollToClamped(target)
     }
 
-    private fun maxScrollY(): Int = (computeVerticalScrollRange() - computeVerticalScrollExtent()).coerceAtLeast(0)
+    private fun calculatedMaxScrollY(): Int {
+        val (range, extent) = scrollMetrics()
+        return (range - extent).coerceAtLeast(0)
+    }
+
+    private fun updateStableScrollBounds() {
+        val calculated = calculatedMaxScrollY()
+        if (!draggingScroll && !draggingFastScroll && flingScroller.isFinished) {
+            stableMaxScrollY = calculated
+        } else if (calculated > stableMaxScrollY) {
+            stableMaxScrollY = calculated
+        }
+    }
+
+    private fun maxScrollY(): Int {
+        val calculated = calculatedMaxScrollY()
+        if (!draggingScroll && !draggingFastScroll && flingScroller.isFinished) {
+            stableMaxScrollY = calculated
+            return calculated
+        }
+        stableMaxScrollY = maxOf(stableMaxScrollY, calculated)
+        return stableMaxScrollY
+    }
+
     private fun scrollToClamped(targetY: Int) { scrollTo(scrollX, targetY.coerceIn(0, maxScrollY())) }
-    private fun scrollForDrag(targetY: Int) { val maxScrollY = maxScrollY(); val resistedY = when { targetY < 0 -> -overscrollDistance(-targetY); targetY > maxScrollY -> maxScrollY + overscrollDistance(targetY - maxScrollY); else -> targetY }; scrollTo(scrollX, resistedY) }
+    private fun scrollForDrag(targetY: Int) {
+        val max = maxScrollY()
+        val resistedY = when {
+            targetY < 0 -> -overscrollDistance(-targetY)
+            targetY > max -> max + overscrollDistance(targetY - max)
+            else -> targetY
+        }
+        scrollTo(scrollX, resistedY)
+    }
     private fun overscrollDistance(distance: Int): Int = (distance * 0.75f).toInt().coerceAtMost(overscrollLimitPx)
     private fun springBackToBounds(maxScrollY: Int) { if (flingScroller.springBack(scrollX, scrollY, 0, 0, 0, maxScrollY)) postInvalidateOnAnimation() else scrollToClamped(scrollY) }
 
@@ -409,18 +400,7 @@ class NativeEditorView @JvmOverloads constructor(
             val suffix = commonSuffix(before, after, prefix)
             val removedEnd = before.length - suffix
             val insertedEnd = after.length - suffix
-            recordUndo(
-                EditOperation(
-                    prefix,
-                    before.substring(prefix, removedEnd),
-                    insertedEnd - prefix,
-                    null,
-                    transactionBeforeSelectionStart,
-                    transactionBeforeSelectionEnd,
-                    selectionStart,
-                    selectionEnd
-                )
-            )
+            recordUndo(EditOperation(prefix, before.substring(prefix, removedEnd), insertedEnd - prefix, null, transactionBeforeSelectionStart, transactionBeforeSelectionEnd, selectionStart, selectionEnd))
             textChangeListener?.invoke(this)
         } finally {
             endBatchEdit()
@@ -430,11 +410,7 @@ class NativeEditorView @JvmOverloads constructor(
 
     fun <T> transaction(block: NativeEditorView.() -> T): T {
         beginTransaction()
-        return try {
-            block()
-        } finally {
-            endTransaction()
-        }
+        return try { block() } finally { endTransaction() }
     }
 
     fun replaceText(start: Int, end: Int, replacement: CharSequence, selectionStart: Int? = null, selectionEnd: Int? = null) {
@@ -472,8 +448,7 @@ class NativeEditorView @JvmOverloads constructor(
             val safeStart = selectionStart.coerceIn(0, length())
             val safeEnd = selectionEnd.coerceIn(safeStart, length())
             setSelection(safeStart, safeEnd)
-            undoStack.clear()
-            redoStack.clear()
+            undoStack.clear(); redoStack.clear()
         } finally {
             internalMutation = false
             endBatchEdit()
@@ -488,7 +463,8 @@ class NativeEditorView @JvmOverloads constructor(
         beginBatchEdit()
         try {
             text?.replace(operation.start.coerceIn(0, length()), (operation.start + operation.insertedLength).coerceIn(operation.start, length()), operation.removed)
-            setSelection(operation.beforeSelectionStart.coerceIn(0, length()), operation.beforeSelectionEnd.coerceIn(operation.beforeSelectionStart.coerceIn(0, length()), length()))
+            val safeStart = operation.beforeSelectionStart.coerceIn(0, length())
+            setSelection(safeStart, operation.beforeSelectionEnd.coerceIn(safeStart, length()))
         } finally {
             internalMutation = false
             endBatchEdit()
@@ -507,7 +483,8 @@ class NativeEditorView @JvmOverloads constructor(
         beginBatchEdit()
         try {
             text?.replace(operation.start.coerceIn(0, length()), (operation.start + operation.removed.length).coerceIn(operation.start, length()), inserted)
-            setSelection(operation.afterSelectionStart.coerceIn(0, length()), operation.afterSelectionEnd.coerceIn(operation.afterSelectionStart.coerceIn(0, length()), length()))
+            val safeStart = operation.afterSelectionStart.coerceIn(0, length())
+            setSelection(safeStart, operation.afterSelectionEnd.coerceIn(safeStart, length()))
         } finally {
             internalMutation = false
             endBatchEdit()
@@ -520,11 +497,7 @@ class NativeEditorView @JvmOverloads constructor(
 
     fun withInternalMutation(block: () -> Unit) {
         internalMutation = true
-        try {
-            block()
-        } finally {
-            internalMutation = false
-        }
+        try { block() } finally { internalMutation = false }
     }
 
     private fun readText(start: Int, count: Int): String {
@@ -538,11 +511,8 @@ class NativeEditorView @JvmOverloads constructor(
         redoStack.clear()
         val previous = undoStack.lastOrNull()
         if (previous != null && canCoalesce(previous, operation)) {
-            undoStack.removeLast()
-            undoStack.addLast(coalesce(previous, operation))
-        } else {
-            undoStack.addLast(operation)
-        }
+            undoStack.removeLast(); undoStack.addLast(coalesce(previous, operation))
+        } else undoStack.addLast(operation)
         trimHistory()
     }
 
@@ -552,28 +522,14 @@ class NativeEditorView @JvmOverloads constructor(
         if (bothInsert) return current.start == previous.start + previous.insertedLength && current.beforeSelectionStart == previous.afterSelectionStart && current.beforeSelectionEnd == previous.afterSelectionEnd
         val bothDelete = previous.insertedLength == 0 && current.insertedLength == 0 && previous.removed.isNotEmpty() && current.removed.isNotEmpty()
         if (!bothDelete) return false
-        return (current.start == previous.start || current.start + current.removed.length == previous.start) &&
-            current.beforeSelectionStart == previous.afterSelectionStart && current.beforeSelectionEnd == previous.afterSelectionEnd
+        return (current.start == previous.start || current.start + current.removed.length == previous.start) && current.beforeSelectionStart == previous.afterSelectionStart && current.beforeSelectionEnd == previous.afterSelectionEnd
     }
 
     private fun coalesce(previous: EditOperation, current: EditOperation): EditOperation {
         val bothInsert = previous.removed.isEmpty() && current.removed.isEmpty()
-        if (bothInsert) {
-            return previous.copy(
-                insertedLength = previous.insertedLength + current.insertedLength,
-                afterSelectionStart = current.afterSelectionStart,
-                afterSelectionEnd = current.afterSelectionEnd
-            )
-        }
+        if (bothInsert) return previous.copy(insertedLength = previous.insertedLength + current.insertedLength, afterSelectionStart = current.afterSelectionStart, afterSelectionEnd = current.afterSelectionEnd)
         val currentBeforePrevious = current.start + current.removed.length == previous.start
-        return previous.copy(
-            start = if (currentBeforePrevious) current.start else previous.start,
-            removed = if (currentBeforePrevious) current.removed + previous.removed else previous.removed + current.removed,
-            beforeSelectionStart = current.beforeSelectionStart,
-            beforeSelectionEnd = current.beforeSelectionEnd,
-            afterSelectionStart = current.afterSelectionStart,
-            afterSelectionEnd = current.afterSelectionEnd
-        )
+        return previous.copy(start = if (currentBeforePrevious) current.start else previous.start, removed = if (currentBeforePrevious) current.removed + previous.removed else previous.removed + current.removed, beforeSelectionStart = current.beforeSelectionStart, beforeSelectionEnd = current.beforeSelectionEnd, afterSelectionStart = current.afterSelectionStart, afterSelectionEnd = current.afterSelectionEnd)
     }
 
     private fun trimHistory() {
@@ -584,7 +540,6 @@ class NativeEditorView @JvmOverloads constructor(
     }
 
     private fun historyWeight(stack: ArrayDeque<EditOperation>): Int = stack.sumOf { it.removed.length + (it.insertedContent?.length ?: 0) }
-
     private fun commonPrefix(a: String, b: String): Int { val max = minOf(a.length, b.length); var i = 0; while (i < max && a[i] == b[i]) i++; return i }
     private fun commonSuffix(a: String, b: String, prefix: Int): Int { val max = minOf(a.length, b.length) - prefix; var i = 0; while (i < max && a[a.length - 1 - i] == b[b.length - 1 - i]) i++; return i }
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
