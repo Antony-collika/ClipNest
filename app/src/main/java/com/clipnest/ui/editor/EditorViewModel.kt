@@ -293,11 +293,21 @@ class EditorViewModel(
         }
         val previousState = _uiState.value
         val previousText = currentDocumentText()
-        val previousPassword = currentDocumentPassword
         editorLoaded = true
         autoSaveJob?.cancel()
         viewModelScope.launch(Dispatchers.IO) {
             val failedCandidates = mutableListOf<ExternalDocumentReadFailure>()
+            val internalSaved = runCatching {
+                if (previousState.externalDocumentUri == null && previousState.isDirty) {
+                    writeDocumentSnapshot(previousState, contentResolver, previousText)
+                }
+            }.isSuccess
+            if (!internalSaved) {
+                withContext(Dispatchers.Main.immediate) {
+                    emitToast(com.clipnest.R.string.could_not_save_file)
+                }
+                return@launch
+            }
             val result = runCatching {
                 val candidateUris = candidates.ifEmpty { listOf(IncomingDocumentUri(uri, openContext?.source ?: com.clipnest.IncomingUriSource.FILE_PICKER)) }
                 val loaded = candidateUris.mapNotNull { candidate -> runCatching { candidate to readExternalDocument(candidate.uri, contentResolver) }.onFailure { failedCandidates += ExternalDocumentReadFailure(candidate, it) }.getOrNull() }
@@ -415,11 +425,12 @@ class EditorViewModel(
         finishExternalSession(contentResolver)
         viewModelScope.launch(Dispatchers.IO) {
             val internal = fileManager.readEditor()
+            val title = fileManager.readEditorTitle()
             withContext(Dispatchers.Main.immediate) {
                 nativeEditor?.setEditorText(internal, internal.length)
                 _uiState.value.content.setFallback(internal, TextRange(internal.length))
                 editorDocumentGeneration++
-                _uiState.value = _uiState.value.copy(documentRevision = _uiState.value.documentRevision + 1, isDirty = false, documentName = internalDocumentName())
+                _uiState.value = _uiState.value.copy(documentRevision = _uiState.value.documentRevision + 1, isDirty = false, documentName = internalDocumentName(), title = title)
                 onComplete()
             }
         }
