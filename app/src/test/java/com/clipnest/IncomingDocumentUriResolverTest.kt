@@ -15,6 +15,7 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 @RunWith(RobolectricTestRunner::class)
+// Pin the Robolectric API level so CI does not depend on the host's installed SDK set.
 @Config(sdk = [35])
 class IncomingDocumentUriResolverTest {
     private val dataUri = Uri.parse("content://provider/metadata")
