@@ -254,15 +254,16 @@ fun EditorScreen(
             title = { Text("Unsaved changes") },
             text = { Text("This external file has unsaved changes. What would you like to do?") },
             confirmButton = {
-                TextButton(onClick = { viewModel.chooseExternalSave(context.contentResolver) }) { Text("Save file") }
-            },
-            dismissButton = {
-                Row {
-                    TextButton(onClick = viewModel::chooseExternalSaveAs) { Text("Save as") }
-                    TextButton(onClick = { viewModel.chooseExternalNoSave(context.contentResolver) }) { Text("No save") }
+                Column(horizontalAlignment = Alignment.End) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        TextButton(onClick = { viewModel.chooseExternalSave(context.contentResolver) }) { Text("Save") }
+                        TextButton(onClick = viewModel::chooseExternalSaveAs) { Text("Save as") }
+                        TextButton(onClick = { viewModel.chooseExternalNoSave(context.contentResolver) }) { Text("Don't save") }
+                    }
                     TextButton(onClick = viewModel::cancelExternalExit) { Text("Cancel") }
                 }
-            }
+            },
+            dismissButton = {}
         )
     }
 

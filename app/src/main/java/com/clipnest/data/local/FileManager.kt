@@ -83,7 +83,7 @@ class FileManager(private val context: android.content.Context) {
                 treeUri
             }
             val encrypted = format.isEncrypted
-            val mimeType = if (encrypted) "application/json" else format.mimeType
+            val mimeType = if (encrypted) "application/octet-stream" else format.mimeType
             val finalName = buildFileName(baseName, format)
             val documentUri = DocumentsContract.createDocument(
                 contentResolver,
@@ -111,7 +111,7 @@ class FileManager(private val context: android.content.Context) {
 
     private fun buildFileName(baseName: String, format: ExportFormat): String {
         val sanitized = sanitizeFileName(baseName)
-        val extension = if (format.isEncrypted) ".json" else format.extension
+        val extension = if (format.isEncrypted) ".cne" else format.extension
         return if (sanitized.endsWith(extension, ignoreCase = true)) {
             sanitized
         } else {
