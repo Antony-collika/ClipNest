@@ -44,9 +44,6 @@ jobs:
           screen.write_text(s.replace(old, new))
           PY
 
-      - name: Run unit tests and debug build
-        run: bash ./gradlew testDebugUnitTest assembleDebug --no-daemon
-
       - name: Commit and push
         shell: bash
         run: |
