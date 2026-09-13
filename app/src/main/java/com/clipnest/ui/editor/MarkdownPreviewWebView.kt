@@ -28,7 +28,10 @@ private class FastScrollWebView(context: android.content.Context) : WebView(cont
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
+        val saveCount = canvas.save()
+        canvas.translate(0f, scrollY.toFloat())
         drawFastScrollThumb(canvas)
+        canvas.restoreToCount(saveCount)
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
