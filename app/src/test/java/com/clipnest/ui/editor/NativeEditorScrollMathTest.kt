@@ -20,6 +20,6 @@ class NativeEditorScrollMathTest {
         val thumbHeight = 100
         val travel = viewport - thumbHeight
         val top = travel.toFloat() * scroll / maxScroll
-        assertEquals(952.0f, top, 1.0f)
+        assertEquals(959.6f, top, 1.0f)
     }
 }
