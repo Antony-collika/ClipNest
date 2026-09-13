@@ -1,7 +1,7 @@
 package com.clipnest.ui.editor
 
 import android.content.Context
-import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.GradientDrawable
 import android.text.TextWatcher
 import android.util.AttributeSet
 import android.view.Gravity
@@ -186,7 +186,10 @@ class NativeEditorView @JvmOverloads constructor(
     fun setEditorTextColor(color: Int) {
         setTextColor(color)
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-            textCursorDrawable = ColorDrawable(color)
+            textCursorDrawable = GradientDrawable().apply {
+                setColor(color)
+                setSize(dp(2), dp(24))
+            }
         }
     }
     private fun maxScrollY(): Int = (computeVerticalScrollRange() - computeVerticalScrollExtent()).coerceAtLeast(0)
