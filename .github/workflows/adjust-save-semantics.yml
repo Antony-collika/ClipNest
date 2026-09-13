@@ -1,0 +1,194 @@
+name: Adjust save semantics
+on:
+  push:
+    branches: [Draft]
+
+jobs:
+  adjust:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: Draft
+          fetch-depth: 0
+      - name: Apply save semantics changes
+        shell: python
+        run: |
+          from pathlib import Path
+
+          vm = Path('app/src/main/java/com/clipnest/ui/editor/EditorViewModel.kt')
+          s = vm.read_text()
+
+          old = '''    fun chooseExternalSaveAs() {
+        val state = _uiState.value
+        val extension = if (state.externalDocumentEncrypted) ".cne" else {
+            val name = state.documentName
+            if (name.contains('.')) "." + name.substringAfterLast('.') else ".txt"
+        }
+        val base = state.documentName.substringBeforeLast('.', state.documentName).ifBlank { "ClipNest_Document" }
+        val suggested = if (base.endsWith(extension, ignoreCase = true)) base else base + extension
+        val mime = if (state.externalDocumentEncrypted) "application/octet-stream" else "text/plain"
+        _uiState.value = _uiState.value.copy(showExternalUnsavedChangesDialog = false)
+        viewModelScope.launch { _eventFlow.emit(EditorEvent.RequestExternalSaveAs(suggested, mime)) }
+    }
+'''
+          new = '''    fun chooseExternalSaveAs() {
+        // Save As is part of the Return-to-editor exit flow. Use the normal Save File
+        // dialog so the destination format (including encrypted .cne) can be changed.
+        _uiState.value = _uiState.value.copy(
+            showExternalUnsavedChangesDialog = false,
+            showSaveNewFileDialog = true
+        )
+    }
+'''
+          if old not in s:
+              raise SystemExit('chooseExternalSaveAs block not found')
+          s = s.replace(old, new)
+
+          old = '''    fun onSaveClicked(contentResolver: ContentResolver = appContext.contentResolver) { val state = _uiState.value; if (state.externalDocumentSaveAsOnly || state.externalDocumentUri == null) _uiState.value = state.copy(showSaveNewFileDialog = true) else saveExternalDocument(Uri.parse(state.externalDocumentUri), contentResolver) }
+    private fun saveExternalDocument(uri: Uri, resolver: ContentResolver) { val text = currentDocumentText(); val revision = _uiState.value.documentRevision; val encrypted = _uiState.value.externalDocumentEncrypted; viewModelScope.launch(Dispatchers.IO) { val ok = runCatching { writeExternalDocument(uri, resolver, text, encrypted, currentDocumentPassword) }.isSuccess; withContext(Dispatchers.Main.immediate) { if (ok) { if (_uiState.value.documentRevision == revision) _uiState.value = _uiState.value.copy(isDirty = false, lastSavedTimestamp = System.currentTimeMillis()); emitToast(com.clipnest.R.string.saved_current_file) } else { _uiState.value = _uiState.value.copy(showSaveNewFileDialog = true); emitToast(com.clipnest.R.string.could_not_save_open_file) } } } }
+    fun dismissSaveNewFileDialog() { _uiState.value = _uiState.value.copy(showSaveNewFileDialog = false) }
+    fun confirmSaveToNewFile(fileName: String, format: ExportFormat, contentResolver: ContentResolver) { if (fileName.isBlank()) return; val folder = _uiState.value.defaultSaveFolderUri; if (folder.isNullOrBlank()) { pendingSave = PendingSave(fileName.trim(), format); dismissSaveNewFileDialog(); viewModelScope.launch { _eventFlow.emit(EditorEvent.RequestSaveFolder) } } else saveToFolder(contentResolver, Uri.parse(folder), fileName.trim(), format) }
+'''
+          new = '''    fun onSaveClicked(contentResolver: ContentResolver = appContext.contentResolver) {
+        val state = _uiState.value
+        if (state.externalDocumentUri != null) {
+            // External Save is persistence only: never leave the external session.
+            // A merged document has no single source URI, so it uses Save File/Save As.
+            if (state.externalDocumentSaveAsOnly) {
+                _uiState.value = state.copy(showSaveNewFileDialog = true)
+            } else {
+                saveExternalDocument(Uri.parse(state.externalDocumentUri), contentResolver)
+            }
+        } else {
+            // Internal Editor Save follows the normal Save File dialog.
+            _uiState.value = state.copy(showSaveNewFileDialog = true)
+        }
+    }
+
+    private fun saveExternalDocument(uri: Uri, resolver: ContentResolver) {
+        val text = currentDocumentText()
+        val revision = _uiState.value.documentRevision
+        val encrypted = _uiState.value.externalDocumentEncrypted
+        viewModelScope.launch(Dispatchers.IO) {
+            val ok = runCatching {
+                writeExternalDocument(uri, resolver, text, encrypted, currentDocumentPassword)
+            }.isSuccess
+            withContext(Dispatchers.Main.immediate) {
+                if (ok) {
+                    if (_uiState.value.documentRevision == revision) {
+                        _uiState.value = _uiState.value.copy(
+                            isDirty = false,
+                            lastSavedTimestamp = System.currentTimeMillis()
+                        )
+                    }
+                    emitToast(com.clipnest.R.string.saved_current_file)
+                } else {
+                    // A plain Save failure must not turn into an implicit Save As or
+                    // navigation request. The external session remains active.
+                    emitToast(com.clipnest.R.string.could_not_save_open_file)
+                }
+            }
+        }
+    }
+
+    fun dismissSaveNewFileDialog() {
+        val wasExternalExitSaveAs = pendingExternalExitAction != null
+        _uiState.value = _uiState.value.copy(showSaveNewFileDialog = false)
+        if (wasExternalExitSaveAs) {
+            _uiState.value = _uiState.value.copy(showExternalUnsavedChangesDialog = true)
+        }
+    }
+
+    fun confirmSaveToNewFile(fileName: String, format: ExportFormat, contentResolver: ContentResolver) {
+        if (fileName.isBlank()) return
+        val folder = _uiState.value.defaultSaveFolderUri
+        if (folder.isNullOrBlank()) {
+            pendingSave = PendingSave(fileName.trim(), format)
+            _uiState.value = _uiState.value.copy(showSaveNewFileDialog = false)
+            viewModelScope.launch { _eventFlow.emit(EditorEvent.RequestSaveFolder) }
+        } else {
+            saveToFolder(contentResolver, Uri.parse(folder), fileName.trim(), format)
+        }
+    }
+'''
+          if old not in s:
+              raise SystemExit('save methods block not found')
+          s = s.replace(old, new)
+
+          old = '''    private fun saveToFolder(resolver: ContentResolver, folder: Uri, fileName: String, format: ExportFormat) { val text = currentDocumentText(); val revision = _uiState.value.documentRevision; val savedExtension = if (format.isEncrypted) ".cne" else format.extension; viewModelScope.launch(Dispatchers.IO) { val saved = runCatching { fileManager.saveNewFileToTree(resolver, folder, fileName, format, text) }.getOrNull(); withContext(Dispatchers.Main.immediate) { if (saved == null) emitToast(com.clipnest.R.string.could_not_save_file) else { _uiState.value = _uiState.value.copy(showSaveNewFileDialog = false, isDirty = if (_uiState.value.documentRevision == revision) false else _uiState.value.isDirty, lastSavedTimestamp = if (_uiState.value.documentRevision == revision) System.currentTimeMillis() else _uiState.value.lastSavedTimestamp); emitToast(com.clipnest.R.string.saved_file, fileName, savedExtension) } } } }
+'''
+          new = '''    private fun saveToFolder(resolver: ContentResolver, folder: Uri, fileName: String, format: ExportFormat) {
+        val text = currentDocumentText()
+        val revision = _uiState.value.documentRevision
+        val savedExtension = if (format.isEncrypted) ".cne" else format.extension
+        viewModelScope.launch(Dispatchers.IO) {
+            val saved = runCatching {
+                fileManager.saveNewFileToTree(resolver, folder, fileName, format, text)
+            }.getOrNull()
+            withContext(Dispatchers.Main.immediate) {
+                if (saved == null) {
+                    emitToast(com.clipnest.R.string.could_not_save_file)
+                } else {
+                    val exitAction = pendingExternalExitAction
+                    _uiState.value = _uiState.value.copy(
+                        showSaveNewFileDialog = false,
+                        isDirty = if (_uiState.value.documentRevision == revision) false else _uiState.value.isDirty,
+                        lastSavedTimestamp = if (_uiState.value.documentRevision == revision) System.currentTimeMillis() else _uiState.value.lastSavedTimestamp
+                    )
+                    emitToast(com.clipnest.R.string.saved_file, fileName, savedExtension)
+                    // Save As selected from Return to editor is save + navigation.
+                    // Save File on an external merged document has no exit action and
+                    // therefore stays in the current external session.
+                    if (exitAction != null) {
+                        finishExternalSession(resolver)
+                        continueExternalExit(exitAction, resolver)
+                    }
+                }
+            }
+        }
+    }
+'''
+          if old not in s:
+              raise SystemExit('saveToFolder block not found')
+          s = s.replace(old, new)
+          vm.write_text(s)
+
+          dlg = Path('app/src/main/java/com/clipnest/ui/editor/SaveNewFileDialog.kt')
+          s = dlg.read_text()
+          s = s.replace('SaveFileMode.ENCRYPTED -> ".json"', 'SaveFileMode.ENCRYPTED -> ".cne"')
+          s = s.replace('label = "Encrypted (.json)"', 'label = "Encrypted (.cne)"')
+          dlg.write_text(s)
+
+      - name: Remove obsolete external Save As launcher
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('app/src/main/java/com/clipnest/MainActivity.kt')
+          s = p.read_text()
+          # The event is no longer emitted, so retaining the old launcher is harmless,
+          # but remove its pending callback plumbing to avoid a second Save As path.
+          s = s.replace('    private var pendingExternalSaveAs: ((Uri?) -> Unit)? = null\n', '')
+          s = s.replace('        pendingExternalSaveAs = callback\n        externalSaveAsLauncher.launch(\n            Intent(Intent.ACTION_CREATE_DOCUMENT).apply {\n                type = mimeType\n                putExtra(Intent.EXTRA_TITLE, suggestedFileName)\n            }\n        )\n', '')
+          s = s.replace('        pendingExternalSaveAs?.invoke(uri)\n        pendingExternalSaveAs = null\n', '')
+          p.write_text(s)
+
+      - name: Remove temporary workflow
+        shell: bash
+        run: |
+          rm -f .github/workflows/adjust-save-semantics.yml
+
+      - name: Verify diff
+        run: git diff --check
+
+      - name: Commit changes
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/clipnest/ui/editor/EditorViewModel.kt app/src/main/java/com/clipnest/ui/editor/SaveNewFileDialog.kt app/src/main/java/com/clipnest/MainActivity.kt .github/workflows/adjust-save-semantics.yml
+          git diff --cached --quiet && exit 0
+          git commit -m "Refine editor and external save behavior"
+          git push origin Draft
