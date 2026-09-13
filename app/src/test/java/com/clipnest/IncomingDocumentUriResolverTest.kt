@@ -10,10 +10,12 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 import org.junit.Assert.assertNull
 import org.junit.Test
 
 @RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
 class IncomingDocumentUriResolverTest {
     private val dataUri = Uri.parse("content://provider/metadata")
     private val streamUri = Uri.parse("content://provider/document.md")
