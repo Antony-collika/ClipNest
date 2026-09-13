@@ -15,6 +15,14 @@ jobs:
           python-version: '3.x'
       - name: Apply refactor
         run: python .github/temporary_external_session_refactor.py
+      - name: Restore debug signing key
+        run: |
+          if [ -f "debug.keystore.base64" ] && [ ! -f "debug.keystore" ]; then
+            base64 -d debug.keystore.base64 > debug.keystore || base64 --decode debug.keystore.base64 > debug.keystore
+          fi
+          if [ ! -f "debug.keystore" ]; then
+            keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          fi
       - name: Compile and assemble debug APK
         run: |
           if [ ! -f gradlew ]; then gradle wrapper; fi
