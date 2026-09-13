@@ -38,6 +38,14 @@ import kotlinx.coroutines.withContext
 
 private data class PendingSave(val fileName: String, val format: ExportFormat)
 
+enum class ExternalExitAction { RETURN_TO_EDITOR, OPEN_REPLACEMENT }
+
+private data class PendingExternalOpen(
+    val uri: Uri,
+    val openContext: ExternalDocumentOpenContext?,
+    val candidates: List<IncomingDocumentUri>
+)
+
 data class PendingEncryptedOpen(
     val uri: Uri,
     val encryptedJson: String,
@@ -50,6 +58,7 @@ data class EditorUiState(
     val documentRevision: Long = 0L,
     val isDirty: Boolean = false,
     val showSaveNewFileDialog: Boolean = false,
+    val showExternalUnsavedChangesDialog: Boolean = false,
     val defaultSaveFolderUri: String? = null,
     val lastSavedTimestamp: Long = 0L,
     val isMarkdownToolsExpanded: Boolean = false,
@@ -68,6 +77,7 @@ data class EditorUiState(
 sealed class EditorEvent {
     data class ShowToast(val message: String) : EditorEvent()
     data object RequestSaveFolder : EditorEvent()
+    data class RequestExternalSaveAs(val suggestedFileName: String, val mimeType: String) : EditorEvent()
 }
 
 class EditorViewModel(
@@ -100,6 +110,9 @@ class EditorViewModel(
     private var searchMatchStarts: List<Int> = emptyList()
     private var editorLoaded = false
     private var pendingSave: PendingSave? = null
+    private var pendingExternalOpen: PendingExternalOpen? = null
+    private var pendingExternalExitAction: ExternalExitAction? = null
+    private var pendingExternalReturnCallback: (() -> Unit)? = null
     private var autoSaveJob: Job? = null
     private var searchJob: Job? = null
     private var nativeEditor: NativeEditorView? = null
@@ -144,7 +157,123 @@ class EditorViewModel(
         }
     }
 
+    private fun hasExternalSession(): Boolean = _uiState.value.externalDocumentUri != null
+
+    private fun requestExternalExit(action: ExternalExitAction) {
+        autoSaveJob?.cancel()
+        pendingExternalExitAction = action
+        _uiState.value = _uiState.value.copy(showExternalUnsavedChangesDialog = true)
+    }
+
+    fun cancelExternalExit() {
+        pendingExternalOpen = null
+        pendingExternalExitAction = null
+        pendingExternalReturnCallback = null
+        _uiState.value = _uiState.value.copy(showExternalUnsavedChangesDialog = false)
+    }
+
+    fun chooseExternalNoSave(contentResolver: ContentResolver) {
+        val action = pendingExternalExitAction ?: return
+        _uiState.value = _uiState.value.copy(showExternalUnsavedChangesDialog = false)
+        finishExternalSession(contentResolver)
+        continueExternalExit(action, contentResolver)
+    }
+
+    fun chooseExternalSave(contentResolver: ContentResolver) {
+        val action = pendingExternalExitAction ?: return
+        val state = _uiState.value
+        val text = currentDocumentText()
+        val password = currentDocumentPassword
+        viewModelScope.launch(Dispatchers.IO) {
+            val saved = runCatching {
+                val uri = state.externalDocumentUri?.let(Uri::parse) ?: error("Missing external document URI")
+                if (state.externalDocumentSaveAsOnly) error("Merged external documents must use Save as")
+                writeExternalDocument(uri, contentResolver, text, state.externalDocumentEncrypted, password)
+            }.isSuccess
+            withContext(Dispatchers.Main.immediate) {
+                if (!saved) {
+                    emitToast(com.clipnest.R.string.could_not_save_open_file)
+                } else {
+                    finishExternalSession(contentResolver)
+                    continueExternalExit(action, contentResolver)
+                }
+            }
+        }
+    }
+
+    fun chooseExternalSaveAs() {
+        val state = _uiState.value
+        val extension = if (state.externalDocumentEncrypted) ".cne" else {
+            val name = state.documentName
+            if (name.contains('.')) "." + name.substringAfterLast('.') else ".txt"
+        }
+        val base = state.documentName.substringBeforeLast('.', state.documentName).ifBlank { "ClipNest_Document" }
+        val suggested = if (base.endsWith(extension, ignoreCase = true)) base else base + extension
+        val mime = if (state.externalDocumentEncrypted) "application/octet-stream" else "text/plain"
+        _uiState.value = _uiState.value.copy(showExternalUnsavedChangesDialog = false)
+        viewModelScope.launch { _eventFlow.emit(EditorEvent.RequestExternalSaveAs(suggested, mime)) }
+    }
+
+    fun completeExternalSaveAs(uri: Uri?, contentResolver: ContentResolver) {
+        if (uri == null) return
+        val action = pendingExternalExitAction ?: return
+        val state = _uiState.value
+        val text = currentDocumentText()
+        val password = currentDocumentPassword
+        viewModelScope.launch(Dispatchers.IO) {
+            val saved = runCatching { writeExternalDocument(uri, contentResolver, text, state.externalDocumentEncrypted, password) }.isSuccess
+            withContext(Dispatchers.Main.immediate) {
+                if (!saved) {
+                    emitToast(com.clipnest.R.string.could_not_save_file)
+                    _uiState.value = _uiState.value.copy(showExternalUnsavedChangesDialog = false)
+                } else {
+                    finishExternalSession(contentResolver)
+                    continueExternalExit(action, contentResolver)
+                }
+            }
+        }
+    }
+
+    private fun continueExternalExit(action: ExternalExitAction, contentResolver: ContentResolver) {
+        val open = pendingExternalOpen
+        val callback = pendingExternalReturnCallback
+        pendingExternalOpen = null
+        pendingExternalExitAction = null
+        pendingExternalReturnCallback = null
+        when (action) {
+            ExternalExitAction.RETURN_TO_EDITOR -> callback?.invoke()
+            ExternalExitAction.OPEN_REPLACEMENT -> open?.let { openExternalDocument(it.uri, contentResolver, it.openContext, it.candidates) }
+        }
+    }
+
+    private fun finishExternalSession(contentResolver: ContentResolver) {
+        autoSaveJob?.cancel()
+        searchJob?.cancel()
+        resetSearchState()
+        currentDocumentPassword = null
+        _pendingEncryptedOpen.value = null
+        nativeEditor?.setEditorText("", 0)
+        _uiState.value.content.setFallback("", TextRange.Zero)
+        _uiState.value = _uiState.value.copy(
+            externalDocumentUri = null,
+            externalDocumentSaveAsOnly = false,
+            externalDocumentFileCount = 0,
+            externalDocumentEncrypted = false,
+            showSaveNewFileDialog = false,
+            showExternalUnsavedChangesDialog = false,
+            isDirty = false
+        )
+    }
+
     fun openExternalDocument(uri: Uri, contentResolver: ContentResolver, openContext: ExternalDocumentOpenContext? = null, candidates: List<IncomingDocumentUri> = listOf(IncomingDocumentUri(uri, openContext?.source ?: com.clipnest.IncomingUriSource.FILE_PICKER))) {
+        if (hasExternalSession()) {
+            if (_uiState.value.isDirty) {
+                pendingExternalOpen = PendingExternalOpen(uri, openContext, candidates)
+                requestExternalExit(ExternalExitAction.OPEN_REPLACEMENT)
+                return
+            }
+            finishExternalSession(contentResolver)
+        }
         val previousState = _uiState.value
         val previousText = currentDocumentText()
         val previousPassword = currentDocumentPassword
@@ -179,7 +308,6 @@ class EditorViewModel(
                     _uiState.value = _uiState.value.copy(documentRevision = _uiState.value.documentRevision + 1, isDirty = false, documentName = if (candidates.size > 1) appContext.withAppLanguage(settings.value.language).getString(com.clipnest.R.string.merged_document_name, loadedDocuments.size) else name, externalDocumentUri = first.uri.toString(), externalDocumentSaveAsOnly = candidates.size > 1, externalDocumentFileCount = loadedDocuments.size, externalDocumentEncrypted = false, showSaveNewFileDialog = false, lastSavedTimestamp = System.currentTimeMillis())
                     _openWithDiagnostic.value = null
                     if (failedCandidates.isNotEmpty()) emitToast(com.clipnest.R.string.opened_files_with_failures, loadedDocuments.size, candidates.size)
-                    viewModelScope.launch(Dispatchers.IO) { runCatching { writeDocumentSnapshot(previousState, contentResolver, previousText, previousPassword) } }
                 }.onFailure { error ->
                     emitToast(com.clipnest.R.string.could_not_open_file)
                     _openWithDiagnostic.value = if (failedCandidates.isEmpty()) buildOpenWithDiagnostic(uri, openContext, error) else buildOpenWithDiagnostic(failedCandidates, openContext)
@@ -217,7 +345,6 @@ class EditorViewModel(
                     _uiState.value = _uiState.value.copy(documentRevision = _uiState.value.documentRevision + 1, isDirty = false, documentName = pending.displayName, externalDocumentUri = pending.uri.toString(), externalDocumentSaveAsOnly = false, externalDocumentFileCount = 1, externalDocumentEncrypted = true, showSaveNewFileDialog = false, lastSavedTimestamp = System.currentTimeMillis())
                     _openWithDiagnostic.value = null
                     editorLoaded = true
-                    viewModelScope.launch(Dispatchers.IO) { runCatching { writeDocumentSnapshot(previousState, contentResolver, previousText, previousPassword) } }
                 }.onFailure {
                     _pendingEncryptedOpen.value = pending.copy(error = true)
                 }
@@ -263,19 +390,31 @@ class EditorViewModel(
     }
 
     fun returnToInternalEditor(contentResolver: ContentResolver, onComplete: () -> Unit = {}) {
-        val state = _uiState.value
-        val text = currentDocumentText()
+        if (!hasExternalSession()) { onComplete(); return }
+        if (_uiState.value.isDirty) {
+            pendingExternalReturnCallback = onComplete
+            requestExternalExit(ExternalExitAction.RETURN_TO_EDITOR)
+            return
+        }
+        finishExternalSession(contentResolver)
         viewModelScope.launch(Dispatchers.IO) {
-            runCatching { writeDocumentSnapshot(state, contentResolver, text); fileManager.readEditor() }.onSuccess { internal -> withContext(Dispatchers.Main.immediate) { nativeEditor?.setEditorText(internal, internal.length); _uiState.value.content.setFallback(internal, TextRange(internal.length)); editorDocumentGeneration++; currentDocumentPassword = null; _uiState.value = _uiState.value.copy(documentRevision = _uiState.value.documentRevision + 1, isDirty = false, documentName = internalDocumentName(), externalDocumentUri = null, externalDocumentSaveAsOnly = false, externalDocumentFileCount = 0, externalDocumentEncrypted = false); onComplete() } }
+            val internal = fileManager.readEditor()
+            withContext(Dispatchers.Main.immediate) {
+                nativeEditor?.setEditorText(internal, internal.length)
+                _uiState.value.content.setFallback(internal, TextRange(internal.length))
+                editorDocumentGeneration++
+                _uiState.value = _uiState.value.copy(documentRevision = _uiState.value.documentRevision + 1, isDirty = false, documentName = internalDocumentName())
+                onComplete()
+            }
         }
     }
     private fun internalDocumentName() = appContext.withAppLanguage(settings.value.language).getString(com.clipnest.R.string.editor)
 
     private fun resetSearchState() { _isSearchOpen.value = false; _searchQuery.value = ""; _replaceQuery.value = ""; searchMatchStarts = emptyList(); _searchMatchCount.value = 0; _activeSearchMatch.value = 0 }
-    fun onDocumentTextChanged() { editorLoaded = true; _uiState.value = _uiState.value.copy(documentRevision = _uiState.value.documentRevision + 1, isDirty = true); if (_searchQuery.value.isNotBlank()) scheduleSearchResults(_searchQuery.value, true); scheduleDebouncedAutoSave() }
+    fun onDocumentTextChanged() { editorLoaded = true; _uiState.value = _uiState.value.copy(documentRevision = _uiState.value.documentRevision + 1, isDirty = true); if (_searchQuery.value.isNotBlank()) scheduleSearchResults(_searchQuery.value, true); if (!hasExternalSession()) scheduleDebouncedAutoSave() }
 
     fun configureNoteMode(origin: EditorNoteOrigin?) { _uiState.value = _uiState.value.copy(mode = EditorMode.NOTE, noteOrigin = origin) }
-    fun onTitleChange(newTitle: String) { editorLoaded = true; _uiState.value = _uiState.value.copy(title = newTitle, isDirty = true); scheduleDebouncedAutoSave() }
+    fun onTitleChange(newTitle: String) { editorLoaded = true; _uiState.value = _uiState.value.copy(title = newTitle, isDirty = true); if (!hasExternalSession()) scheduleDebouncedAutoSave() }
     fun flushPendingSaveAndExit(contentResolver: ContentResolver = appContext.contentResolver, onComplete: () -> Unit = {}) {
         autoSaveJob?.cancel()
         val state = _uiState.value
@@ -358,6 +497,7 @@ class EditorViewModel(
     private fun replaceSelection(replacement: String) { nativeEditor?.let { replaceRange(it.selectionStart, it.selectionEnd, replacement, it.selectionStart + replacement.length, it.selectionStart + replacement.length) } }
     private fun scheduleDebouncedAutoSave() { autoSaveJob?.cancel(); autoSaveJob = viewModelScope.launch { delay(1500); if (_uiState.value.isDirty) saveCurrentDocumentSilently() } }
     fun saveCurrentDocumentSilently() {
+        if (hasExternalSession()) return
         if (!_uiState.value.isDirty) return
         val text = currentDocumentText()
         val state = _uiState.value
@@ -369,12 +509,12 @@ class EditorViewModel(
         }
     }
     fun onSaveClicked(contentResolver: ContentResolver = appContext.contentResolver) { val state = _uiState.value; if (state.externalDocumentSaveAsOnly || state.externalDocumentUri == null) _uiState.value = state.copy(showSaveNewFileDialog = true) else saveExternalDocument(Uri.parse(state.externalDocumentUri), contentResolver) }
-    private fun saveExternalDocument(uri: Uri, resolver: ContentResolver) { val text = currentDocumentText(); val revision = _uiState.value.documentRevision; val encrypted = _uiState.value.externalDocumentEncrypted; viewModelScope.launch(Dispatchers.IO) { val ok = runCatching { writeExternalDocument(uri, resolver, text, encrypted) }.isSuccess; withContext(Dispatchers.Main.immediate) { if (ok) { if (_uiState.value.documentRevision == revision) _uiState.value = _uiState.value.copy(isDirty = false, lastSavedTimestamp = System.currentTimeMillis()); emitToast(com.clipnest.R.string.saved_current_file) } else { _uiState.value = _uiState.value.copy(showSaveNewFileDialog = true); emitToast(com.clipnest.R.string.could_not_save_open_file) } } } }
+    private fun saveExternalDocument(uri: Uri, resolver: ContentResolver) { val text = currentDocumentText(); val revision = _uiState.value.documentRevision; val encrypted = _uiState.value.externalDocumentEncrypted; viewModelScope.launch(Dispatchers.IO) { val ok = runCatching { writeExternalDocument(uri, resolver, text, encrypted, currentDocumentPassword) }.isSuccess; withContext(Dispatchers.Main.immediate) { if (ok) { if (_uiState.value.documentRevision == revision) _uiState.value = _uiState.value.copy(isDirty = false, lastSavedTimestamp = System.currentTimeMillis()); emitToast(com.clipnest.R.string.saved_current_file) } else { _uiState.value = _uiState.value.copy(showSaveNewFileDialog = true); emitToast(com.clipnest.R.string.could_not_save_open_file) } } } }
     fun dismissSaveNewFileDialog() { _uiState.value = _uiState.value.copy(showSaveNewFileDialog = false) }
     fun confirmSaveToNewFile(fileName: String, format: ExportFormat, contentResolver: ContentResolver) { if (fileName.isBlank()) return; val folder = _uiState.value.defaultSaveFolderUri; if (folder.isNullOrBlank()) { pendingSave = PendingSave(fileName.trim(), format); dismissSaveNewFileDialog(); viewModelScope.launch { _eventFlow.emit(EditorEvent.RequestSaveFolder) } } else saveToFolder(contentResolver, Uri.parse(folder), fileName.trim(), format) }
     fun setDefaultSaveFolder(uri: Uri, resolver: ContentResolver) { runCatching { resolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION) }; viewModelScope.launch { settingsDataStore.setDefaultSaveFolderUri(uri.toString()) }; _uiState.value = _uiState.value.copy(defaultSaveFolderUri = uri.toString()); val request = pendingSave ?: return; pendingSave = null; saveToFolder(resolver, uri, request.fileName, request.format) }
     private fun saveToFolder(resolver: ContentResolver, folder: Uri, fileName: String, format: ExportFormat) { val text = currentDocumentText(); val revision = _uiState.value.documentRevision; viewModelScope.launch(Dispatchers.IO) { val saved = runCatching { fileManager.saveNewFileToTree(resolver, folder, fileName, format, text) }.getOrNull(); withContext(Dispatchers.Main.immediate) { if (saved == null) emitToast(com.clipnest.R.string.could_not_save_file) else { _uiState.value = _uiState.value.copy(showSaveNewFileDialog = false, isDirty = if (_uiState.value.documentRevision == revision) false else _uiState.value.isDirty, lastSavedTimestamp = if (_uiState.value.documentRevision == revision) System.currentTimeMillis() else _uiState.value.lastSavedTimestamp); emitToast(com.clipnest.R.string.saved_file, fileName, format.extension) } } } }
-    fun onPauseOrExit() { if (_uiState.value.isDirty) saveCurrentDocumentSilently() }
+    fun onPauseOrExit() { /* External document sessions intentionally do not autosave on lifecycle changes. */ if (!hasExternalSession() && _uiState.value.isDirty) saveCurrentDocumentSilently() }
     private fun emitToast(message: String) { viewModelScope.launch { _eventFlow.emit(EditorEvent.ShowToast(message)) } }
     private fun emitToast(@StringRes resourceId: Int, vararg args: Any) { emitToast(appContext.withAppLanguage(settings.value.language).getString(resourceId, *args)) }
     companion object { private const val TAG = "XBoard.Editor" }

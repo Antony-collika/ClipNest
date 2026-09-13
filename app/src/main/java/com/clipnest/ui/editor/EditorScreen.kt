@@ -51,9 +51,6 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.clipnest.data.local.EditorTextSize
 import com.clipnest.data.local.ViewerTextSize
@@ -76,6 +73,7 @@ fun EditorScreen(
     viewerTextSize: ViewerTextSize = ViewerTextSize.DEFAULT,
     onRequestSaveFolder: () -> Unit,
     onRequestOpenFile: () -> Unit,
+    onRequestExternalSaveAs: (String, String) -> Unit,
     onExit: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -83,7 +81,6 @@ fun EditorScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val openWithDiagnostic by viewModel.openWithDiagnostic.collectAsStateWithLifecycle()
     val pendingEncryptedOpen by viewModel.pendingEncryptedOpen.collectAsStateWithLifecycle()
-    val lifecycleOwner = LocalLifecycleOwner.current
     val isDark = MaterialTheme.colorScheme.background.red < 0.5f
     val editorTextColor = MaterialTheme.colorScheme.onBackground.toArgb()
     val previewBackground = if (isDark) Color(0xFF2B2B2B) else Color(0xFFF6F6F6)
@@ -107,22 +104,13 @@ fun EditorScreen(
     var tocIndexing by remember { mutableStateOf(false) }
     var editorVisible by remember { mutableStateOf(true) }
 
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_PAUSE || event == Lifecycle.Event.ON_STOP) viewModel.onPauseOrExit()
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-            viewModel.onPauseOrExit()
-        }
-    }
 
     LaunchedEffect(Unit) {
         viewModel.eventFlow.collect { event ->
             when (event) {
                 is EditorEvent.ShowToast -> Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
                 is EditorEvent.RequestSaveFolder -> onRequestSaveFolder()
+                is EditorEvent.RequestExternalSaveAs -> onRequestExternalSaveAs(event.suggestedFileName, event.mimeType)
             }
         }
     }
@@ -256,6 +244,24 @@ fun EditorScreen(
             onDismiss = viewModel::dismissSaveNewFileDialog,
             onConfirm = { fileName, format ->
                 viewModel.confirmSaveToNewFile(fileName, format, context.contentResolver)
+            }
+        )
+    }
+
+    if (uiState.showExternalUnsavedChangesDialog) {
+        AlertDialog(
+            onDismissRequest = viewModel::cancelExternalExit,
+            title = { Text("Unsaved changes") },
+            text = { Text("This external file has unsaved changes. What would you like to do?") },
+            confirmButton = {
+                TextButton(onClick = { viewModel.chooseExternalSave(context.contentResolver) }) { Text("Save file") }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = viewModel::chooseExternalSaveAs) { Text("Save as") }
+                    TextButton(onClick = { viewModel.chooseExternalNoSave(context.contentResolver) }) { Text("No save") }
+                    TextButton(onClick = viewModel::cancelExternalExit) { Text("Cancel") }
+                }
             }
         )
     }

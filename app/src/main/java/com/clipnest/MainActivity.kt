@@ -142,6 +142,12 @@ class MainActivity : ComponentActivity() {
             callback?.invoke(uri)
         }
     }
+    private var pendingExternalSaveAs: ((Uri?) -> Unit)? = null
+    private val externalSaveAsLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
+        val callback = pendingExternalSaveAs
+        pendingExternalSaveAs = null
+        callback?.invoke(uri)
+    }
     private val backupFileLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         val password = pendingBackupPassword
         pendingBackupPassword = null
@@ -185,6 +191,7 @@ class MainActivity : ComponentActivity() {
                         viewerTextSize = userSettings.viewerTextSize,
                         onRequestFolder = ::requestFolderSelection,
                         onRequestOpenFile = ::requestOpenFile,
+                        onRequestExternalSaveAs = ::requestExternalSaveAs,
                         onShareText = ::shareTextExternally,
                         incomingOpenRequest = incomingRequest,
                         onIncomingOpenRequestHandled = { incomingOpenRequest.value = null },
@@ -209,6 +216,10 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); handleIntent(intent) }
     private fun requestFolderSelection(onSelected: (Uri) -> Unit) { pendingFolderSelection = onSelected; folderPickerLauncher.launch(null) }
     private fun requestOpenFile(onSelected: (Uri) -> Unit) { pendingOpenFileSelection = onSelected; openFileLauncher.launch(arrayOf("*/*")) }
+    private fun requestExternalSaveAs(suggestedFileName: String, mimeType: String, callback: (Uri?) -> Unit) {
+        pendingExternalSaveAs = callback
+        externalSaveAsLauncher.launch(suggestedFileName)
+    }
     private fun requestBackupFile() { backupPasswordRequest.value = BackupPasswordAction.EXPORT }
     private fun requestRestoreFile() { backupPasswordRequest.value = BackupPasswordAction.IMPORT }
     private fun launchBackupFilePicker() { val date = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date()); backupFileLauncher.launch("ClipNest_Backup_$date.clipnest.json") }
@@ -269,6 +280,7 @@ fun MainAppContent(
     viewerTextSize: ViewerTextSize,
     onRequestFolder: (((Uri) -> Unit) -> Unit),
     onRequestOpenFile: ((Uri) -> Unit) -> Unit,
+    onRequestExternalSaveAs: (String, String, (Uri?) -> Unit) -> Unit,
     onShareText: (String, String) -> Unit,
     incomingOpenRequest: IncomingOpenRequest?,
     onIncomingOpenRequestHandled: () -> Unit,
@@ -386,6 +398,7 @@ fun MainAppContent(
                             viewerTextSize = viewerTextSize,
                             onRequestSaveFolder = { onRequestFolder { uri -> editorViewModel.setDefaultSaveFolder(uri, context.contentResolver) } },
                             onRequestOpenFile = ::openExternalFile,
+                            onRequestExternalSaveAs = { name, mime -> onRequestExternalSaveAs(name, mime) { uri -> editorViewModel.completeExternalSaveAs(uri, context.contentResolver) } },
                             modifier = Modifier.fillMaxSize()
                         )
                     }
