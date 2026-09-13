@@ -501,7 +501,8 @@ class NativeEditorView @JvmOverloads constructor(
 
     fun redo() {
         val operation = redoStack.removeLastOrNull() ?: return
-        val inserted = operation.insertedContent ?: return
+        val inserted = operation.insertedContent
+        if (inserted == null) return
         internalMutation = true
         beginBatchEdit()
         try {
