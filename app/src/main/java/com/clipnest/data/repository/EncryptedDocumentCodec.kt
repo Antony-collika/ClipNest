@@ -70,30 +70,33 @@ object EncryptedDocumentCodec {
         require(password.isNotEmpty()) { "Password must not be empty" }
         val salt = ByteArray(SALT_LENGTH_BYTES).also(secureRandom::nextBytes)
         val nonce = ByteArray(NONCE_LENGTH_BYTES).also(secureRandom::nextBytes)
-        var key: SecretKeySpec? = null
         var plaintextBytes: ByteArray? = null
         var ciphertext: ByteArray? = null
         return try {
-            key = deriveKey(password, salt, PBKDF2_ITERATIONS)
-            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-            cipher.init(Cipher.ENCRYPT_MODE, key, GCMParameterSpec(TAG_LENGTH_BITS, nonce))
-            cipher.updateAAD(envelopeAad())
-            plaintextBytes = content.toByteArray(StandardCharsets.UTF_8)
-            ciphertext = cipher.doFinal(plaintextBytes)
-            adapter.toJson(
-                EncryptedDocument(
-                    iterations = PBKDF2_ITERATIONS,
-                    salt = base64Encoder.encodeToString(salt),
-                    nonce = base64Encoder.encodeToString(nonce),
-                    ciphertext = base64Encoder.encodeToString(ciphertext)
+            val key = deriveKey(password, salt, PBKDF2_ITERATIONS)
+            try {
+                val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+                cipher.init(Cipher.ENCRYPT_MODE, key, GCMParameterSpec(TAG_LENGTH_BITS, nonce))
+                cipher.updateAAD(envelopeAad())
+                plaintextBytes = content.toByteArray(StandardCharsets.UTF_8)
+                ciphertext = cipher.doFinal(plaintextBytes)
+                adapter.toJson(
+                    EncryptedDocument(
+                        iterations = PBKDF2_ITERATIONS,
+                        salt = base64Encoder.encodeToString(salt),
+                        nonce = base64Encoder.encodeToString(nonce),
+                        ciphertext = base64Encoder.encodeToString(ciphertext)
+                    )
                 )
-            )
+            } finally {
+                // SecretKeySpec does not expose a wipeable backing array; dropping it
+                // promptly is the strongest cleanup available through the JCA API.
+            }
         } finally {
             plaintextBytes?.fill(0)
             ciphertext?.fill(0)
             salt.fill(0)
             nonce.fill(0)
-            key?.let { wipeKeyMaterial(it) }
         }
     }
 
@@ -124,7 +127,6 @@ object EncryptedDocumentCodec {
         var nonce: ByteArray? = null
         var ciphertext: ByteArray? = null
         var plaintextBytes: ByteArray? = null
-        var key: SecretKeySpec? = null
         return try {
             salt = base64Decoder.decode(envelope.salt)
             nonce = base64Decoder.decode(envelope.nonce)
@@ -132,12 +134,17 @@ object EncryptedDocumentCodec {
             require(salt.size == SALT_LENGTH_BYTES) { "Invalid document salt" }
             require(nonce.size == NONCE_LENGTH_BYTES) { "Invalid document nonce" }
             require(ciphertext.size > TAG_LENGTH_BITS / 8) { "Invalid document ciphertext" }
-            key = deriveKey(password, salt, envelope.iterations)
-            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-            cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(TAG_LENGTH_BITS, nonce))
-            cipher.updateAAD(envelopeAad())
-            plaintextBytes = cipher.doFinal(ciphertext)
-            String(plaintextBytes, StandardCharsets.UTF_8)
+            val key = deriveKey(password, salt, envelope.iterations)
+            try {
+                val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+                cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(TAG_LENGTH_BITS, nonce))
+                cipher.updateAAD(envelopeAad())
+                plaintextBytes = cipher.doFinal(ciphertext)
+                String(plaintextBytes, StandardCharsets.UTF_8)
+            } finally {
+                // SecretKeySpec does not expose a wipeable backing array; dropping it
+                // promptly is the strongest cleanup available through the JCA API.
+            }
         } catch (error: Exception) {
             throw IllegalArgumentException("Invalid password or encrypted document", error)
         } finally {
@@ -145,7 +152,6 @@ object EncryptedDocumentCodec {
             nonce?.fill(0)
             ciphertext?.fill(0)
             plaintextBytes?.fill(0)
-            key?.let { wipeKeyMaterial(it) }
         }
     }
 
@@ -154,17 +160,18 @@ object EncryptedDocumentCodec {
         return try {
             val secret = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec)
             try {
-                SecretKeySpec(secret.encoded, "AES")
+                val encoded = secret.encoded
+                try {
+                    SecretKeySpec(encoded, "AES")
+                } finally {
+                    encoded.fill(0)
+                }
             } finally {
-                secret.encoded?.fill(0)
+                runCatching { secret.encoded.fill(0) }
             }
         } finally {
             spec.clearPassword()
         }
-    }
-
-    private fun wipeKeyMaterial(key: SecretKeySpec) {
-        runCatching { key.encoded.fill(0) }
     }
 
     private fun envelopeAad(): ByteArray =
