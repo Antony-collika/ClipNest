@@ -1,0 +1,301 @@
+name: Apply editor state fix
+
+on:
+  push:
+    branches:
+      - fix/editor-state-restoration
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/editor-state-restoration
+          fetch-depth: 0
+
+      - name: Apply fixes
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          native_path = Path('app/src/main/java/com/clipnest/ui/editor/NativeEditorView.kt')
+          native = native_path.read_text()
+          old = '        private const val SCROLL_POSITION_PREFS = "editor_scroll_positions"\n        private const val SCROLL_POSITION_PREFIX = "position_"\n'
+          new = '        private const val SCROLL_POSITION_PREFS = "editor_scroll_positions"\n'
+          if old not in native:
+              raise SystemExit('Native constants anchor not found')
+          native = native.replace(old, new, 1)
+
+          old = '    private fun scrollKey(value: CharSequence): String = SCROLL_POSITION_PREFIX + value.length + "_" + value.hashCode().toUInt().toString(16)\n\n    private fun saveCurrentScrollPosition() {'
+          new = '''    fun setDocumentScrollKey(key: String?) {
+          saveCurrentScrollPosition()
+          documentScrollKey = key
+          pendingRestoreScrollY = if (key != null && scrollPositionPrefs.contains(key)) {
+              scrollPositionPrefs.getInt(key, 0).coerceAtLeast(0)
+          } else {
+              null
+          }
+      }
+
+      private fun saveCurrentScrollPosition() {'''
+          if old not in native:
+              raise SystemExit('Native scroll key anchor not found')
+          native = native.replace(old, new, 1)
+
+          old = '''    fun setEditorText(value: CharSequence, selectionStart: Int = value.length, selectionEnd: Int = selectionStart) {
+          saveCurrentScrollPosition()
+          val key = scrollKey(value)
+          pendingRestoreScrollY = scrollPositionPrefs.getInt(key, 0).takeIf { it > 0 }
+          documentScrollKey = key
+'''
+          new = '''    fun setEditorText(value: CharSequence, selectionStart: Int = value.length, selectionEnd: Int = selectionStart) {
+          saveCurrentScrollPosition()
+'''
+          if old not in native:
+              raise SystemExit('Native setEditorText anchor not found')
+          native = native.replace(old, new, 1)
+          native_path.write_text(native)
+
+          vm_path = Path('app/src/main/java/com/clipnest/ui/editor/EditorViewModel.kt')
+          vm = vm_path.read_text()
+
+          old = 'private data class PendingSave(val fileName: String, val format: ExportFormat)\n'
+          new = '''private const val INTERNAL_EDITOR_SCROLL_KEY = "internal_editor"
+
+          private data class PendingSave(val fileName: String, val format: ExportFormat)
+
+          private data class InternalEditorSnapshot(
+              val text: String,
+              val title: String,
+              val isDirty: Boolean
+          )
+'''
+          if old not in vm:
+              raise SystemExit('VM data anchor not found')
+          vm = vm.replace(old, new, 1)
+
+          old = '    private var editorDocumentGeneration = 0L\n'
+          new = '    private var editorDocumentGeneration = 0L\n    private var internalEditorSnapshot: InternalEditorSnapshot? = null\n'
+          if old not in vm:
+              raise SystemExit('VM field anchor not found')
+          vm = vm.replace(old, new, 1)
+
+          old = '''        nativeEditor?.setTextChangeListener(null)
+          nativeEditor = editor
+          editor.setTextChangeListener { onDocumentTextChanged() }
+          editor.setEditorTextSize(settings.value.editorTextSize)
+          if (!editorLoaded || editor.text?.isEmpty() == true) {
+              val content = _uiState.value.content
+              editor.setEditorText(content.text, content.selection.start, content.selection.end)
+          }
+'''
+          new = '''        nativeEditor?.setTextChangeListener(null)
+          nativeEditor = editor
+          editor.setTextChangeListener { onDocumentTextChanged() }
+          editor.setDocumentScrollKey(if (hasExternalSession()) null else INTERNAL_EDITOR_SCROLL_KEY)
+          editor.setEditorTextSize(settings.value.editorTextSize)
+          if (!editorLoaded || editor.text?.isEmpty() == true) {
+              val content = _uiState.value.content
+              editor.setEditorText(content.text, content.selection.start, content.selection.end)
+          }
+'''
+          if old not in vm:
+              raise SystemExit('VM bind anchor not found')
+          vm = vm.replace(old, new, 1)
+
+          old = '''    private fun finishExternalSession(contentResolver: ContentResolver) {
+          autoSaveJob?.cancel()
+          searchJob?.cancel()
+          resetSearchState()
+          clearCurrentDocumentPassword()
+          _pendingEncryptedOpen.value = null
+          nativeEditor?.setTextChangeListener(null)
+          nativeEditor?.setEditorText("", 0)
+          _uiState.value.content.setFallback("", TextRange.Zero)
+          _uiState.value = _uiState.value.copy(
+              externalDocumentUri = null,
+              externalDocumentSaveAsOnly = false,
+              externalDocumentFileCount = 0,
+              externalDocumentEncrypted = false,
+              showSaveNewFileDialog = false,
+              showExternalUnsavedChangesDialog = false,
+              isDirty = false
+          )
+      }'''
+          # The current source does not detach the listener; use its exact existing block.
+          old = '''    private fun finishExternalSession(contentResolver: ContentResolver) {
+          autoSaveJob?.cancel()
+          searchJob?.cancel()
+          resetSearchState()
+          clearCurrentDocumentPassword()
+          _pendingEncryptedOpen.value = null
+          nativeEditor?.setEditorText("", 0)
+          _uiState.value.content.setFallback("", TextRange.Zero)
+          _uiState.value = _uiState.value.copy(
+              externalDocumentUri = null,
+              externalDocumentSaveAsOnly = false,
+              externalDocumentFileCount = 0,
+              externalDocumentEncrypted = false,
+              showSaveNewFileDialog = false,
+              showExternalUnsavedChangesDialog = false,
+              isDirty = false
+          )
+      }'''
+          new = '''    private fun finishExternalSession(contentResolver: ContentResolver) {
+          autoSaveJob?.cancel()
+          searchJob?.cancel()
+          resetSearchState()
+          clearCurrentDocumentPassword()
+          _pendingEncryptedOpen.value = null
+          nativeEditor?.setDocumentScrollKey(null)
+          nativeEditor?.setEditorText("", 0)
+
+          val internal = internalEditorSnapshot
+          if (internal != null) {
+              _uiState.value.content.setFallback(internal.text, TextRange(internal.text.length))
+              _uiState.value = _uiState.value.copy(
+                  externalDocumentUri = null,
+                  externalDocumentSaveAsOnly = false,
+                  externalDocumentFileCount = 0,
+                  externalDocumentEncrypted = false,
+                  showSaveNewFileDialog = false,
+                  showExternalUnsavedChangesDialog = false,
+                  isDirty = internal.isDirty,
+                  documentName = internalDocumentName(),
+                  title = internal.title
+              )
+              nativeEditor?.setDocumentScrollKey(INTERNAL_EDITOR_SCROLL_KEY)
+              nativeEditor?.setEditorText(internal.text, internal.text.length)
+          } else {
+              _uiState.value = _uiState.value.copy(
+                  externalDocumentUri = null,
+                  externalDocumentSaveAsOnly = false,
+                  externalDocumentFileCount = 0,
+                  externalDocumentEncrypted = false,
+                  showSaveNewFileDialog = false,
+                  showExternalUnsavedChangesDialog = false,
+                  isDirty = false
+              )
+          }
+      }'''
+          if old not in vm:
+              raise SystemExit('VM finishExternalSession anchor not found')
+          vm = vm.replace(old, new, 1)
+
+          old = '''        val previousState = _uiState.value
+          val previousText = currentDocumentText()
+          editorLoaded = true
+'''
+          new = '''        val previousState = _uiState.value
+          val previousText = currentDocumentText()
+          if (previousState.externalDocumentUri == null) {
+              internalEditorSnapshot = InternalEditorSnapshot(previousText, previousState.title, previousState.isDirty)
+          }
+          editorLoaded = true
+'''
+          if old not in vm:
+              raise SystemExit('VM external snapshot anchor not found')
+          vm = vm.replace(old, new, 1)
+
+          old = '''            if (!internalSaved) {
+              withContext(Dispatchers.Main.immediate) {
+                  emitToast(com.clipnest.R.string.could_not_save_file)
+              }
+              return@launch
+          }
+'''
+          new = '''            if (!internalSaved) {
+              withContext(Dispatchers.Main.immediate) {
+                  emitToast(com.clipnest.R.string.could_not_save_file)
+              }
+              return@launch
+          }
+          internalEditorSnapshot = internalEditorSnapshot?.copy(isDirty = false)
+'''
+          if old not in vm:
+              raise SystemExit('VM internal save anchor not found')
+          vm = vm.replace(old, new, 1)
+
+          old = '''                    resetSearchState()
+                    val first = loadedDocuments.first().first
+                    nativeEditor?.setEditorText(text, text.length)
+'''
+          new = '''                    resetSearchState()
+                    val first = loadedDocuments.first().first
+                    nativeEditor?.setDocumentScrollKey(null)
+                    nativeEditor?.setEditorText(text, text.length)
+'''
+          if old not in vm:
+              raise SystemExit('VM external load anchor not found')
+          vm = vm.replace(old, new, 1)
+
+          old = '''                    _pendingEncryptedOpen.value = null
+                    resetSearchState()
+                    nativeEditor?.setEditorText(text, text.length)
+'''
+          new = '''                    _pendingEncryptedOpen.value = null
+                    resetSearchState()
+                    nativeEditor?.setDocumentScrollKey(null)
+                    nativeEditor?.setEditorText(text, text.length)
+'''
+          if old not in vm:
+              raise SystemExit('VM encrypted load anchor not found')
+          vm = vm.replace(old, new, 1)
+
+          old = '''    fun returnToInternalEditor(contentResolver: ContentResolver, onComplete: () -> Unit = {}) {
+          if (!hasExternalSession()) { onComplete(); return }
+          if (_uiState.value.isDirty) {
+              pendingExternalReturnCallback = onComplete
+              requestExternalExit(ExternalExitAction.RETURN_TO_EDITOR)
+              return
+          }
+          finishExternalSession(contentResolver)
+          viewModelScope.launch(Dispatchers.IO) {
+              val internal = fileManager.readEditor()
+              val title = fileManager.readEditorTitle()
+              withContext(Dispatchers.Main.immediate) {
+                  nativeEditor?.setEditorText(internal, internal.length)
+                  _uiState.value.content.setFallback(internal, TextRange(internal.length))
+                  editorDocumentGeneration++
+                  _uiState.value = _uiState.value.copy(documentRevision = _uiState.value.documentRevision + 1, isDirty = false, documentName = internalDocumentName(), title = title)
+                  onComplete()
+              }
+          }
+      }'''
+          new = '''    fun returnToInternalEditor(contentResolver: ContentResolver, onComplete: () -> Unit = {}) {
+          if (!hasExternalSession()) { onComplete(); return }
+          if (_uiState.value.isDirty) {
+              pendingExternalReturnCallback = onComplete
+              requestExternalExit(ExternalExitAction.RETURN_TO_EDITOR)
+              return
+          }
+          finishExternalSession(contentResolver)
+          editorDocumentGeneration++
+          _uiState.value = _uiState.value.copy(documentRevision = _uiState.value.documentRevision + 1)
+          onComplete()
+      }'''
+          if old not in vm:
+              raise SystemExit('VM return anchor not found')
+          vm = vm.replace(old, new, 1)
+
+          if 'SCROLL_POSITION_PREFIX' in native_path.read_text():
+              raise SystemExit('Stale content-hash scroll key remains')
+          vm_path.write_text(vm)
+          PY
+
+      - name: Compile
+        run: ./gradlew :app:compileDebugKotlin --no-daemon
+
+      - name: Commit fixes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -f .github/workflows/apply-editor-state-fix.yml
+          git add app/src/main/java/com/clipnest/ui/editor/NativeEditorView.kt app/src/main/java/com/clipnest/ui/editor/EditorViewModel.kt .github/workflows/apply-editor-state-fix.yml
+          git commit -m "fix: preserve editor viewport and internal content"
+          git push
