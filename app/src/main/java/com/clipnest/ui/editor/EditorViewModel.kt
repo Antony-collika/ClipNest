@@ -459,7 +459,10 @@ class EditorViewModel(
         val state = _uiState.value
         val text = currentDocumentText()
         val revision = state.documentRevision
-        _uiState.value.content.setFallback(text, nativeEditor?.let { TextRange(it.selectionStart, it.selectionEnd) } ?: TextRange(text.length))
+        // Same reasoning as saveCurrentDocumentSilently(): don't force the selection to
+        // end-of-text just because the live view isn't available at this exact moment.
+        nativeEditor?.let { _uiState.value.content.setFallback(text, TextRange(it.selectionStart, it.selectionEnd)) }
+            ?: _uiState.value.content.setFallback(text, _uiState.value.content.selection)
         viewModelScope.launch(Dispatchers.IO) {
             val saved = runCatching { writeDocumentSnapshot(state, contentResolver, text) }.isSuccess
             withContext(Dispatchers.Main.immediate) { if (saved && _uiState.value.documentRevision == revision) _uiState.value = _uiState.value.copy(isDirty = false, lastSavedTimestamp = System.currentTimeMillis()); onComplete() }
@@ -541,7 +544,13 @@ class EditorViewModel(
         val text = currentDocumentText()
         val state = _uiState.value
         val revision = state.documentRevision
-        _uiState.value.content.setFallback(text, nativeEditor?.let { TextRange(it.selectionStart, it.selectionEnd) } ?: TextRange(text.length))
+        // Only overwrite content.selection when we can read the real caret position from
+        // the live view. If nativeEditor is null here (e.g. the view was already torn down
+        // because the app is going to background), leave content.selection as-is instead of
+        // forcing it to end-of-text — that fallback is what made the cursor/scroll jump to
+        // the end after leaving and returning to the editor.
+        nativeEditor?.let { _uiState.value.content.setFallback(text, TextRange(it.selectionStart, it.selectionEnd)) }
+            ?: _uiState.value.content.setFallback(text, _uiState.value.content.selection)
         viewModelScope.launch(Dispatchers.IO) {
             val saved = runCatching { writeDocumentSnapshot(state, appContext.contentResolver, text) }.isSuccess
             withContext(Dispatchers.Main.immediate) { if (saved && _uiState.value.documentRevision == revision) _uiState.value = _uiState.value.copy(isDirty = false, lastSavedTimestamp = System.currentTimeMillis()) }
