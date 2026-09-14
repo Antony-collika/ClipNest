@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - fix/editor-viewport-restore-timing
+  workflow_dispatch:
 
 jobs:
   trace-build:
