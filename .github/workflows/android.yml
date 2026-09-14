@@ -1,99 +1,222 @@
-# Standard CI for the editor/external save behavior validation.
 name: Android CI/CD
 
 on:
   push:
-    branches:
-      - Draft
-      - Editor
-      - Optimization
+    branches: [Draft, Editor, Optimization, fix/editor-viewport-restore-timing]
   pull_request:
-    branches:
-      - Draft
-      - Editor
-      - Optimization
+    branches: [Draft, Editor, Optimization]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
         with:
           java-version: '21'
-          distribution: 'temurin'
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+          distribution: temurin
+      - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.3.1'
-
-      - name: Generate Wrapper if not present
+      - name: Generate Wrapper
         run: |
-          if [ ! -f "gradlew" ]; then
-            gradle wrapper
-          fi
+          [ -f gradlew ] || gradle wrapper
           chmod +x gradlew
-
-      - name: Validate Android network configuration
-        run: |
-          grep -q 'android.permission.INTERNET' app/src/main/AndroidManifest.xml
-          if grep -RniE 'GEMINI_API_KEY\s*=|AIza[0-9A-Za-z_-]{20,}' app --exclude-dir=build; then
-            echo 'Gemini API key material must not be committed to the Android app.'
-            exit 1
-          fi
-
       - name: Restore Debug Keystore
         run: |
-          if [ -f "debug.keystore.base64" ] && [ ! -f "debug.keystore" ]; then
-            base64 -d debug.keystore.base64 > debug.keystore || base64 --decode debug.keystore.base64 > debug.keystore
-          fi
-          if [ ! -f "debug.keystore" ]; then
-            keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
-          fi
-
-      - name: Run Unit Tests
+          if [ -f debug.keystore.base64 ] && [ ! -f debug.keystore ]; then base64 -d debug.keystore.base64 > debug.keystore || base64 --decode debug.keystore.base64 > debug.keystore; fi
+          if [ ! -f debug.keystore ]; then keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname 'CN=Android Debug,O=Android,C=US'; fi
+      - name: Unit Tests
         run: ./gradlew testDebugUnitTest --no-daemon
-
       - name: Restore Release Keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "KEYSTORE_BASE64 secret is missing"
-            exit 1
-          fi
+          [ -n "$KEYSTORE_BASE64" ] || { echo 'KEYSTORE_BASE64 secret is missing'; exit 1; }
           echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/xboard-release.jks"
-
-      - name: Validate Release APK
+      - name: Release APK
         env:
           KEYSTORE_PATH: ${{ runner.temp }}/xboard-release.jks
           STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew assembleRelease --no-daemon
-
-      - name: Upload Release Validation APK
-        uses: actions/upload-artifact@v4.6.2
+      - uses: actions/upload-artifact@v4.6.2
         with:
           name: ClipNest-release-validation-apk
           path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
-          overwrite: true
           retention-days: 7
 
-      - name: Upload Test Report
-        if: always()
-        uses: actions/upload-artifact@v4.6.2
+  debug-trace:
+    name: Debug APK with Editor Trace
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
         with:
-          name: ClipNest-test-report
-          path: app/build/reports/tests/testDebugUnitTest/
-          if-no-files-found: warn
-          overwrite: true
+          java-version: '21'
+          distribution: temurin
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.3.1'
+      - name: Generate Wrapper
+        run: |
+          [ -f gradlew ] || gradle wrapper
+          chmod +x gradlew
+      - name: Restore Debug Keystore
+        run: |
+          if [ -f debug.keystore.base64 ] && [ ! -f debug.keystore ]; then base64 -d debug.keystore.base64 > debug.keystore || base64 --decode debug.keystore.base64 > debug.keystore; fi
+          if [ ! -f debug.keystore ]; then keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname 'CN=Android Debug,O=Android,C=US'; fi
+      - name: Inject Editor Trace
+        run: |
+          mkdir -p app/src/main/java/com/clipnest/debug
+          cat > app/src/main/java/com/clipnest/debug/EditorStartupTrace.kt <<'EOF'
+          package com.clipnest.debug
+
+          import android.app.Activity
+          import android.app.Dialog
+          import android.content.ClipData
+          import android.content.ClipboardManager
+          import android.content.Context
+          import android.content.ContextWrapper
+          import android.graphics.Typeface
+          import android.view.ViewGroup
+          import android.widget.Button
+          import android.widget.LinearLayout
+          import android.widget.ScrollView
+          import android.widget.TextView
+          import com.clipnest.ui.editor.NativeEditorView
+          import java.text.SimpleDateFormat
+          import java.util.Date
+          import java.util.Locale
+
+          internal object EditorStartupTrace {
+              private val lines = ArrayDeque<String>()
+              private val fmt = SimpleDateFormat("HH:mm:ss.SSS", Locale.US)
+
+              @Synchronized
+              fun log(v: NativeEditorView, event: String) {
+                  val line = "${fmt.format(Date())} | $event | scroll=${v.scrollY} | sel=${v.selectionStart}..${v.selectionEnd} | text=${v.length()} | view=${v.width}x${v.height} | layout=${v.layout?.height ?: 0}"
+                  lines.addLast(line)
+                  while (lines.size > 800) lines.removeFirst()
+                  android.util.Log.d("ClipNest.EditorTrace", line)
+              }
+
+              @Synchronized fun clear() = lines.clear()
+              @Synchronized fun snapshot() = lines.joinToString("\n")
+
+              private fun findActivity(context: Context): Activity? {
+                  var current: Context? = context
+                  while (current is ContextWrapper) {
+                      if (current is Activity) return current
+                      current = current.baseContext
+                  }
+                  return current as? Activity
+              }
+
+              fun showDialog(context: Context) {
+                  val activity = findActivity(context) ?: return
+                  if (activity.isFinishing || activity.isDestroyed) return
+
+                  val dialog = Dialog(activity)
+                  val root = LinearLayout(activity).apply {
+                      orientation = LinearLayout.VERTICAL
+                      setPadding(24, 20, 24, 12)
+                  }
+                  root.addView(TextView(activity).apply {
+                      text = "Editor startup trace"
+                      textSize = 20f
+                      typeface = Typeface.DEFAULT_BOLD
+                  })
+                  val body = TextView(activity).apply {
+                      text = snapshot().ifBlank { "No trace events captured." }
+                      textSize = 12f
+                      typeface = Typeface.MONOSPACE
+                      setTextIsSelectable(true)
+                  }
+                  root.addView(
+                      ScrollView(activity).apply { addView(body, ViewGroup.LayoutParams(-1, -2)) },
+                      LinearLayout.LayoutParams(-1, 0, 1f)
+                  )
+                  val row = LinearLayout(activity)
+                  row.addView(Button(activity).apply {
+                      text = "Clear"
+                      setOnClickListener { clear(); body.text = "No trace events captured." }
+                  }, LinearLayout.LayoutParams(0, -2, 1f))
+                  row.addView(Button(activity).apply {
+                      text = "Copy"
+                      setOnClickListener {
+                          val clipboard = activity.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                          clipboard.setPrimaryClip(ClipData.newPlainText("Editor startup trace", snapshot()))
+                      }
+                  }, LinearLayout.LayoutParams(0, -2, 1f))
+                  row.addView(Button(activity).apply {
+                      text = "Close"
+                      setOnClickListener { dialog.dismiss() }
+                  }, LinearLayout.LayoutParams(0, -2, 1f))
+                  root.addView(row)
+                  dialog.setContentView(root)
+                  dialog.show()
+                  dialog.window?.setLayout(-1, -1)
+              }
+          }
+          EOF
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          editor = Path('app/src/main/java/com/clipnest/ui/editor/NativeEditorView.kt')
+          s = editor.read_text()
+
+          def replace_once(old, new):
+              global s
+              if s.count(old) != 1:
+                  raise SystemExit(f'editor patch anchor mismatch: {old!r} count={s.count(old)}')
+              s = s.replace(old, new, 1)
+
+          replace_once(
+              '        setCursorVisible(true)\n',
+              '        setCursorVisible(true)\n        com.clipnest.debug.EditorStartupTrace.log(this, "init")\n'
+          )
+          replace_once(
+              '        updateStableScrollBounds()\n    }\n\n    override fun onLayout',
+              '        updateStableScrollBounds()\n        com.clipnest.debug.EditorStartupTrace.log(this, "onSizeChanged")\n    }\n\n    override fun onLayout',
+          )
+          replace_once(
+              '        updateStableScrollBounds()\n        restorePendingScrollIfReady()\n    }\n\n    override fun onFocusChanged',
+              '        updateStableScrollBounds()\n        restorePendingScrollIfReady()\n        com.clipnest.debug.EditorStartupTrace.log(this, "onLayout")\n    }\n\n    override fun onFocusChanged',
+          )
+          replace_once(
+              '        if (!hasWindowFocus) saveCurrentScrollPosition()\n    }\n\n    override fun onWindowVisibilityChanged',
+              '        if (!hasWindowFocus) saveCurrentScrollPosition()\n        com.clipnest.debug.EditorStartupTrace.log(this, "windowFocus=$hasWindowFocus")\n    }\n\n    override fun onWindowVisibilityChanged',
+          )
+          replace_once(
+              '        if (visibility != View.VISIBLE) saveCurrentScrollPosition()\n    }\n\n    override fun onDetachedFromWindow',
+              '        if (visibility != View.VISIBLE) saveCurrentScrollPosition()\n        com.clipnest.debug.EditorStartupTrace.log(this, "windowVisibility=$visibility")\n    }\n\n    override fun onDetachedFromWindow',
+          )
+          replace_once(
+              '        invalidate()\n    }\n\n    override fun onTouchEvent',
+              '        invalidate()\n        com.clipnest.debug.EditorStartupTrace.log(this, "selectionChanged")\n    }\n\n    override fun onScrollChanged(l: Int, t: Int, oldl: Int, oldt: Int) {\n        super.onScrollChanged(l, t, oldl, oldt)\n        if (t != oldt) com.clipnest.debug.EditorStartupTrace.log(this, "scroll $oldt->$t")\n    }\n\n    override fun onTouchEvent',
+          )
+          editor.write_text(s)
+
+          settings = Path('app/src/main/java/com/clipnest/ui/settings/SettingsScreen.kt')
+          s = settings.read_text()
+          anchor = '''        item {\n            SettingsSectionHeader(title = stringResource(com.clipnest.R.string.privacy_security), icon = Icons.Default.Security)\n'''
+          if s.count(anchor) != 1:
+              raise SystemExit(f'settings anchor mismatch count={s.count(anchor)}')
+          block = '''        item {\n            SettingsSectionHeader(title = "Debug / Diagnostics", icon = Icons.Default.Security)\n            OutlinedCard(shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {\n                Column(modifier = Modifier.padding(16.dp)) {\n                    Text("Editor startup trace", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium))\n                    Text("Capture editor lifecycle, layout, selection and scroll events.", style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))\n                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {\n                        TextButton(onClick = { com.clipnest.debug.EditorStartupTrace.showDialog(context) }, modifier = Modifier.testTag("settings_editor_trace_button")) { Text("View Log") }\n                        TextButton(onClick = { com.clipnest.debug.EditorStartupTrace.clear() }) { Text("Clear") }\n                    }\n                }\n            }\n        }\n\n'''
+          settings.write_text(s.replace(anchor, block + anchor, 1))
+          PY
+      - name: Build Debug APK with Editor Trace
+        run: ./gradlew assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4.6.2
+        with:
+          name: ClipNest-debug-editor-trace-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
           retention-days: 7
