@@ -80,7 +80,7 @@ class NativeEditorView @JvmOverloads constructor(
     private var downTouchY = 0f
     private var scrollRemainderY = 0f
     private var stableMaxScrollY = 0
-    private val fastScrollHitWidthPx = dp(44)
+    private val fastScrollHitWidthPx = dp(48)
     private val fastScrollThumbWidthPx = dp(4)
     private val fastScrollActiveThumbWidthPx = dp(8)
     private val fastScrollMinThumbHeightPx = dp(32)
