@@ -77,10 +77,12 @@ jobs:
           cat > app/src/main/java/com/clipnest/debug/EditorStartupTrace.kt <<'EOF'
           package com.clipnest.debug
 
+          import android.app.Activity
           import android.app.Dialog
           import android.content.ClipData
           import android.content.ClipboardManager
           import android.content.Context
+          import android.content.ContextWrapper
           import android.graphics.Typeface
           import android.view.ViewGroup
           import android.widget.Button
@@ -107,40 +109,52 @@ jobs:
               @Synchronized fun clear() = lines.clear()
               @Synchronized fun snapshot() = lines.joinToString("\n")
 
+              private fun findActivity(context: Context): Activity? {
+                  var current: Context? = context
+                  while (current is ContextWrapper) {
+                      if (current is Activity) return current
+                      current = current.baseContext
+                  }
+                  return current as? Activity
+              }
+
               fun showDialog(context: Context) {
-                  val dialog = Dialog(context)
-                  val root = LinearLayout(context).apply {
+                  val activity = findActivity(context) ?: return
+                  if (activity.isFinishing || activity.isDestroyed) return
+
+                  val dialog = Dialog(activity)
+                  val root = LinearLayout(activity).apply {
                       orientation = LinearLayout.VERTICAL
                       setPadding(24, 20, 24, 12)
                   }
-                  root.addView(TextView(context).apply {
+                  root.addView(TextView(activity).apply {
                       text = "Editor startup trace"
                       textSize = 20f
                       typeface = Typeface.DEFAULT_BOLD
                   })
-                  val body = TextView(context).apply {
+                  val body = TextView(activity).apply {
                       text = snapshot().ifBlank { "No trace events captured." }
                       textSize = 12f
                       typeface = Typeface.MONOSPACE
                       setTextIsSelectable(true)
                   }
                   root.addView(
-                      ScrollView(context).apply { addView(body, ViewGroup.LayoutParams(-1, -2)) },
+                      ScrollView(activity).apply { addView(body, ViewGroup.LayoutParams(-1, -2)) },
                       LinearLayout.LayoutParams(-1, 0, 1f)
                   )
-                  val row = LinearLayout(context)
-                  row.addView(Button(context).apply {
+                  val row = LinearLayout(activity)
+                  row.addView(Button(activity).apply {
                       text = "Clear"
                       setOnClickListener { clear(); body.text = "No trace events captured." }
                   }, LinearLayout.LayoutParams(0, -2, 1f))
-                  row.addView(Button(context).apply {
+                  row.addView(Button(activity).apply {
                       text = "Copy"
                       setOnClickListener {
-                          val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                          val clipboard = activity.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                           clipboard.setPrimaryClip(ClipData.newPlainText("Editor startup trace", snapshot()))
                       }
                   }, LinearLayout.LayoutParams(0, -2, 1f))
-                  row.addView(Button(context).apply {
+                  row.addView(Button(activity).apply {
                       text = "Close"
                       setOnClickListener { dialog.dismiss() }
                   }, LinearLayout.LayoutParams(0, -2, 1f))
