@@ -52,19 +52,6 @@ jobs:
           cat > app/src/main/java/com/clipnest/ui/editor/EditorStartupTrace.kt <<'EOF'
           package com.clipnest.ui.editor
 
-          import android.app.Activity
-          import android.content.ClipData
-          import android.content.ClipboardManager
-          import android.content.Context
-          import android.content.ContextWrapper
-          import android.content.Intent
-          import android.graphics.Typeface
-          import android.view.ViewGroup
-          import android.widget.LinearLayout
-          import android.widget.ScrollView
-          import android.widget.TextView
-          import android.widget.Toast
-          import androidx.appcompat.app.AlertDialog
           import java.text.SimpleDateFormat
           import java.util.ArrayDeque
           import java.util.Date
@@ -85,66 +72,12 @@ jobs:
               }
 
               @Synchronized
-              private fun text(): String = if (lines.isEmpty()) "No editor trace yet." else lines.joinToString("\n")
+              fun snapshot(): String = if (lines.isEmpty()) "No editor trace yet." else lines.joinToString("\n")
 
               @Synchronized
               fun clear() {
                   lines.clear()
               }
-
-              internal fun showDialog(context: Context) {
-                  val activity = activityFrom(context) ?: return
-                  activity.runOnUiThread {
-                      val textView = TextView(activity).apply {
-                          text = text()
-                          textSize = 12f
-                          typeface = Typeface.MONOSPACE
-                          setTextIsSelectable(true)
-                          setPadding(dp(activity, 12), dp(activity, 8), dp(activity, 12), dp(activity, 8))
-                      }
-                      val scroll = ScrollView(activity).apply {
-                          addView(textView, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                      }
-                      val container = LinearLayout(activity).apply {
-                          orientation = LinearLayout.VERTICAL
-                          addView(scroll, LinearLayout.LayoutParams.MATCH_PARENT, dp(activity, 420))
-                      }
-                      val dialog = AlertDialog.Builder(activity)
-                          .setTitle("Editor diagnostic log")
-                          .setView(container)
-                          .setNegativeButton("Close", null)
-                          .setNeutralButton("Share / Save", null)
-                          .setPositiveButton("Copy", null)
-                          .create()
-                      dialog.setOnShowListener {
-                          dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                              val clipboard = activity.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                              clipboard.setPrimaryClip(ClipData.newPlainText("ClipNest editor log", text()))
-                              Toast.makeText(activity, "Log copied", Toast.LENGTH_SHORT).show()
-                          }
-                          dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener {
-                              val send = Intent(Intent.ACTION_SEND).apply {
-                                  type = "text/plain"
-                                  putExtra(Intent.EXTRA_SUBJECT, "ClipNest editor diagnostic log")
-                                  putExtra(Intent.EXTRA_TEXT, text())
-                              }
-                              activity.startActivity(Intent.createChooser(send, "Share editor log"))
-                          }
-                      }
-                      dialog.show()
-                  }
-              }
-
-              private fun activityFrom(context: Context): Activity? {
-                  var current: Context? = context
-                  while (current is ContextWrapper) {
-                      if (current is Activity) return current
-                      current = current.baseContext
-                  }
-                  return current as? Activity
-              }
-
-              private fun dp(context: Context, value: Int): Int = (value * context.resources.displayMetrics.density).toInt()
           }
           EOF
 
@@ -191,19 +124,109 @@ jobs:
           def patch_settings():
               p = Path('app/src/main/java/com/clipnest/ui/settings/SettingsScreen.kt')
               s = p.read_text()
-              import_line = 'import com.clipnest.ui.editor.EditorStartupTrace\n'
-              if import_line not in s:
-                  marker = 'import com.clipnest.data.local.AppLanguage\n'
-                  if marker not in s:
-                      raise SystemExit('Settings import marker not found')
-                  s = s.replace(marker, marker + import_line, 1)
 
-              marker = '        item {\n            SettingsSectionHeader(title = stringResource(com.clipnest.R.string.privacy_security), icon = Icons.Default.Security)'
-              if marker not in s:
+              imports = [
+                  'import android.content.ClipData\n',
+                  'import android.content.ClipboardManager\n',
+                  'import android.content.Intent\n',
+                  'import androidx.compose.foundation.text.selection.SelectionContainer\n',
+                  'import androidx.compose.material3.AlertDialog\n',
+                  'import androidx.compose.ui.text.font.FontFamily\n',
+                  'import com.clipnest.ui.editor.EditorStartupTrace\n',
+              ]
+              marker = 'import android.content.Context\n'
+              for imp in imports[:3]:
+                  if imp not in s:
+                      s = s.replace(marker, marker + imp, 1)
+                      marker = imp
+              for imp in imports[3:5]:
+                  if imp not in s:
+                      anchor = 'import androidx.compose.foundation.text.selection.SelectionContainer\n' if imp.startswith('import androidx.compose.material3') else 'import androidx.compose.foundation.rememberScrollState\n'
+                      if anchor not in s:
+                          raise SystemExit(f'import anchor not found for {imp.strip()}')
+                      s = s.replace(anchor, anchor + imp, 1)
+              if imports[5] not in s:
+                  anchor = 'import androidx.compose.ui.text.font.FontWeight\n'
+                  s = s.replace(anchor, anchor + imports[5], 1)
+              if imports[6] not in s:
+                  anchor = 'import com.clipnest.data.local.AppLanguage\n'
+                  s = s.replace(anchor, anchor + imports[6], 1)
+
+              state_marker = '    var promptInput by remember { mutableStateOf("") }\n'
+              state_add = state_marker + '    var showTraceDialog by remember { mutableStateOf(false) }\n    var traceVersion by remember { mutableStateOf(0) }\n'
+              if 'var showTraceDialog by remember' not in s:
+                  if state_marker not in s:
+                      raise SystemExit('Settings state marker not found')
+                  s = s.replace(state_marker, state_add, 1)
+
+              section_marker = '''        item {
+            SettingsSectionHeader(title = stringResource(com.clipnest.R.string.privacy_security), icon = Icons.Default.Security)'''
+              if section_marker not in s:
                   raise SystemExit('Settings privacy section marker not found')
 
-              debug_item = '''        item {\n            SettingsSectionHeader(title = "Debug / Diagnostics", icon = Icons.Default.Security)\n            OutlinedCard(shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {\n                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {\n                    Text("Editor startup trace", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium))\n                    Text("Collect the editor lifecycle and scroll-position trace so we can diagnose the startup jump.", style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))\n                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {\n                        TextButton(onClick = { EditorStartupTrace.clear() }) { Text("Clear") }\n                        TextButton(onClick = { EditorStartupTrace.showDialog(context) }, modifier = Modifier.testTag("settings_editor_trace_button")) { Text("View Log") }\n                    }\n                }\n            }\n        }\n\n'''
-              s = s.replace(marker, debug_item + marker, 1)
+              debug_item = '''        item {
+            SettingsSectionHeader(title = "Debug / Diagnostics", icon = Icons.Default.Security)
+            OutlinedCard(shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Editor startup trace", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium))
+                    Text("Collect the editor lifecycle and scroll-position trace so we can diagnose the startup jump.", style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        TextButton(onClick = { EditorStartupTrace.clear(); traceVersion++ }) { Text("Clear") }
+                        TextButton(onClick = { showTraceDialog = true }, modifier = Modifier.testTag("settings_editor_trace_button")) { Text("View Log") }
+                    }
+                }
+            }
+        }
+
+'''
+              if 'title = "Debug / Diagnostics"' not in s:
+                  s = s.replace(section_marker, debug_item + section_marker, 1)
+
+              dialog_marker = '''    LazyColumn(
+        modifier = modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp),'''
+              if dialog_marker not in s:
+                  raise SystemExit('LazyColumn marker not found')
+
+              dialog_code = '''    if (showTraceDialog) {
+        val traceText = remember(traceVersion, showTraceDialog) { EditorStartupTrace.snapshot() }
+        AlertDialog(
+            onDismissRequest = { showTraceDialog = false },
+            title = { Text("Editor diagnostic log") },
+            text = {
+                SelectionContainer {
+                    Box(modifier = Modifier.fillMaxWidth().height(420.dp)) {
+                        androidx.compose.foundation.verticalScroll(rememberScrollState()).let { scroll ->
+                            Text(traceText, fontFamily = FontFamily.Monospace, fontSize = 11.sp, modifier = Modifier.fillMaxWidth().then(Modifier.verticalScroll(scroll)))
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    clipboard.setPrimaryClip(ClipData.newPlainText("ClipNest editor log", traceText))
+                    Toast.makeText(context, "Log copied", Toast.LENGTH_SHORT).show()
+                }) { Text("Copy") }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = {
+                        val send = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_SUBJECT, "ClipNest editor diagnostic log")
+                            putExtra(Intent.EXTRA_TEXT, traceText)
+                        }
+                        context.startActivity(Intent.createChooser(send, "Share editor log"))
+                    }) { Text("Share / Save") }
+                    TextButton(onClick = { showTraceDialog = false }) { Text("Close") }
+                }
+            }
+        )
+    }
+
+'''
+              if 'title = { Text("Editor diagnostic log") }' not in s:
+                  s = s.replace(dialog_marker, dialog_marker + dialog_code, 1)
               p.write_text(s)
 
           patch_editor()
