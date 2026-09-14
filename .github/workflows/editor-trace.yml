@@ -36,7 +36,7 @@ jobs:
       - name: Generate debug keystore
         run: |
           if [ ! -f "debug.keystore" ]; then
-            keytool -genkeypair \
+            keytool -genkeypair -v \
               -keystore debug.keystore \
               -storepass android \
               -alias androiddebugkey \
@@ -52,18 +52,120 @@ jobs:
           cat > app/src/main/java/com/clipnest/ui/editor/EditorStartupTrace.kt <<'EOF'
           package com.clipnest.ui.editor
 
-          import android.util.Log
+          import android.app.Activity
+          import android.content.ClipData
+          import android.content.ClipboardManager
+          import android.content.Context
+          import android.content.ContextWrapper
+          import android.content.Intent
+          import android.graphics.Color
+          import android.graphics.Typeface
+          import android.view.Gravity
+          import android.view.ViewGroup
+          import android.widget.Button
+          import android.widget.LinearLayout
+          import android.widget.ScrollView
+          import android.widget.TextView
+          import android.widget.Toast
+          import androidx.appcompat.app.AlertDialog
+          import java.text.SimpleDateFormat
+          import java.util.ArrayDeque
+          import java.util.Date
+          import java.util.Locale
 
           internal object EditorStartupTrace {
               private const val TAG = "ClipNest.EditorTrace"
+              private const val MAX_LINES = 500
+              private val lines = ArrayDeque<String>()
+              private var overlayInstalled = false
 
+              @Synchronized
               fun log(view: NativeEditorView, event: String) {
-                  Log.d(
-                      TAG,
-                      "$event scrollY=${view.scrollY} sel=${view.selectionStart}..${view.selectionEnd} " +
-                          "len=${view.length()} size=${view.width}x${view.height} layout=${view.layout?.height ?: 0}"
-                  )
+                  val now = SimpleDateFormat("HH:mm:ss.SSS", Locale.US).format(Date())
+                  val line = "$now  $event  scrollY=${view.scrollY} sel=${view.selectionStart}..${view.selectionEnd} len=${view.length()} size=${view.width}x${view.height} layout=${view.layout?.height ?: 0}"
+                  lines.addLast(line)
+                  while (lines.size > MAX_LINES) lines.removeFirst()
+                  android.util.Log.d(TAG, line)
+                  installOverlay(view)
               }
+
+              @Synchronized
+              private fun text(): String = if (lines.isEmpty()) "No editor trace yet." else lines.joinToString("\n")
+
+              private fun activityFrom(context: Context): Activity? {
+                  var current: Context? = context
+                  while (current is ContextWrapper) {
+                      if (current is Activity) return current
+                      current = current.baseContext
+                  }
+                  return current as? Activity
+              }
+
+              private fun installOverlay(view: NativeEditorView) {
+                  if (overlayInstalled) return
+                  val activity = activityFrom(view.context) ?: return
+                  val decor = activity.window?.decorView as? ViewGroup ?: return
+                  activity.runOnUiThread {
+                      if (overlayInstalled) return@runOnUiThread
+                      val button = Button(activity).apply {
+                          text = "LOG"
+                          textSize = 11f
+                          setTextColor(Color.WHITE)
+                          setBackgroundColor(Color.DKGRAY)
+                          setPadding(10, 0, 10, 0)
+                          contentDescription = "Open ClipNest editor diagnostic log"
+                          setOnClickListener { showDialog(activity) }
+                      }
+                      val lp = ViewGroup.MarginLayoutParams(dp(activity, 58), dp(activity, 42)).apply {
+                          topMargin = dp(activity, 6)
+                          rightMargin = dp(activity, 6)
+                      }
+                      decor.addView(button, lp)
+                      overlayInstalled = true
+                  }
+              }
+
+              private fun showDialog(activity: Activity) {
+                  val textView = TextView(activity).apply {
+                      text = text()
+                      textSize = 12f
+                      typeface = Typeface.MONOSPACE
+                      setTextIsSelectable(true)
+                      setPadding(dp(activity, 12), dp(activity, 8), dp(activity, 12), dp(activity, 8))
+                  }
+                  val scroll = ScrollView(activity).apply {
+                      addView(textView, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                  }
+                  val container = LinearLayout(activity).apply {
+                      orientation = LinearLayout.VERTICAL
+                      addView(scroll, LinearLayout.LayoutParams.MATCH_PARENT, dp(activity, 420))
+                  }
+                  val dialog = AlertDialog.Builder(activity)
+                      .setTitle("Editor diagnostic log")
+                      .setView(container)
+                      .setNegativeButton("Close", null)
+                      .setNeutralButton("Share / Save", null)
+                      .setPositiveButton("Copy", null)
+                      .create()
+                  dialog.setOnShowListener {
+                      dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                          val clipboard = activity.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                          clipboard.setPrimaryClip(ClipData.newPlainText("ClipNest editor log", text()))
+                          Toast.makeText(activity, "Log copied", Toast.LENGTH_SHORT).show()
+                      }
+                      dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener {
+                          val send = Intent(Intent.ACTION_SEND).apply {
+                              type = "text/plain"
+                              putExtra(Intent.EXTRA_SUBJECT, "ClipNest editor diagnostic log")
+                              putExtra(Intent.EXTRA_TEXT, text())
+                          }
+                          activity.startActivity(Intent.createChooser(send, "Share editor log"))
+                      }
+                  }
+                  dialog.show()
+              }
+
+              private fun dp(context: Context, value: Int): Int = (value * context.resources.displayMetrics.density).toInt()
           }
           EOF
 
@@ -72,20 +174,15 @@ jobs:
           import re
 
           p = Path('app/src/main/java/com/clipnest/ui/editor/NativeEditorView.kt')
-          s = p.read_text()
+          s_ref = [p.read_text()]
 
           def once(old, new, label):
-              nonlocal_s[0], count = nonlocal_s[0], nonlocal_s[0].count(old)
+              count = s_ref[0].count(old)
               if count != 1:
                   raise SystemExit(f'{label}: expected exactly 1 match, found {count}')
-              nonlocal_s[0] = nonlocal_s[0].replace(old, new, 1)
+              s_ref[0] = s_ref[0].replace(old, new, 1)
 
-          nonlocal_s = [s]
-          once(
-              '        setCursorVisible(true)\n',
-              '        setCursorVisible(true)\n        EditorStartupTrace.log(this, "init")\n',
-              'init',
-          )
+          once('        setCursorVisible(true)\n', '        setCursorVisible(true)\n        EditorStartupTrace.log(this, "init")\n', 'init')
 
           patterns = [
               (r'(override fun onLayout\([^\n]+\) \{\n)', 'onLayout'),
@@ -99,27 +196,18 @@ jobs:
           ]
 
           for pattern, event in patterns:
-              m = list(re.finditer(pattern, nonlocal_s[0]))
-              if len(m) != 1:
-                  raise SystemExit(f'{event}: expected exactly 1 match, found {len(m)}')
-              pos = m[0].end()
+              matches = list(re.finditer(pattern, s_ref[0]))
+              if len(matches) != 1:
+                  raise SystemExit(f'{event}: expected exactly 1 match, found {len(matches)}')
+              pos = matches[0].end()
               indent = '        ' if event != 'restoreIfCurrent' else '            '
-              text = nonlocal_s[0]
-              nonlocal_s[0] = text[:pos] + f'{indent}EditorStartupTrace.log(this, "{event}")\n' + text[pos:]
+              text = s_ref[0]
+              s_ref[0] = text[:pos] + f'{indent}EditorStartupTrace.log(this, "{event}")\n' + text[pos:]
 
-          once(
-              '        setText(value)\n',
-              '        setText(value)\n        EditorStartupTrace.log(this, "afterSetText")\n',
-              'afterSetText',
-          )
+          once('        setText(value)\n', '        setText(value)\n        EditorStartupTrace.log(this, "afterSetText")\n', 'afterSetText')
+          once('                setSelection(safeStart, safeEnd)\n', '                setSelection(safeStart, safeEnd)\n                EditorStartupTrace.log(this, "afterSetSelection")\n', 'afterSetSelection')
 
-          once(
-              '                setSelection(safeStart, safeEnd)\n',
-              '                setSelection(safeStart, safeEnd)\n                EditorStartupTrace.log(this, "afterSetSelection")\n',
-              'afterSetSelection',
-          )
-
-          p.write_text(nonlocal_s[0])
+          p.write_text(s_ref[0])
           PY
 
       - name: Build debug APK
