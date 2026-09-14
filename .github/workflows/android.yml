@@ -76,6 +76,7 @@ jobs:
           mkdir -p app/src/main/java/com/clipnest/debug
           cat > app/src/main/java/com/clipnest/debug/EditorStartupTrace.kt <<'EOF'
           package com.clipnest.debug
+
           import android.app.Dialog
           import android.content.ClipData
           import android.content.ClipboardManager
@@ -90,54 +91,112 @@ jobs:
           import java.text.SimpleDateFormat
           import java.util.Date
           import java.util.Locale
+
           internal object EditorStartupTrace {
               private val lines = ArrayDeque<String>()
               private val fmt = SimpleDateFormat("HH:mm:ss.SSS", Locale.US)
-              @Synchronized fun log(v: NativeEditorView, e: String) {
-                  lines.addLast("${fmt.format(Date())} | $e | scroll=${v.scrollY} | sel=${v.selectionStart}..${v.selectionEnd} | text=${v.length()} | view=${v.width}x${v.height} | layout=${v.layout?.height ?: 0} | range=${v.computeVerticalScrollRange()} | extent=${v.computeVerticalScrollExtent()}")
+
+              @Synchronized
+              fun log(v: NativeEditorView, event: String) {
+                  val line = "${fmt.format(Date())} | $event | scroll=${v.scrollY} | sel=${v.selectionStart}..${v.selectionEnd} | text=${v.length()} | view=${v.width}x${v.height} | layout=${v.layout?.height ?: 0}"
+                  lines.addLast(line)
                   while (lines.size > 800) lines.removeFirst()
-                  android.util.Log.d("ClipNest.EditorTrace", lines.last())
+                  android.util.Log.d("ClipNest.EditorTrace", line)
               }
+
               @Synchronized fun clear() = lines.clear()
               @Synchronized fun snapshot() = lines.joinToString("\n")
+
               fun showDialog(context: Context) {
-                  val d = Dialog(context)
-                  val root = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setPadding(24, 20, 24, 12) }
-                  root.addView(TextView(context).apply { text = "Editor startup trace"; textSize = 20f; typeface = Typeface.DEFAULT_BOLD })
-                  val body = TextView(context).apply { text = snapshot().ifBlank { "No trace events captured." }; textSize = 12f; typeface = Typeface.MONOSPACE; setTextIsSelectable(true) }
-                  root.addView(ScrollView(context).apply { addView(body, ViewGroup.LayoutParams(-1, -2)) }, LinearLayout.LayoutParams(-1, 0, 1f))
+                  val dialog = Dialog(context)
+                  val root = LinearLayout(context).apply {
+                      orientation = LinearLayout.VERTICAL
+                      setPadding(24, 20, 24, 12)
+                  }
+                  root.addView(TextView(context).apply {
+                      text = "Editor startup trace"
+                      textSize = 20f
+                      typeface = Typeface.DEFAULT_BOLD
+                  })
+                  val body = TextView(context).apply {
+                      text = snapshot().ifBlank { "No trace events captured." }
+                      textSize = 12f
+                      typeface = Typeface.MONOSPACE
+                      setTextIsSelectable(true)
+                  }
+                  root.addView(
+                      ScrollView(context).apply { addView(body, ViewGroup.LayoutParams(-1, -2)) },
+                      LinearLayout.LayoutParams(-1, 0, 1f)
+                  )
                   val row = LinearLayout(context)
-                  row.addView(Button(context).apply { text = "Clear"; setOnClickListener { clear(); body.text = "No trace events captured." } }, LinearLayout.LayoutParams(0, -2, 1f))
-                  row.addView(Button(context).apply { text = "Copy"; setOnClickListener { (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Editor startup trace", snapshot())) } }, LinearLayout.LayoutParams(0, -2, 1f))
-                  row.addView(Button(context).apply { text = "Close"; setOnClickListener { d.dismiss() } }, LinearLayout.LayoutParams(0, -2, 1f))
+                  row.addView(Button(context).apply {
+                      text = "Clear"
+                      setOnClickListener { clear(); body.text = "No trace events captured." }
+                  }, LinearLayout.LayoutParams(0, -2, 1f))
+                  row.addView(Button(context).apply {
+                      text = "Copy"
+                      setOnClickListener {
+                          val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                          clipboard.setPrimaryClip(ClipData.newPlainText("Editor startup trace", snapshot()))
+                      }
+                  }, LinearLayout.LayoutParams(0, -2, 1f))
+                  row.addView(Button(context).apply {
+                      text = "Close"
+                      setOnClickListener { dialog.dismiss() }
+                  }, LinearLayout.LayoutParams(0, -2, 1f))
                   root.addView(row)
-                  d.setContentView(root)
-                  d.show()
-                  d.window?.setLayout(-1, -1)
+                  dialog.setContentView(root)
+                  dialog.show()
+                  dialog.window?.setLayout(-1, -1)
               }
           }
           EOF
+
           python3 - <<'PY'
           from pathlib import Path
-          import re
-          p=Path('app/src/main/java/com/clipnest/ui/editor/NativeEditorView.kt'); s=p.read_text()
-          def once(pattern,repl):
+
+          editor = Path('app/src/main/java/com/clipnest/ui/editor/NativeEditorView.kt')
+          s = editor.read_text()
+
+          def replace_once(old, new):
               global s
-              s,n=re.subn(pattern,repl,s,count=1,flags=re.M)
-              if n!=1: raise SystemExit('editor patch failed: '+pattern)
-          once(r'(        setCursorVisible\(true\)\n)', r'\1        com.clipnest.debug.EditorStartupTrace.log(this, "init")\n')
-          once(r'(override fun onLayout\([^\n]+\) \{\n        super\.onLayout[^\n]+\n        updateStableScrollBounds\(\)\n        restorePendingScrollIfReady\(\)\n)', r'\1\n        com.clipnest.debug.EditorStartupTrace.log(this, "onLayout")')
-          once(r'(override fun onSizeChanged\([^\n]+\) \{\n        super\.onSizeChanged[^\n]+\n        updateStableScrollBounds\(\)\n)', r'\1        com.clipnest.debug.EditorStartupTrace.log(this, "onSizeChanged")\n')
-          once(r'(override fun onWindowFocusChanged\([^\n]+\) \{\n        super\.onWindowFocusChanged[^\n]+\n        if \(!hasWindowFocus\) saveCurrentScrollPosition\(\)\n)', r'\1        com.clipnest.debug.EditorStartupTrace.log(this, "windowFocus=$hasWindowFocus")\n')
-          once(r'(override fun onWindowVisibilityChanged\([^\n]+\) \{\n        super\.onWindowVisibilityChanged[^\n]+\n        if \(visibility != View\.VISIBLE\) saveCurrentScrollPosition\(\)\n)', r'\1        com.clipnest.debug.EditorStartupTrace.log(this, "windowVisibility=$visibility")\n')
-          once(r'(override fun onSelectionChanged\([^\n]+\) \{\n        super\.onSelectionChanged[^\n]+\n        invalidate\(\)\n)', r'\1        com.clipnest.debug.EditorStartupTrace.log(this, "selectionChanged")\n')
-          once(r'(override fun onDraw\(canvas: Canvas\) \{)', 'override fun onScrollChanged(l: Int, t: Int, oldl: Int, oldt: Int) {\n        super.onScrollChanged(l, t, oldl, oldt)\n        if (t != oldt) com.clipnest.debug.EditorStartupTrace.log(this, "scroll $oldt->$t")\n    }\n\n    override fun setText(text: CharSequence?, type: BufferType?) {\n        com.clipnest.debug.EditorStartupTrace.log(this, "setText before=${text?.length ?: 0}")\n        super.setText(text, type)\n        com.clipnest.debug.EditorStartupTrace.log(this, "setText after")\n    }\n\n    \1')
-          p.write_text(s)
-          p=Path('app/src/main/java/com/clipnest/ui/settings/SettingsScreen.kt'); s=p.read_text()
-          anchor='''        item {\n            SettingsSectionHeader(title = stringResource(com.clipnest.R.string.privacy_security), icon = Icons.Default.Security)\n'''
-          if s.count(anchor)!=1: raise SystemExit('settings anchor mismatch')
-          block='''        item {\n            SettingsSectionHeader(title = "Debug / Diagnostics", icon = Icons.Default.Security)\n            OutlinedCard(shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {\n                Column(modifier = Modifier.padding(16.dp)) {\n                    Text("Editor startup trace", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium))\n                    Text("Capture editor lifecycle, layout, selection and scroll events.", style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))\n                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {\n                        TextButton(onClick = { com.clipnest.debug.EditorStartupTrace.showDialog(context) }, modifier = Modifier.testTag("settings_editor_trace_button")) { Text("View Log") }\n                        TextButton(onClick = { com.clipnest.debug.EditorStartupTrace.clear() }) { Text("Clear") }\n                    }\n                }\n            }\n        }\n\n'''
-          p.write_text(s.replace(anchor,block+anchor,1))
+              if s.count(old) != 1:
+                  raise SystemExit(f'editor patch anchor mismatch: {old!r} count={s.count(old)}')
+              s = s.replace(old, new, 1)
+
+          replace_once(
+              '        setCursorVisible(true)\n',
+              '        setCursorVisible(true)\n        com.clipnest.debug.EditorStartupTrace.log(this, "init")\n'
+          )
+          replace_once(
+              '        updateStableScrollBounds()\n    }\n\n    override fun onLayout',
+              '        updateStableScrollBounds()\n        com.clipnest.debug.EditorStartupTrace.log(this, "onSizeChanged")\n    }\n\n    override fun onLayout',
+          )
+          replace_once(
+              '        updateStableScrollBounds()\n        restorePendingScrollIfReady()\n    }\n\n    override fun onFocusChanged',
+              '        updateStableScrollBounds()\n        restorePendingScrollIfReady()\n        com.clipnest.debug.EditorStartupTrace.log(this, "onLayout")\n    }\n\n    override fun onFocusChanged',
+          )
+          replace_once(
+              '        if (!hasWindowFocus) saveCurrentScrollPosition()\n    }\n\n    override fun onWindowVisibilityChanged',
+              '        if (!hasWindowFocus) saveCurrentScrollPosition()\n        com.clipnest.debug.EditorStartupTrace.log(this, "windowFocus=$hasWindowFocus")\n    }\n\n    override fun onWindowVisibilityChanged',
+          )
+          replace_once(
+              '        if (visibility != View.VISIBLE) saveCurrentScrollPosition()\n    }\n\n    override fun onDetachedFromWindow',
+              '        if (visibility != View.VISIBLE) saveCurrentScrollPosition()\n        com.clipnest.debug.EditorStartupTrace.log(this, "windowVisibility=$visibility")\n    }\n\n    override fun onDetachedFromWindow',
+          )
+          replace_once(
+              '        invalidate()\n    }\n\n    override fun onTouchEvent',
+              '        invalidate()\n        com.clipnest.debug.EditorStartupTrace.log(this, "selectionChanged")\n    }\n\n    override fun onScrollChanged(l: Int, t: Int, oldl: Int, oldt: Int) {\n        super.onScrollChanged(l, t, oldl, oldt)\n        if (t != oldt) com.clipnest.debug.EditorStartupTrace.log(this, "scroll $oldt->$t")\n    }\n\n    override fun onTouchEvent',
+          )
+          editor.write_text(s)
+
+          settings = Path('app/src/main/java/com/clipnest/ui/settings/SettingsScreen.kt')
+          s = settings.read_text()
+          anchor = '''        item {\n            SettingsSectionHeader(title = stringResource(com.clipnest.R.string.privacy_security), icon = Icons.Default.Security)\n'''
+          if s.count(anchor) != 1:
+              raise SystemExit(f'settings anchor mismatch count={s.count(anchor)}')
+          block = '''        item {\n            SettingsSectionHeader(title = "Debug / Diagnostics", icon = Icons.Default.Security)\n            OutlinedCard(shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {\n                Column(modifier = Modifier.padding(16.dp)) {\n                    Text("Editor startup trace", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium))\n                    Text("Capture editor lifecycle, layout, selection and scroll events.", style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))\n                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {\n                        TextButton(onClick = { com.clipnest.debug.EditorStartupTrace.showDialog(context) }, modifier = Modifier.testTag("settings_editor_trace_button")) { Text("View Log") }\n                        TextButton(onClick = { com.clipnest.debug.EditorStartupTrace.clear() }) { Text("Clear") }\n                    }\n                }\n            }\n        }\n\n'''
+          settings.write_text(s.replace(anchor, block + anchor, 1))
           PY
       - name: Build Debug APK with Editor Trace
         run: ./gradlew assembleDebug --no-daemon
