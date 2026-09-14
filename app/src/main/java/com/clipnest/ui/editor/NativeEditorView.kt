@@ -74,8 +74,9 @@ class NativeEditorView @JvmOverloads constructor(
     private var downTouchY = 0f
     private var scrollRemainderY = 0f
     private var stableMaxScrollY = 0
-    private val fastScrollHitWidthPx = dp(24)
+    private val fastScrollHitWidthPx = dp(44)
     private val fastScrollThumbWidthPx = dp(4)
+    private val fastScrollActiveThumbWidthPx = dp(8)
     private val fastScrollMinThumbHeightPx = dp(32)
     private val fastScrollPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val fastScrollRect = RectF()
@@ -170,6 +171,7 @@ class NativeEditorView @JvmOverloads constructor(
                 if (draggingFastScroll) {
                     parent?.requestDisallowInterceptTouchEvent(true)
                     scrollToFastScroll(event.y)
+                    invalidate()
                     return true
                 }
                 return super.onTouchEvent(event)
@@ -178,6 +180,7 @@ class NativeEditorView @JvmOverloads constructor(
                 velocityTracker?.addMovement(event)
                 if (draggingFastScroll) {
                     scrollToFastScroll(event.y)
+                    invalidate()
                     return true
                 }
                 val dyFromDown = event.y - downTouchY
@@ -209,6 +212,7 @@ class NativeEditorView @JvmOverloads constructor(
                 if (draggingFastScroll) {
                     velocityTracker?.recycle(); velocityTracker = null; draggingFastScroll = false
                     parent?.requestDisallowInterceptTouchEvent(false)
+                    invalidate()
                     return true
                 }
                 if (draggingScroll) {
@@ -240,6 +244,7 @@ class NativeEditorView @JvmOverloads constructor(
                 parent?.requestDisallowInterceptTouchEvent(false)
                 val maxScrollY = maxScrollY()
                 if (!wasFastScroll && (scrollY < 0 || scrollY > maxScrollY)) springBackToBounds(maxScrollY) else flingScroller.abortAnimation()
+                invalidate()
                 return super.onTouchEvent(event)
             }
         }
@@ -299,9 +304,10 @@ class NativeEditorView @JvmOverloads constructor(
         val top = if (travel == 0) 0f else travel.toFloat() * scrollY.coerceIn(0, maxScroll) / maxScroll
         fastScrollPaint.color = currentTextColor
         fastScrollPaint.alpha = if (draggingFastScroll) 190 else 110
-        val left = width - fastScrollThumbWidthPx.toFloat()
+        val thumbWidth = if (draggingFastScroll) fastScrollActiveThumbWidthPx else fastScrollThumbWidthPx
+        val left = width - thumbWidth.toFloat()
         fastScrollRect.set(left, top, width.toFloat(), top + thumbHeight)
-        canvas.drawRoundRect(fastScrollRect, fastScrollThumbWidthPx.toFloat(), fastScrollThumbWidthPx.toFloat(), fastScrollPaint)
+        canvas.drawRoundRect(fastScrollRect, thumbWidth.toFloat(), thumbWidth.toFloat(), fastScrollPaint)
     }
 
     private fun isFastScrollHit(x: Float, y: Float): Boolean {
