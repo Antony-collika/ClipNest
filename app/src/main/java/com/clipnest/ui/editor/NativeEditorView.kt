@@ -6,7 +6,6 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
-import android.text.Layout
 import android.text.TextWatcher
 import android.util.AttributeSet
 import android.view.Gravity
@@ -80,8 +79,7 @@ class NativeEditorView @JvmOverloads constructor(
     private val fastScrollMinThumbHeightPx = dp(32)
     private val fastScrollPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val fastScrollRect = RectF()
-    private val staticCursorPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
-    private var staticCursorEnabled = true
+    private var staticCursorEnabled = false
 
     init {
         setSingleLine(false)
@@ -93,15 +91,15 @@ class NativeEditorView @JvmOverloads constructor(
         overScrollMode = OVER_SCROLL_IF_CONTENT_SCROLLS
         setPadding(dp(12), dp(8), dp(12), dp(8))
         setHorizontallyScrolling(false)
-        inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
+        inputType = android.text.InputType.TYPE_CLASS_TEXT or
+            android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE or
+            android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
         imeOptions = EditorInfo.IME_FLAG_NO_EXTRACT_UI
         setTextIsSelectable(true)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) setFallbackLineSpacing(false)
         setEmojiCompatEnabled(false)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_AUTO
-        staticCursorPaint.strokeWidth = dp(2).toFloat()
-        staticCursorPaint.color = currentTextColor
-        setCursorVisible(false)
+        setCursorVisible(true)
 
         addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
@@ -128,9 +126,12 @@ class NativeEditorView @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        drawStaticCursor(canvas)
-        // The fast-scroll thumb is a viewport overlay and must not move with document content.
+        // View.draw() translates the canvas by -scrollY before onDraw(). Restore viewport
+        // coordinates for the custom fast-scroll thumb so it never drifts with the document.
+        canvas.save()
+        canvas.translate(0f, scrollY.toFloat())
         drawFastScrollThumb(canvas)
+        canvas.restore()
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -151,18 +152,6 @@ class NativeEditorView @JvmOverloads constructor(
     override fun onSelectionChanged(selStart: Int, selEnd: Int) {
         super.onSelectionChanged(selStart, selEnd)
         invalidate()
-    }
-
-    private fun drawStaticCursor(canvas: Canvas) {
-        if (!staticCursorEnabled || !hasFocus() || selectionStart != selectionEnd) return
-        val layout: Layout = layout ?: return
-        val offset = selectionStart.coerceIn(0, length())
-        val line = layout.getLineForOffset(offset)
-        val x = layout.getPrimaryHorizontal(offset) + compoundPaddingLeft.toFloat()
-        val top = compoundPaddingTop + layout.getLineTop(line).toFloat()
-        val bottom = compoundPaddingTop + layout.getLineBottom(line).toFloat()
-        staticCursorPaint.color = currentTextColor
-        canvas.drawLine(x, top, x, bottom, staticCursorPaint)
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -278,7 +267,6 @@ class NativeEditorView @JvmOverloads constructor(
 
     fun setEditorTextColor(color: Int) {
         setTextColor(color)
-        staticCursorPaint.color = color
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             textCursorDrawable = GradientDrawable().apply { setColor(color); setSize(dp(2), dp(24)) }
         }
@@ -292,6 +280,11 @@ class NativeEditorView @JvmOverloads constructor(
     }
 
     private fun scrollMetrics(): Pair<Int, Int> {
+        val layoutHeight = layout?.height ?: 0
+        if (layoutHeight > 0) {
+            val range = (layoutHeight + compoundPaddingTop + compoundPaddingBottom).coerceAtLeast(height)
+            return range to height.coerceAtLeast(0)
+        }
         val range = computeVerticalScrollRange().coerceAtLeast(0)
         val extent = computeVerticalScrollExtent().coerceAtLeast(0)
         return range to extent
@@ -349,8 +342,8 @@ class NativeEditorView @JvmOverloads constructor(
     private fun maxScrollY(): Int {
         val calculated = calculatedMaxScrollY()
         if (!draggingScroll && !draggingFastScroll && flingScroller.isFinished) {
-            stableMaxScrollY = calculated
-            return calculated
+            stableMaxScrollY = maxOf(stableMaxScrollY, calculated)
+            return stableMaxScrollY
         }
         stableMaxScrollY = maxOf(stableMaxScrollY, calculated)
         return stableMaxScrollY
