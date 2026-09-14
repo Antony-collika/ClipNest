@@ -36,7 +36,15 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+private const val INTERNAL_EDITOR_SCROLL_KEY = "internal_editor"
+
 private data class PendingSave(val fileName: String, val format: ExportFormat)
+
+private data class InternalEditorSnapshot(
+    val text: String,
+    val title: String,
+    val isDirty: Boolean
+)
 
 enum class ExternalExitAction { RETURN_TO_EDITOR, OPEN_REPLACEMENT }
 
@@ -117,6 +125,7 @@ class EditorViewModel(
     private var searchJob: Job? = null
     private var nativeEditor: NativeEditorView? = null
     private var editorDocumentGeneration = 0L
+    private var internalEditorSnapshot: InternalEditorSnapshot? = null
 
     internal val editorDocumentResetKey: Long get() = editorDocumentGeneration
     val settings: StateFlow<com.clipnest.data.local.UserSettings> = settingsDataStore.userSettingsFlow.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), com.clipnest.data.local.UserSettings())
@@ -126,6 +135,7 @@ class EditorViewModel(
         nativeEditor?.setTextChangeListener(null)
         nativeEditor = editor
         editor.setTextChangeListener { onDocumentTextChanged() }
+        editor.setDocumentScrollKey(if (hasExternalSession()) null else INTERNAL_EDITOR_SCROLL_KEY)
         editor.setEditorTextSize(settings.value.editorTextSize)
         if (!editorLoaded || editor.text?.isEmpty() == true) {
             val content = _uiState.value.content
@@ -153,6 +163,7 @@ class EditorViewModel(
             withContext(Dispatchers.Main.immediate) {
                 if (!editorLoaded && !_uiState.value.isDirty) {
                     _uiState.value.content.setFallback(text, TextRange(text.length))
+                    nativeEditor?.setDocumentScrollKey(INTERNAL_EDITOR_SCROLL_KEY)
                     nativeEditor?.setEditorText(text, text.length)
                     editorDocumentGeneration++
                     _uiState.value = _uiState.value.copy(documentRevision = _uiState.value.documentRevision + 1, isDirty = false, title = title, lastSavedTimestamp = System.currentTimeMillis())
@@ -188,8 +199,6 @@ class EditorViewModel(
         val action = pendingExternalExitAction ?: return
         val state = _uiState.value
         if (state.externalDocumentSaveAsOnly) {
-            // A merged external session has no source URI to overwrite, so Save uses
-            // the same destination/format dialog while still completing the exit action.
             _uiState.value = state.copy(
                 showExternalUnsavedChangesDialog = false,
                 showSaveNewFileDialog = true
@@ -219,8 +228,6 @@ class EditorViewModel(
     }
 
     fun chooseExternalSaveAs() {
-        // Save As is part of Return-to-editor. Reuse the normal Save File dialog so
-        // the destination format, including encrypted .cne, can be selected.
         _uiState.value = _uiState.value.copy(
             showExternalUnsavedChangesDialog = false,
             showSaveNewFileDialog = true
@@ -269,17 +276,36 @@ class EditorViewModel(
         resetSearchState()
         clearCurrentDocumentPassword()
         _pendingEncryptedOpen.value = null
+        nativeEditor?.setDocumentScrollKey(null)
         nativeEditor?.setEditorText("", 0)
-        _uiState.value.content.setFallback("", TextRange.Zero)
-        _uiState.value = _uiState.value.copy(
-            externalDocumentUri = null,
-            externalDocumentSaveAsOnly = false,
-            externalDocumentFileCount = 0,
-            externalDocumentEncrypted = false,
-            showSaveNewFileDialog = false,
-            showExternalUnsavedChangesDialog = false,
-            isDirty = false
-        )
+
+        val internal = internalEditorSnapshot
+        if (internal != null) {
+            _uiState.value.content.setFallback(internal.text, TextRange(internal.text.length))
+            _uiState.value = _uiState.value.copy(
+                externalDocumentUri = null,
+                externalDocumentSaveAsOnly = false,
+                externalDocumentFileCount = 0,
+                externalDocumentEncrypted = false,
+                showSaveNewFileDialog = false,
+                showExternalUnsavedChangesDialog = false,
+                isDirty = internal.isDirty,
+                documentName = internalDocumentName(),
+                title = internal.title
+            )
+            nativeEditor?.setDocumentScrollKey(INTERNAL_EDITOR_SCROLL_KEY)
+            nativeEditor?.setEditorText(internal.text, internal.text.length)
+        } else {
+            _uiState.value = _uiState.value.copy(
+                externalDocumentUri = null,
+                externalDocumentSaveAsOnly = false,
+                externalDocumentFileCount = 0,
+                externalDocumentEncrypted = false,
+                showSaveNewFileDialog = false,
+                showExternalUnsavedChangesDialog = false,
+                isDirty = false
+            )
+        }
     }
 
     fun openExternalDocument(uri: Uri, contentResolver: ContentResolver, openContext: ExternalDocumentOpenContext? = null, candidates: List<IncomingDocumentUri> = listOf(IncomingDocumentUri(uri, openContext?.source ?: com.clipnest.IncomingUriSource.FILE_PICKER))) {
@@ -293,6 +319,9 @@ class EditorViewModel(
         }
         val previousState = _uiState.value
         val previousText = currentDocumentText()
+        if (previousState.externalDocumentUri == null) {
+            internalEditorSnapshot = InternalEditorSnapshot(previousText, previousState.title, previousState.isDirty)
+        }
         editorLoaded = true
         autoSaveJob?.cancel()
         viewModelScope.launch(Dispatchers.IO) {
@@ -308,6 +337,7 @@ class EditorViewModel(
                 }
                 return@launch
             }
+            internalEditorSnapshot = internalEditorSnapshot?.copy(isDirty = false)
             val result = runCatching {
                 val candidateUris = candidates.ifEmpty { listOf(IncomingDocumentUri(uri, openContext?.source ?: com.clipnest.IncomingUriSource.FILE_PICKER)) }
                 val loaded = candidateUris.mapNotNull { candidate -> runCatching { candidate to readExternalDocument(candidate.uri, contentResolver) }.onFailure { failedCandidates += ExternalDocumentReadFailure(candidate, it) }.getOrNull() }
@@ -324,6 +354,7 @@ class EditorViewModel(
                     }
                     resetSearchState()
                     val first = loadedDocuments.first().first
+                    nativeEditor?.setDocumentScrollKey(null)
                     nativeEditor?.setEditorText(text, text.length)
                     _uiState.value.content.setFallback(text, TextRange(text.length))
                     editorDocumentGeneration++
@@ -358,6 +389,7 @@ class EditorViewModel(
                     currentDocumentPassword = sessionPassword
                     _pendingEncryptedOpen.value = null
                     resetSearchState()
+                    nativeEditor?.setDocumentScrollKey(null)
                     nativeEditor?.setEditorText(text, text.length)
                     _uiState.value.content.setFallback(text, TextRange(text.length))
                     editorDocumentGeneration++
@@ -423,17 +455,9 @@ class EditorViewModel(
             return
         }
         finishExternalSession(contentResolver)
-        viewModelScope.launch(Dispatchers.IO) {
-            val internal = fileManager.readEditor()
-            val title = fileManager.readEditorTitle()
-            withContext(Dispatchers.Main.immediate) {
-                nativeEditor?.setEditorText(internal, internal.length)
-                _uiState.value.content.setFallback(internal, TextRange(internal.length))
-                editorDocumentGeneration++
-                _uiState.value = _uiState.value.copy(documentRevision = _uiState.value.documentRevision + 1, isDirty = false, documentName = internalDocumentName(), title = title)
-                onComplete()
-            }
-        }
+        editorDocumentGeneration++
+        _uiState.value = _uiState.value.copy(documentRevision = _uiState.value.documentRevision + 1)
+        onComplete()
     }
     private fun internalDocumentName() = appContext.withAppLanguage(settings.value.language).getString(com.clipnest.R.string.editor)
 
