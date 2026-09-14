@@ -1,0 +1,122 @@
+name: Editor Startup Trace
+
+on:
+  push:
+    branches:
+      - fix/editor-viewport-restore-timing
+
+jobs:
+  trace-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.3.1'
+
+      - name: Generate Wrapper if not present
+        run: |
+          if [ ! -f "gradlew" ]; then gradle wrapper; fi
+          chmod +x gradlew
+
+      - name: Inject temporary editor trace
+        run: |
+          cat > app/src/main/java/com/clipnest/ui/editor/EditorStartupTrace.kt <<'EOF'
+          package com.clipnest.ui.editor
+
+          import android.util.Log
+
+          internal object EditorStartupTrace {
+              private const val TAG = "ClipNest.EditorTrace"
+
+              fun log(view: NativeEditorView, event: String) {
+                  Log.d(
+                      TAG,
+                      "$event scrollY=${view.scrollY} sel=${view.selectionStart}..${view.selectionEnd} " +
+                          "len=${view.length()} size=${view.width}x${view.height} layout=${view.layout?.height ?: 0}"
+                  )
+              }
+          }
+          EOF
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('app/src/main/java/com/clipnest/ui/editor/NativeEditorView.kt')
+          s = p.read_text()
+
+          replacements = [
+              ('        setCursorVisible(true)\n',
+               '        setCursorVisible(true)\n        EditorStartupTrace.log(this, "init")\n'),
+              ('        super.onLayout(changed, left, top, right, bottom)\n        updateStableScrollBounds()\n        restorePendingScrollIfReady()\n',
+               '        super.onLayout(changed, left, top, right, bottom)\n        updateStableScrollBounds()\n        EditorStartupTrace.log(this, "onLayout beforeRestore")\n        restorePendingScrollIfReady()\n        EditorStartupTrace.log(this, "onLayout afterRestore")\n'),
+              ('        super.onWindowFocusChanged(hasWindowFocus)\n        if (!hasWindowFocus) saveCurrentScrollPosition()\n',
+               '        super.onWindowFocusChanged(hasWindowFocus)\n        EditorStartupTrace.log(this, "onWindowFocusChanged=$hasWindowFocus beforeSave")\n        if (!hasWindowFocus) saveCurrentScrollPosition()\n        EditorStartupTrace.log(this, "onWindowFocusChanged=$hasWindowFocus afterSave")\n'),
+              ('        super.onWindowVisibilityChanged(visibility)\n        if (visibility != View.VISIBLE) saveCurrentScrollPosition()\n',
+               '        super.onWindowVisibilityChanged(visibility)\n        EditorStartupTrace.log(this, "onWindowVisibilityChanged=$visibility beforeSave")\n        if (visibility != View.VISIBLE) saveCurrentScrollPosition()\n        EditorStartupTrace.log(this, "onWindowVisibilityChanged=$visibility afterSave")\n'),
+              ('        saveCurrentScrollPosition()\n        super.onDetachedFromWindow()\n',
+               '        EditorStartupTrace.log(this, "onDetachedFromWindow beforeSave")\n        saveCurrentScrollPosition()\n        EditorStartupTrace.log(this, "onDetachedFromWindow afterSave")\n        super.onDetachedFromWindow()\n'),
+              ('        super.onSelectionChanged(selStart, selEnd)\n        invalidate()\n',
+               '        super.onSelectionChanged(selStart, selEnd)\n        EditorStartupTrace.log(this, "onSelectionChanged")\n        invalidate()\n'),
+          ]
+
+          for old, new in replacements:
+              if old not in s:
+                  raise SystemExit(f'missing expected source fragment: {old!r}')
+              s = s.replace(old, new, 1)
+
+          marker = '    fun setEditorText(value: CharSequence, selectionStart: Int = value.length, selectionEnd: Int = selectionStart) {\n'
+          if marker not in s:
+              raise SystemExit('setEditorText marker missing')
+          s = s.replace(marker, marker + '        EditorStartupTrace.log(this, "setEditorText enter")\n', 1)
+
+          old = '        setText(value)\n        if (shouldPlaceSelection) {\n'
+          new = '        setText(value)\n        EditorStartupTrace.log(this, "setEditorText afterSetText")\n        if (shouldPlaceSelection) {\n'
+          if old not in s:
+              raise SystemExit('setText fragment missing')
+          s = s.replace(old, new, 1)
+
+          old = '            setSelection(safeStart, safeEnd)\n        }\n        undoStack.clear(); redoStack.clear()\n'
+          new = '            setSelection(safeStart, safeEnd)\n            EditorStartupTrace.log(this, "setEditorText afterSelection")\n        }\n        undoStack.clear(); redoStack.clear()\n'
+          if old not in s:
+              raise SystemExit('selection fragment missing')
+          s = s.replace(old, new, 1)
+
+          old = '    private fun restorePendingScrollIfReady() {\n        val target = pendingRestoreScrollY ?: return\n'
+          new = '    private fun restorePendingScrollIfReady() {\n        val target = pendingRestoreScrollY ?: return\n        EditorStartupTrace.log(this, "restorePendingScrollIfReady target=$target")\n'
+          if old not in s:
+              raise SystemExit('restore marker missing')
+          s = s.replace(old, new, 1)
+
+          old = '            scrollToClamped(target)\n        }\n'
+          new = '            EditorStartupTrace.log(this, "restoreIfCurrent beforeScroll target=$target")\n            scrollToClamped(target)\n            EditorStartupTrace.log(this, "restoreIfCurrent afterScroll target=$target")\n        }\n'
+          if old not in s:
+              raise SystemExit('restore scroll fragment missing')
+          s = s.replace(old, new, 1)
+
+          p.write_text(s)
+          PY
+
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Upload trace APK
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: ClipNest-editor-startup-trace-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
