@@ -1,68 +1,57 @@
 name: Editor Startup Trace
 
-on:
-  push:
-    branches:
-      - fix/editor-viewport-restore-timing
-  workflow_dispatch:
+on: [push, workflow_dispatch]
 
 jobs:
   trace-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-
+    timeout-minutes: 20
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
         with:
           java-version: '21'
-          distribution: 'temurin'
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+          distribution: temurin
+      - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.3.1'
-
-      - name: Generate Wrapper if not present
+      - name: Prepare build
+        shell: bash
         run: |
-          if [ ! -f "gradlew" ]; then gradle wrapper; fi
+          if [ ! -f gradlew ]; then gradle wrapper; fi
           chmod +x gradlew
-
-      - name: Generate debug keystore
+          keytool -genkeypair -v \
+            -keystore debug.keystore \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname 'CN=Android Debug,O=Android,C=US'
+      - name: Inject editor trace
+        shell: bash
         run: |
-          if [ ! -f "debug.keystore" ]; then
-            keytool -genkeypair -v \
-              -keystore debug.keystore \
-              -storepass android \
-              -alias androiddebugkey \
-              -keypass android \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -dname "CN=Android Debug,O=Android,C=US"
-          fi
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
 
-      - name: Inject temporary editor trace
-        run: |
-          cat > app/src/main/java/com/clipnest/ui/editor/EditorStartupTrace.kt <<'EOF'
-          package com.clipnest.ui.editor
+          trace = '''package com.clipnest.ui.editor
 
           import android.app.Activity
+          import android.app.Dialog
           import android.content.ClipData
           import android.content.ClipboardManager
           import android.content.Context
           import android.content.ContextWrapper
           import android.content.Intent
           import android.graphics.Typeface
+          import android.view.Gravity
           import android.view.ViewGroup
           import android.widget.LinearLayout
           import android.widget.ScrollView
           import android.widget.TextView
           import android.widget.Toast
-          import android.app.Dialog
           import java.text.SimpleDateFormat
           import java.util.ArrayDeque
           import java.util.Date
@@ -82,13 +71,8 @@ jobs:
                   android.util.Log.d(TAG, line)
               }
 
-              @Synchronized
-              private fun text(): String = if (lines.isEmpty()) "No editor trace yet." else lines.joinToString("\n")
-
-              @Synchronized
-              fun clear() {
-                  lines.clear()
-              }
+              @Synchronized private fun text(): String = if (lines.isEmpty()) "No editor trace yet." else lines.joinToString("\\n")
+              @Synchronized fun clear() { lines.clear() }
 
               internal fun showDialog(context: Context) {
                   val activity = activityFrom(context) ?: return
@@ -98,122 +82,115 @@ jobs:
                           orientation = LinearLayout.VERTICAL
                           setPadding(dp(activity, 20), dp(activity, 16), dp(activity, 20), dp(activity, 12))
                       }
-                      val title = TextView(activity).apply {
+                      root.addView(TextView(activity).apply {
                           text = "Editor diagnostic log"
                           textSize = 20f
                           setTypeface(typeface, Typeface.BOLD)
                           setPadding(0, 0, 0, dp(activity, 12))
-                      }
-                      val textView = TextView(activity).apply {
+                      })
+                      val logView = TextView(activity).apply {
                           text = text()
                           textSize = 11f
                           typeface = Typeface.MONOSPACE
                           setTextIsSelectable(true)
                       }
-                      val scroll = ScrollView(activity).apply {
-                          addView(textView, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                      }
-                      root.addView(title, LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-                      root.addView(scroll, LinearLayout.LayoutParams.MATCH_PARENT, dp(activity, 420))
+                      root.addView(ScrollView(activity).apply {
+                          addView(logView, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                      }, LinearLayout.LayoutParams.MATCH_PARENT, dp(activity, 420))
                       val buttons = LinearLayout(activity).apply {
                           orientation = LinearLayout.HORIZONTAL
-                          gravity = android.view.Gravity.END
+                          gravity = Gravity.END
                       }
-                      fun button(label: String, action: () -> Unit) = TextView(activity).apply {
-                          text = label
-                          textSize = 14f
-                          setPadding(dp(activity, 12), dp(activity, 12), dp(activity, 12), dp(activity, 12))
-                          setOnClickListener { action() }
+                      fun addButton(label: String, action: () -> Unit) {
+                          buttons.addView(TextView(activity).apply {
+                              text = label
+                              textSize = 14f
+                              setPadding(dp(activity, 10), dp(activity, 12), dp(activity, 10), dp(activity, 12))
+                              setOnClickListener { action() }
+                          })
                       }
-                      buttons.addView(button("Clear") { clear(); textView.text = text() })
-                      buttons.addView(button("Copy") {
-                          val clipboard = activity.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                          clipboard.setPrimaryClip(ClipData.newPlainText("ClipNest editor log", text()))
+                      addButton("Clear") { clear(); logView.text = text() }
+                      addButton("Copy") {
+                          val cm = activity.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                          cm.setPrimaryClip(ClipData.newPlainText("ClipNest editor log", text()))
                           Toast.makeText(activity, "Log copied", Toast.LENGTH_SHORT).show()
-                      })
-                      buttons.addView(button("Share / Save") {
+                      }
+                      addButton("Share") {
                           val send = Intent(Intent.ACTION_SEND).apply {
                               type = "text/plain"
                               putExtra(Intent.EXTRA_SUBJECT, "ClipNest editor diagnostic log")
                               putExtra(Intent.EXTRA_TEXT, text())
                           }
                           activity.startActivity(Intent.createChooser(send, "Share editor log"))
-                      })
-                      buttons.addView(button("Close") { dialog.dismiss() })
-                      root.addView(buttons, LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+                      }
+                      addButton("Close") { dialog.dismiss() }
+                      root.addView(buttons)
                       dialog.setContentView(root)
-                      dialog.window?.setLayout(dp(activity, 360), ViewGroup.LayoutParams.WRAP_CONTENT)
                       dialog.show()
                       dialog.window?.setLayout(dp(activity, 360), ViewGroup.LayoutParams.WRAP_CONTENT)
                   }
               }
 
               private fun activityFrom(context: Context): Activity? {
-                  var current: Context? = context
-                  while (current is ContextWrapper) {
-                      if (current is Activity) return current
-                      current = current.baseContext
+                  var c: Context? = context
+                  while (c is ContextWrapper) {
+                      if (c is Activity) return c
+                      c = c.baseContext
                   }
-                  return current as? Activity
+                  return c as? Activity
               }
-
               private fun dp(context: Context, value: Int): Int = (value * context.resources.displayMetrics.density).toInt()
           }
-          EOF
+          '''
+          trace_path = Path('app/src/main/java/com/clipnest/ui/editor/EditorStartupTrace.kt')
+          trace_path.write_text(trace)
 
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
+          p = Path('app/src/main/java/com/clipnest/ui/editor/NativeEditorView.kt')
+          s = p.read_text()
+          def one(old, new, label):
+              global s
+              n = s.count(old)
+              if n != 1:
+                  raise SystemExit(f'{label}: expected 1 match, found {n}')
+              s = s.replace(old, new, 1)
+          one('        setCursorVisible(true)\n', '        setCursorVisible(true)\n        EditorStartupTrace.log(this, "init")\n', 'init')
+          for pattern, event, indent in [
+              (r'(override fun onLayout\([^\n]+\) \{\n)', 'onLayout', '        '),
+              (r'(override fun onWindowFocusChanged\([^\n]+\) \{\n)', 'onWindowFocusChanged', '        '),
+              (r'(override fun onWindowVisibilityChanged\([^\n]+\) \{\n)', 'onWindowVisibilityChanged', '        '),
+              (r'(override fun onDetachedFromWindow\(\) \{\n)', 'onDetachedFromWindow', '        '),
+              (r'(override fun onSelectionChanged\([^\n]+\) \{\n)', 'onSelectionChanged', '        '),
+              (r'(fun setEditorText\([^\n]+\) \{\n)', 'setEditorText enter', '        '),
+              (r'(private fun restorePendingScrollIfReady\(\) \{\n)', 'restorePendingScrollIfReady', '        '),
+              (r'(fun restoreIfCurrent\(\) \{\n)', 'restoreIfCurrent', '            '),
+          ]:
+              m = list(re.finditer(pattern, s))
+              if len(m) != 1:
+                  raise SystemExit(f'{event}: expected 1 match, found {len(m)}')
+              i = m[0].end()
+              s = s[:i] + f'{indent}EditorStartupTrace.log(this, "{event}")\n' + s[i:]
+          one('        setText(value)\n', '        setText(value)\n        EditorStartupTrace.log(this, "afterSetText")\n', 'afterSetText')
+          one('                setSelection(safeStart, safeEnd)\n', '                setSelection(safeStart, safeEnd)\n                EditorStartupTrace.log(this, "afterSetSelection")\n', 'afterSetSelection')
+          p.write_text(s)
 
-          def patch_editor():
-              p = Path('app/src/main/java/com/clipnest/ui/editor/NativeEditorView.kt')
-              s = p.read_text()
-              def once(old, new, label):
-                  nonlocal s
-                  count = s.count(old)
-                  if count != 1:
-                      raise SystemExit(f'{label}: expected exactly 1 match, found {count}')
-                  s = s.replace(old, new, 1)
-              once('        setCursorVisible(true)\n', '        setCursorVisible(true)\n        EditorStartupTrace.log(this, "init")\n', 'init')
-              patterns = [
-                  (r'(override fun onLayout\([^\n]+\) \{\n)', 'onLayout'),
-                  (r'(override fun onWindowFocusChanged\([^\n]+\) \{\n)', 'onWindowFocusChanged'),
-                  (r'(override fun onWindowVisibilityChanged\([^\n]+\) \{\n)', 'onWindowVisibilityChanged'),
-                  (r'(override fun onDetachedFromWindow\(\) \{\n)', 'onDetachedFromWindow'),
-                  (r'(override fun onSelectionChanged\([^\n]+\) \{\n)', 'onSelectionChanged'),
-                  (r'(fun setEditorText\([^\n]+\) \{\n)', 'setEditorText enter'),
-                  (r'(private fun restorePendingScrollIfReady\(\) \{\n)', 'restorePendingScrollIfReady'),
-                  (r'(fun restoreIfCurrent\(\) \{\n)', 'restoreIfCurrent'),
-              ]
-              for pattern, event in patterns:
-                  matches = list(re.finditer(pattern, s))
-                  if len(matches) != 1:
-                      raise SystemExit(f'{event}: expected exactly 1 match, found {len(matches)}')
-                  pos = matches[0].end()
-                  indent = '        ' if event != 'restoreIfCurrent' else '            '
-                  s = s[:pos] + f'{indent}EditorStartupTrace.log(this, "{event}")\n' + s[pos:]
-              once('        setText(value)\n', '        setText(value)\n        EditorStartupTrace.log(this, "afterSetText")\n', 'afterSetText')
-              once('                setSelection(safeStart, safeEnd)\n', '                setSelection(safeStart, safeEnd)\n                EditorStartupTrace.log(this, "afterSetSelection")\n', 'afterSetSelection')
-              p.write_text(s)
-
-          def patch_settings():
-              p = Path('app/src/main/java/com/clipnest/ui/settings/SettingsScreen.kt')
-              s = p.read_text()
-              import_line = 'import com.clipnest.ui.editor.EditorStartupTrace\n'
-              if import_line not in s:
-                  marker = 'import com.clipnest.data.local.AppLanguage\n'
-                  if marker not in s:
-                      raise SystemExit('Settings import marker not found')
-                  s = s.replace(marker, marker + import_line, 1)
-              marker = '        item {\n            SettingsSectionHeader(title = stringResource(com.clipnest.R.string.privacy_security), icon = Icons.Default.Security)'
+          p = Path('app/src/main/java/com/clipnest/ui/settings/SettingsScreen.kt')
+          s = p.read_text()
+          imp = 'import com.clipnest.ui.editor.EditorStartupTrace\n'
+          if imp not in s:
+              marker = 'import com.clipnest.data.local.AppLanguage\n'
               if marker not in s:
-                  raise SystemExit('Settings privacy section marker not found')
-              debug_item = '''        item {
+                  raise SystemExit('settings import marker missing')
+              s = s.replace(marker, marker + imp, 1)
+          marker = '        item {\n            SettingsSectionHeader(title = stringResource(com.clipnest.R.string.privacy_security), icon = Icons.Default.Security)'
+          if marker not in s:
+              raise SystemExit('settings section marker missing')
+          if 'title = "Debug / Diagnostics"' not in s:
+              block = '''        item {
             SettingsSectionHeader(title = "Debug / Diagnostics", icon = Icons.Default.Security)
             OutlinedCard(shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Editor startup trace", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium))
-                    Text("Collect the editor lifecycle and scroll-position trace so we can diagnose the startup jump.", style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
+                    Text("Collect editor lifecycle and scroll-position events for startup-jump diagnosis.", style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                         TextButton(onClick = { EditorStartupTrace.clear() }) { Text("Clear") }
                         TextButton(onClick = { EditorStartupTrace.showDialog(context) }, modifier = Modifier.testTag("settings_editor_trace_button")) { Text("View Log") }
@@ -223,19 +200,13 @@ jobs:
         }
 
 '''
-              if 'title = "Debug / Diagnostics"' not in s:
-                  s = s.replace(marker, debug_item + marker, 1)
-              p.write_text(s)
-
-          patch_editor()
-          patch_settings()
+              s = s.replace(marker, block + marker, 1)
+          p.write_text(s)
           PY
-
       - name: Build debug APK
         run: ./gradlew assembleDebug --no-daemon
-
       - name: Upload trace APK
-        uses: actions/upload-artifact@v4.6.2
+        uses: actions/upload-artifact@v4
         with:
           name: ClipNest-editor-startup-trace-apk
           path: app/build/outputs/apk/debug/app-debug.apk
