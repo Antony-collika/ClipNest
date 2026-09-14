@@ -50,7 +50,6 @@ class NativeEditorView @JvmOverloads constructor(
         private const val MAX_UNDO_STEPS = 100
         private const val MAX_HISTORY_CHARS = 100_000
         private const val SCROLL_POSITION_PREFS = "editor_scroll_positions"
-        private const val SCROLL_POSITION_PREFIX = "position_"
     }
 
     private val scrollPositionPrefs = context.getSharedPreferences(SCROLL_POSITION_PREFS, Context.MODE_PRIVATE)
@@ -390,7 +389,15 @@ class NativeEditorView @JvmOverloads constructor(
     private fun overscrollDistance(distance: Int): Int = (distance * 0.75f).toInt().coerceAtMost(overscrollLimitPx)
     private fun springBackToBounds(maxScrollY: Int) { if (flingScroller.springBack(scrollX, scrollY, 0, 0, 0, maxScrollY)) postInvalidateOnAnimation() else scrollToClamped(scrollY) }
 
-    private fun scrollKey(value: CharSequence): String = SCROLL_POSITION_PREFIX + value.length + "_" + value.hashCode().toUInt().toString(16)
+    fun setDocumentScrollKey(key: String?) {
+        saveCurrentScrollPosition()
+        documentScrollKey = key
+        pendingRestoreScrollY = if (key != null && scrollPositionPrefs.contains(key)) {
+            scrollPositionPrefs.getInt(key, 0).coerceAtLeast(0)
+        } else {
+            null
+        }
+    }
 
     private fun saveCurrentScrollPosition() {
         val key = documentScrollKey ?: return
@@ -478,9 +485,6 @@ class NativeEditorView @JvmOverloads constructor(
 
     fun setEditorText(value: CharSequence, selectionStart: Int = value.length, selectionEnd: Int = selectionStart) {
         saveCurrentScrollPosition()
-        val key = scrollKey(value)
-        pendingRestoreScrollY = scrollPositionPrefs.getInt(key, 0).takeIf { it > 0 }
-        documentScrollKey = key
         beginBatchEdit()
         internalMutation = true
         try {
