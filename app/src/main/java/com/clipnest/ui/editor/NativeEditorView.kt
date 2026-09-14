@@ -56,6 +56,7 @@ class NativeEditorView @JvmOverloads constructor(
     private val scrollPositionPrefs = context.getSharedPreferences(SCROLL_POSITION_PREFS, Context.MODE_PRIVATE)
     private var documentScrollKey: String? = null
     private var pendingRestoreScrollY: Int? = null
+    private var restoreGeneration = 0L
 
     private var internalMutation = false
     private var transactionDepth = 0
@@ -180,6 +181,7 @@ class NativeEditorView @JvmOverloads constructor(
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                restoreGeneration++
                 flingScroller.abortAnimation()
                 velocityTracker?.recycle()
                 velocityTracker = VelocityTracker.obtain()
@@ -402,7 +404,18 @@ class NativeEditorView @JvmOverloads constructor(
         val target = pendingRestoreScrollY ?: return
         if (height <= 0 || layout?.height ?: 0 <= 0) return
         pendingRestoreScrollY = null
-        post { if (documentScrollKey != null && length() > 0) scrollToClamped(target) }
+        val generation = restoreGeneration
+        fun restoreIfCurrent() {
+            if (generation == restoreGeneration && documentScrollKey != null && length() > 0) {
+                scrollToClamped(target)
+            }
+        }
+        postOnAnimation {
+            restoreIfCurrent()
+            postOnAnimation {
+                restoreIfCurrent()
+            }
+        }
     }
 
     fun setTextChangeListener(listener: ((NativeEditorView) -> Unit)?) { textChangeListener = listener }
@@ -478,6 +491,7 @@ class NativeEditorView @JvmOverloads constructor(
 
     fun setEditorText(value: CharSequence, selectionStart: Int = value.length, selectionEnd: Int = selectionStart) {
         saveCurrentScrollPosition()
+        restoreGeneration++
         val key = scrollKey(value)
         pendingRestoreScrollY = scrollPositionPrefs.getInt(key, 0).takeIf { it > 0 }
         documentScrollKey = key
@@ -494,6 +508,7 @@ class NativeEditorView @JvmOverloads constructor(
             endBatchEdit()
         }
         invalidate()
+        restorePendingScrollIfReady()
     }
 
     fun undo() {
