@@ -55,60 +55,57 @@ jobs:
 
           python3 - <<'PY'
           from pathlib import Path
+          import re
 
           p = Path('app/src/main/java/com/clipnest/ui/editor/NativeEditorView.kt')
           s = p.read_text()
 
-          replacements = [
-              ('        setCursorVisible(true)\n',
-               '        setCursorVisible(true)\n        EditorStartupTrace.log(this, "init")\n'),
-              ('        super.onLayout(changed, left, top, right, bottom)\n        updateStableScrollBounds()\n        restorePendingScrollIfReady()\n',
-               '        super.onLayout(changed, left, top, right, bottom)\n        updateStableScrollBounds()\n        EditorStartupTrace.log(this, "onLayout beforeRestore")\n        restorePendingScrollIfReady()\n        EditorStartupTrace.log(this, "onLayout afterRestore")\n'),
-              ('        super.onWindowFocusChanged(hasWindowFocus)\n        if (!hasWindowFocus) saveCurrentScrollPosition()\n',
-               '        super.onWindowFocusChanged(hasWindowFocus)\n        EditorStartupTrace.log(this, "onWindowFocusChanged=$hasWindowFocus beforeSave")\n        if (!hasWindowFocus) saveCurrentScrollPosition()\n        EditorStartupTrace.log(this, "onWindowFocusChanged=$hasWindowFocus afterSave")\n'),
-              ('        super.onWindowVisibilityChanged(visibility)\n        if (visibility != View.VISIBLE) saveCurrentScrollPosition()\n',
-               '        super.onWindowVisibilityChanged(visibility)\n        EditorStartupTrace.log(this, "onWindowVisibilityChanged=$visibility beforeSave")\n        if (visibility != View.VISIBLE) saveCurrentScrollPosition()\n        EditorStartupTrace.log(this, "onWindowVisibilityChanged=$visibility afterSave")\n'),
-              ('        saveCurrentScrollPosition()\n        super.onDetachedFromWindow()\n',
-               '        EditorStartupTrace.log(this, "onDetachedFromWindow beforeSave")\n        saveCurrentScrollPosition()\n        EditorStartupTrace.log(this, "onDetachedFromWindow afterSave")\n        super.onDetachedFromWindow()\n'),
-              ('        super.onSelectionChanged(selStart, selEnd)\n        invalidate()\n',
-               '        super.onSelectionChanged(selStart, selEnd)\n        EditorStartupTrace.log(this, "onSelectionChanged")\n        invalidate()\n'),
+          def once(old, new, label):
+              nonlocal_s[0], count = nonlocal_s[0], nonlocal_s[0].count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected exactly 1 match, found {count}')
+              nonlocal_s[0] = nonlocal_s[0].replace(old, new, 1)
+
+          nonlocal_s = [s]
+          once(
+              '        setCursorVisible(true)\n',
+              '        setCursorVisible(true)\n        EditorStartupTrace.log(this, "init")\n',
+              'init',
+          )
+
+          patterns = [
+              (r'(override fun onLayout\([^\n]+\) \{\n)', 'onLayout'),
+              (r'(override fun onWindowFocusChanged\([^\n]+\) \{\n)', 'onWindowFocusChanged'),
+              (r'(override fun onWindowVisibilityChanged\([^\n]+\) \{\n)', 'onWindowVisibilityChanged'),
+              (r'(override fun onDetachedFromWindow\(\) \{\n)', 'onDetachedFromWindow'),
+              (r'(override fun onSelectionChanged\([^\n]+\) \{\n)', 'onSelectionChanged'),
+              (r'(fun setEditorText\([^\n]+\) \{\n)', 'setEditorText enter'),
+              (r'(private fun restorePendingScrollIfReady\(\) \{\n)', 'restorePendingScrollIfReady'),
+              (r'(fun restoreIfCurrent\(\) \{\n)', 'restoreIfCurrent'),
           ]
 
-          for old, new in replacements:
-              if old not in s:
-                  raise SystemExit(f'missing expected source fragment: {old!r}')
-              s = s.replace(old, new, 1)
+          for pattern, event in patterns:
+              m = list(re.finditer(pattern, nonlocal_s[0]))
+              if len(m) != 1:
+                  raise SystemExit(f'{event}: expected exactly 1 match, found {len(m)}')
+              pos = m[0].end()
+              indent = '        ' if event != 'restoreIfCurrent' else '            '
+              text = nonlocal_s[0]
+              nonlocal_s[0] = text[:pos] + f'{indent}EditorStartupTrace.log(this, "{event}")\n' + text[pos:]
 
-          marker = '    fun setEditorText(value: CharSequence, selectionStart: Int = value.length, selectionEnd: Int = selectionStart) {\n'
-          if marker not in s:
-              raise SystemExit('setEditorText marker missing')
-          s = s.replace(marker, marker + '        EditorStartupTrace.log(this, "setEditorText enter")\n', 1)
+          once(
+              '        setText(value)\n',
+              '        setText(value)\n        EditorStartupTrace.log(this, "afterSetText")\n',
+              'afterSetText',
+          )
 
-          old = '        setText(value)\n        if (shouldPlaceSelection) {\n'
-          new = '        setText(value)\n        EditorStartupTrace.log(this, "setEditorText afterSetText")\n        if (shouldPlaceSelection) {\n'
-          if old not in s:
-              raise SystemExit('setText fragment missing')
-          s = s.replace(old, new, 1)
+          once(
+              '                setSelection(safeStart, safeEnd)\n',
+              '                setSelection(safeStart, safeEnd)\n                EditorStartupTrace.log(this, "afterSetSelection")\n',
+              'afterSetSelection',
+          )
 
-          old = '            setSelection(safeStart, safeEnd)\n        }\n        undoStack.clear(); redoStack.clear()\n'
-          new = '            setSelection(safeStart, safeEnd)\n            EditorStartupTrace.log(this, "setEditorText afterSelection")\n        }\n        undoStack.clear(); redoStack.clear()\n'
-          if old not in s:
-              raise SystemExit('selection fragment missing')
-          s = s.replace(old, new, 1)
-
-          old = '    private fun restorePendingScrollIfReady() {\n        val target = pendingRestoreScrollY ?: return\n'
-          new = '    private fun restorePendingScrollIfReady() {\n        val target = pendingRestoreScrollY ?: return\n        EditorStartupTrace.log(this, "restorePendingScrollIfReady target=$target")\n'
-          if old not in s:
-              raise SystemExit('restore marker missing')
-          s = s.replace(old, new, 1)
-
-          old = '            scrollToClamped(target)\n        }\n'
-          new = '            EditorStartupTrace.log(this, "restoreIfCurrent beforeScroll target=$target")\n            scrollToClamped(target)\n            EditorStartupTrace.log(this, "restoreIfCurrent afterScroll target=$target")\n        }\n'
-          if old not in s:
-              raise SystemExit('restore scroll fragment missing')
-          s = s.replace(old, new, 1)
-
-          p.write_text(s)
+          p.write_text(nonlocal_s[0])
           PY
 
       - name: Build debug APK
