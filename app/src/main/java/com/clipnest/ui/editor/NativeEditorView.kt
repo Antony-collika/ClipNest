@@ -134,8 +134,6 @@ class NativeEditorView @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        // View.draw() translates the canvas by -scrollY before onDraw(). Restore viewport
-        // coordinates for the custom fast-scroll thumb so it never drifts with the document.
         canvas.save()
         canvas.translate(0f, scrollY.toFloat())
         drawFastScrollThumb(canvas)
@@ -495,13 +493,17 @@ class NativeEditorView @JvmOverloads constructor(
         val key = scrollKey(value)
         pendingRestoreScrollY = scrollPositionPrefs.getInt(key, 0).takeIf { it > 0 }
         documentScrollKey = key
+        val shouldPlaceSelection = selectionStart != value.length || selectionEnd != selectionStart
+        if (!shouldPlaceSelection) clearFocus()
         beginBatchEdit()
         internalMutation = true
         try {
             setText(value)
-            val safeStart = selectionStart.coerceIn(0, length())
-            val safeEnd = selectionEnd.coerceIn(safeStart, length())
-            setSelection(safeStart, safeEnd)
+            if (shouldPlaceSelection) {
+                val safeStart = selectionStart.coerceIn(0, length())
+                val safeEnd = selectionEnd.coerceIn(safeStart, length())
+                setSelection(safeStart, safeEnd)
+            }
             undoStack.clear(); redoStack.clear()
         } finally {
             internalMutation = false
