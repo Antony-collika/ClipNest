@@ -124,8 +124,20 @@ class EditorViewModel(
     fun bindNativeEditor(editor: NativeEditorView) {
         if (nativeEditor === editor) return
         nativeEditor?.setTextChangeListener(null)
+        nativeEditor?.setSelectionChangeListener(null)
         nativeEditor = editor
         editor.setTextChangeListener { onDocumentTextChanged() }
+        // Keep content.selection continuously in sync with the real caret position
+        // (typing, tapping, dragging) rather than only at fixed fallback points like
+        // save/load. Without this, content.selection could go stale to "end of text"
+        // whenever nativeEditor happened to be null at a save/pause moment (e.g. the
+        // view being destroyed while the app goes to background), which is what made
+        // the cursor and scroll jump to the end after leaving and returning to the editor.
+        editor.setSelectionChangeListener { start, end ->
+            // Use the editor's own current text (not the possibly-stale fallbackText)
+            // so the selection isn't coerced against an outdated length while typing.
+            _uiState.value.content.setFallback(editor.text?.toString() ?: "", TextRange(start, end))
+        }
         editor.setEditorTextSize(settings.value.editorTextSize)
         if (!editorLoaded || editor.text?.isEmpty() == true) {
             val content = _uiState.value.content

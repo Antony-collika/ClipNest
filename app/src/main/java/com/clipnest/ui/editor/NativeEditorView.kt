@@ -63,6 +63,7 @@ class NativeEditorView @JvmOverloads constructor(
     private var transactionBeforeSelectionStart = 0
     private var transactionBeforeSelectionEnd = 0
     private var textChangeListener: ((NativeEditorView) -> Unit)? = null
+    private var selectionChangeListener: ((Int, Int) -> Unit)? = null
     private val undoStack = ArrayDeque<EditOperation>()
     private val redoStack = ArrayDeque<EditOperation>()
     private var pendingBefore: PendingChange? = null
@@ -175,6 +176,10 @@ class NativeEditorView @JvmOverloads constructor(
     override fun onSelectionChanged(selStart: Int, selEnd: Int) {
         super.onSelectionChanged(selStart, selEnd)
         invalidate()
+        // Reports every real selection/caret move (typing, tapping, dragging handles,
+        // programmatic setSelection) so callers can keep an external "last known
+        // selection" in sync in real time, instead of only at a few fixed save points.
+        selectionChangeListener?.invoke(selStart, selEnd)
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -406,6 +411,7 @@ class NativeEditorView @JvmOverloads constructor(
     }
 
     fun setTextChangeListener(listener: ((NativeEditorView) -> Unit)?) { textChangeListener = listener }
+    fun setSelectionChangeListener(listener: ((Int, Int) -> Unit)?) { selectionChangeListener = listener }
 
     fun setEditorTextSize(size: EditorTextSize) {
         setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, size.sp.toFloat())
