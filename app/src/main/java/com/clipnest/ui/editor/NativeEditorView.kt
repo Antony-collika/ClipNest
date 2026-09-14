@@ -49,7 +49,13 @@ class NativeEditorView @JvmOverloads constructor(
         private const val ACCESSIBILITY_TEXT_LIMIT = 10_000
         private const val MAX_UNDO_STEPS = 100
         private const val MAX_HISTORY_CHARS = 100_000
+        private const val SCROLL_POSITION_PREFS = "editor_scroll_positions"
+        private const val SCROLL_POSITION_PREFIX = "position_"
     }
+
+    private val scrollPositionPrefs = context.getSharedPreferences(SCROLL_POSITION_PREFS, Context.MODE_PRIVATE)
+    private var documentScrollKey: String? = null
+    private var pendingRestoreScrollY: Int? = null
 
     private var internalMutation = false
     private var transactionDepth = 0
@@ -143,11 +149,27 @@ class NativeEditorView @JvmOverloads constructor(
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
         super.onLayout(changed, left, top, right, bottom)
         updateStableScrollBounds()
+        restorePendingScrollIfReady()
     }
 
     override fun onFocusChanged(focused: Boolean, direction: Int, previouslyFocusedRect: android.graphics.Rect?) {
         super.onFocusChanged(focused, direction, previouslyFocusedRect)
         invalidate()
+    }
+
+    override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
+        super.onWindowFocusChanged(hasWindowFocus)
+        if (!hasWindowFocus) saveCurrentScrollPosition()
+    }
+
+    override fun onWindowVisibilityChanged(visibility: Int) {
+        super.onWindowVisibilityChanged(visibility)
+        if (visibility != View.VISIBLE) saveCurrentScrollPosition()
+    }
+
+    override fun onDetachedFromWindow() {
+        saveCurrentScrollPosition()
+        super.onDetachedFromWindow()
     }
 
     override fun onSelectionChanged(selStart: Int, selEnd: Int) {
@@ -368,6 +390,21 @@ class NativeEditorView @JvmOverloads constructor(
     private fun overscrollDistance(distance: Int): Int = (distance * 0.75f).toInt().coerceAtMost(overscrollLimitPx)
     private fun springBackToBounds(maxScrollY: Int) { if (flingScroller.springBack(scrollX, scrollY, 0, 0, 0, maxScrollY)) postInvalidateOnAnimation() else scrollToClamped(scrollY) }
 
+    private fun scrollKey(value: CharSequence): String = SCROLL_POSITION_PREFIX + value.length + "_" + value.hashCode().toUInt().toString(16)
+
+    private fun saveCurrentScrollPosition() {
+        val key = documentScrollKey ?: return
+        if (length() == 0) return
+        scrollPositionPrefs.edit().putInt(key, scrollY.coerceAtLeast(0)).apply()
+    }
+
+    private fun restorePendingScrollIfReady() {
+        val target = pendingRestoreScrollY ?: return
+        if (height <= 0 || layout?.height ?: 0 <= 0) return
+        pendingRestoreScrollY = null
+        post { if (documentScrollKey != null && length() > 0) scrollToClamped(target) }
+    }
+
     fun setTextChangeListener(listener: ((NativeEditorView) -> Unit)?) { textChangeListener = listener }
 
     fun setEditorTextSize(size: EditorTextSize) {
@@ -440,6 +477,10 @@ class NativeEditorView @JvmOverloads constructor(
     }
 
     fun setEditorText(value: CharSequence, selectionStart: Int = value.length, selectionEnd: Int = selectionStart) {
+        saveCurrentScrollPosition()
+        val key = scrollKey(value)
+        pendingRestoreScrollY = scrollPositionPrefs.getInt(key, 0).takeIf { it > 0 }
+        documentScrollKey = key
         beginBatchEdit()
         internalMutation = true
         try {
