@@ -4,14 +4,10 @@ name: Android CI/CD
 on:
   push:
     branches:
-      - Draft
-      - Editor
-      - Optimization
+      - fix-cursor-scroll-startup-position
   pull_request:
     branches:
-      - Draft
-      - Editor
-      - Optimization
+      - fix-cursor-scroll-startup-position
   workflow_dispatch:
 
 jobs:
