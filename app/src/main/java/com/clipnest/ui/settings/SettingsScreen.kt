@@ -258,6 +258,53 @@ fun SettingsScreen(
             }
             Spacer(modifier = Modifier.height(24.dp))
         }
+
+        item {
+            var showLogDialog by remember { mutableStateOf(false) }
+            SettingsSectionHeader(title = "Debug log", icon = Icons.Default.Folder)
+            OutlinedCard(shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        "Ghi lại những gì xảy ra trong màn hình soạn thảo (dùng để tìm lỗi con trỏ nhảy về cuối). Tái hiện lỗi trước, rồi mở nhật ký này.",
+                        style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    TextButton(onClick = { showLogDialog = true }) { Text("Xem nhật ký debug") }
+                }
+            }
+            if (showLogDialog) {
+                val logText = remember { com.clipnest.ui.editor.EditorDiagnosticLog.snapshot() }
+                val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { showLogDialog = false },
+                    title = { Text("Nhật ký debug editor") },
+                    text = {
+                        Box(modifier = Modifier.fillMaxWidth().height(400.dp)) {
+                            androidx.compose.foundation.lazy.LazyColumn {
+                                item {
+                                    Text(
+                                        logText,
+                                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                                    )
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(logText))
+                            Toast.makeText(context, "Đã copy nhật ký", Toast.LENGTH_SHORT).show()
+                        }) { Text("Copy") }
+                    },
+                    dismissButton = {
+                        Row {
+                            TextButton(onClick = { com.clipnest.ui.editor.EditorDiagnosticLog.clear(); showLogDialog = false }) { Text("Xóa") }
+                            TextButton(onClick = { showLogDialog = false }) { Text("Đóng") }
+                        }
+                    }
+                )
+            }
+        }
     }
 }
 
