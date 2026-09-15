@@ -10,11 +10,11 @@ import com.clipnest.ui.editor.NativeEditorView
 import java.lang.ref.WeakReference
 
 /**
- * Final guard for same-process editor viewport restoration.
+ * Same-process editor viewport restoration experiment.
  *
- * The native editor can be scrolled to the caret after its first layout. Keep the
- * live viewport as the source of truth for a short settling window so late cursor,
- * focus and Compose layout passes cannot overwrite it.
+ * When the editor view is recreated, restore the viewport first and then move the
+ * cursor into that restored viewport. This deliberately gives Android no reason to
+ * scroll the document back toward a distant caret.
  */
 class EditorScrollRestoreController(private val application: Application) : Application.ActivityLifecycleCallbacks {
     private data class ViewportSnapshot(val documentKey: String, val scrollY: Int)
@@ -61,8 +61,6 @@ class EditorScrollRestoreController(private val application: Application) : Appl
             }
 
             if (lastEditor?.get() !== editor) {
-                // Capture the old native view before replacing the reference. This is
-                // the important hand-off when Compose creates a fresh AndroidView.
                 captureCurrentEditor(activity)
                 lastEditor = WeakReference(editor)
                 scheduleRestore(editor)
@@ -94,21 +92,22 @@ class EditorScrollRestoreController(private val application: Application) : Appl
         val snapshot = snapshots[key] ?: return
         val target = snapshot.scrollY
 
-        // One onLayout restore is not sufficient: setSelection(), focus and Compose
-        // can request the caret into view several frames later. Re-apply the exact
-        // saved viewport for a short settling window (16 frames ~= 250ms at 60Hz).
-        // This is deliberately finite so normal user scrolling immediately regains
-        // control and we never fight the user indefinitely.
-        var remainingFrames = 16
-        fun restoreNextFrame() {
-            if (remainingFrames-- <= 0) return
-            editor.postOnAnimation {
-                if (documentKey(editor) != key || lastEditor?.get() !== editor) return@postOnAnimation
-                editor.scrollTo(editor.scrollX, target)
-                restoreNextFrame()
-            }
+        editor.postOnAnimation {
+            if (documentKey(editor) != key || lastEditor?.get() !== editor) return@postOnAnimation
+
+            // First restore the exact viewport that the user left.
+            editor.scrollTo(editor.scrollX, target)
+
+            // Then place the caret at the start of the first visible line. The caret
+            // is intentionally changed in this experiment: it is now inside the
+            // restored viewport, so Android has no reason to auto-scroll elsewhere.
+            val layout = editor.layout ?: return@postOnAnimation
+            val safeY = target.coerceIn(0, (layout.height - editor.height).coerceAtLeast(0))
+            val visibleLine = layout.getLineForVertical(safeY)
+            val visibleOffset = layout.getLineStart(visibleLine).coerceIn(0, editor.length())
+            editor.setSelection(visibleOffset)
+            EditorDiagnosticLog.log("SCROLL", "cursor-in-viewport restore scrollY=$target cursor=$visibleOffset")
         }
-        restoreNextFrame()
     }
 
     private fun documentKey(editor: NativeEditorView): String {
