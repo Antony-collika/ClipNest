@@ -58,6 +58,7 @@ class NativeEditorView @JvmOverloads constructor(
     private var transactionBeforeSelectionEnd = 0
     private var textChangeListener: ((NativeEditorView) -> Unit)? = null
     private var selectionChangeListener: ((Int, Int) -> Unit)? = null
+    private var scrollPositionListener: ((Int) -> Unit)? = null
     private val undoStack = ArrayDeque<EditOperation>()
     private val redoStack = ArrayDeque<EditOperation>()
     private var pendingBefore: PendingChange? = null
@@ -171,31 +172,28 @@ class NativeEditorView @JvmOverloads constructor(
         // onDetachedFromWindow below, so "where the user left off" isn't lost between
         // going to background and the view eventually being torn down.
         if (visibility != View.VISIBLE && !internalMutation) {
-            val reportOffset = visibleCaretOrTopOfViewport()
-            selectionChangeListener?.invoke(reportOffset, reportOffset)
-            EditorDiagnosticLog.log("LIFECYCLE", "onWindowVisibilityChanged  reported selection=$reportOffset-$reportOffset (actualCaret=$selectionStart-$selectionEnd)")
+            reportLastKnownPosition()
         }
     }
 
     override fun onDetachedFromWindow() {
         EditorDiagnosticLog.log("LIFECYCLE", "onDetachedFromWindow BEGIN  text.length=${length()}  selection=$selectionStart-$selectionEnd  scrollY=$scrollY  identity=${System.identityHashCode(this)}")
         // This is the one callback guaranteed to fire when Compose Navigation removes
-        // this screen from composition (e.g. navigating to Settings) or when the
-        // process is killed and this view is torn down — well before any save/pause
-        // hook might run. Report the final caret position here so the external
-        // "last known selection" never goes stale. The caret is the single source of
-        // truth for "where the user left off" — scroll is derived from it on restore
-        // via Android's own scroll-to-caret behavior, the same way most text editors
-        // (Obsidian, VS Code, Nova, etc.) handle this: they persist the caret offset,
-        // not a separate scroll pixel value, and let the platform bring it into view.
-        //
-        // But scrolling to read (without tapping) doesn't move the caret, so if the
-        // caret isn't currently visible in the viewport, what the user actually wants
-        // remembered is what they were looking at, not the stale caret position. Use
-        // the first visible character in that case instead.
-        val reportOffset = visibleCaretOrTopOfViewport()
-        if (!internalMutation) selectionChangeListener?.invoke(reportOffset, reportOffset)
-        EditorDiagnosticLog.log("LIFECYCLE", "onDetachedFromWindow END  reported selection=$reportOffset-$reportOffset to listener (actualCaret=$selectionStart-$selectionEnd, internalMutation=$internalMutation)")
+        // this screen from composition (e.g. navigating to Settings) or when a new
+        // external document replaces this view's content — well before any save/pause
+        // hook might run. Report both:
+        //  - the raw scrollY, which is only meaningful while the process (and the
+        //    ViewModel holding it in memory) stays alive — e.g. going to Settings and
+        //    back, or opening/closing an external file, where the user is actively
+        //    working and expects to land back exactly where they were reading, not
+        //    wherever the caret happens to be (they may not have tapped at all).
+        //  - a caret/viewport-derived offset, which is what gets persisted to disk and
+        //    survives the process being killed outright (swipe-away), where there's no
+        //    live scrollY left to restore and the caret is the best remaining signal.
+        // The ViewModel decides which one to prefer when rebinding a new view: the
+        // in-memory scrollY if this is the same process, falling back to the persisted
+        // caret only after a real process restart.
+        if (!internalMutation) reportLastKnownPosition()
         super.onDetachedFromWindow()
     }
 
@@ -441,8 +439,22 @@ class NativeEditorView @JvmOverloads constructor(
         return lay.getLineStart(topLine).coerceIn(0, length())
     }
 
+    /**
+     * Reports both signals the ViewModel needs when this view is about to go away:
+     * the live scrollY (meaningful only while the process/ViewModel stays alive) and
+     * a caret/viewport-derived offset (what gets persisted to disk for after a real
+     * process restart). See onDetachedFromWindow for which one wins when.
+     */
+    private fun reportLastKnownPosition() {
+        val reportOffset = visibleCaretOrTopOfViewport()
+        selectionChangeListener?.invoke(reportOffset, reportOffset)
+        scrollPositionListener?.invoke(scrollY)
+        EditorDiagnosticLog.log("LIFECYCLE", "reportLastKnownPosition  scrollY=$scrollY  reportedOffset=$reportOffset  (actualCaret=$selectionStart-$selectionEnd)")
+    }
+
     fun setTextChangeListener(listener: ((NativeEditorView) -> Unit)?) { textChangeListener = listener }
     fun setSelectionChangeListener(listener: ((Int, Int) -> Unit)?) { selectionChangeListener = listener }
+    fun setScrollPositionListener(listener: ((Int) -> Unit)?) { scrollPositionListener = listener }
 
     fun setEditorTextSize(size: EditorTextSize) {
         setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, size.sp.toFloat())
@@ -513,8 +525,8 @@ class NativeEditorView @JvmOverloads constructor(
         invalidate()
     }
 
-    fun setEditorText(value: CharSequence, selectionStart: Int = value.length, selectionEnd: Int = selectionStart) {
-        EditorDiagnosticLog.log("SET_TEXT", "setEditorText CALLED  requestedSelection=$selectionStart-$selectionEnd  value.length=${value.length}  (default-to-end used = ${selectionStart == value.length})  identity=${System.identityHashCode(this)}")
+    fun setEditorText(value: CharSequence, selectionStart: Int = value.length, selectionEnd: Int = selectionStart, restoreScrollY: Int? = null) {
+        EditorDiagnosticLog.log("SET_TEXT", "setEditorText CALLED  requestedSelection=$selectionStart-$selectionEnd  value.length=${value.length}  restoreScrollY=$restoreScrollY  (default-to-end used = ${selectionStart == value.length})  identity=${System.identityHashCode(this)}")
         beginBatchEdit()
         internalMutation = true
         try {
@@ -529,12 +541,20 @@ class NativeEditorView @JvmOverloads constructor(
             endBatchEdit()
         }
         invalidate()
-        // The caret is the single source of truth for "where the user left off" — once
-        // it's set above, scroll it into view the normal Android way rather than
-        // tracking a separate scroll pixel value ourselves. Calling this directly (not
-        // requestFocus()) scrolls to the caret without forcing focus/keyboard open —
-        // the user still has to tap to start editing, same as before.
-        post { bringPointIntoView(selectionStart) }
+        if (restoreScrollY != null) {
+            // A live scrollY was available (view rebound within the same process —
+            // e.g. Settings, or closing an external file — not a fresh process after
+            // being killed). This is what the user was actually looking at, which may
+            // be nowhere near the caret if they only scrolled to read without tapping.
+            // Apply it last, after layout settles, so it wins over the caret-follow
+            // behavior below.
+            post { scrollToClamped(restoreScrollY) }
+        } else {
+            // No live scroll to restore (fresh process, or first load) — fall back to
+            // scrolling to the caret the normal Android way. Calling this directly
+            // (not requestFocus()) scrolls without forcing focus/keyboard open.
+            post { bringPointIntoView(selectionStart) }
+        }
     }
 
     fun undo() {

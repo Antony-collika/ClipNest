@@ -117,6 +117,15 @@ class EditorViewModel(
     // external document session, so "Return to editor" can restore it instead of
     // defaulting the caret to end-of-text.
     private var savedInternalSelection: TextRange? = null
+    // Same idea as savedInternalSelection, but for scroll position — captured
+    // alongside it so "Return to editor" can restore exactly what the user was
+    // looking at, not just where the caret was (they may have only scrolled to read).
+    private var savedInternalScrollY: Int? = null
+    // The live scroll position (pixels), captured from the outgoing view right before
+    // it's detached — e.g. navigating to Settings and back, or closing an external
+    // file. Meaningful only while this ViewModel instance stays alive in memory; reset
+    // to null once consumed so a genuinely fresh load doesn't reuse a stale value.
+    private var lastKnownScrollY: Int? = null
     private var autoSaveJob: Job? = null
     private var cursorSaveJob: Job? = null
     private var searchJob: Job? = null
@@ -129,16 +138,18 @@ class EditorViewModel(
     fun bindNativeEditor(editor: NativeEditorView) {
         EditorDiagnosticLog.log("BIND", "bindNativeEditor CALLED  sameInstance=${nativeEditor === editor}  incoming.text.length=${editor.text?.length}  incoming.text.isEmpty=${editor.text?.isEmpty()}  editorLoaded=$editorLoaded  content.selection(before)=${_uiState.value.content.selection}")
         if (nativeEditor === editor) return
-        // Capture the outgoing view's text + caret position before detaching, in case
-        // its own onDetachedFromWindow callback hasn't fired yet at this point. Using
-        // setFallback (not setFallbackSelection) so the selection isn't coerced against
-        // a possibly-stale fallbackText length.
+        // Capture the outgoing view's text + caret + scroll position before detaching,
+        // in case its own onDetachedFromWindow callback hasn't fired yet at this
+        // point. Using setFallback (not setFallbackSelection) so the selection isn't
+        // coerced against a possibly-stale fallbackText length.
         nativeEditor?.let {
-            EditorDiagnosticLog.log("BIND", "capturing outgoing editor state before switch  selection=${it.selectionStart}-${it.selectionEnd}  text.length=${it.text?.length}")
+            EditorDiagnosticLog.log("BIND", "capturing outgoing editor state before switch  selection=${it.selectionStart}-${it.selectionEnd}  scrollY=${it.scrollY}  text.length=${it.text?.length}")
             _uiState.value.content.setFallback(it.text?.toString() ?: "", TextRange(it.selectionStart, it.selectionEnd))
+            lastKnownScrollY = it.scrollY
         }
         nativeEditor?.setTextChangeListener(null)
         nativeEditor?.setSelectionChangeListener(null)
+        nativeEditor?.setScrollPositionListener(null)
         nativeEditor = editor
         editor.setTextChangeListener { onDocumentTextChanged() }
         // Keep content.selection (and its matching text) continuously in sync with the
@@ -161,12 +172,19 @@ class EditorViewModel(
                 }
             }
         }
+        // The live scroll position survives as long as this ViewModel does, so a view
+        // rebind within the same process (Settings, external file close) can restore
+        // exactly what the user was looking at — even if they only scrolled to read
+        // and never moved the caret there. See setEditorText's restoreScrollY param.
+        editor.setScrollPositionListener { scrollY -> lastKnownScrollY = scrollY }
         editor.setEditorTextSize(settings.value.editorTextSize)
         val willCallSetEditorText = !editorLoaded || editor.text?.isEmpty() == true
-        EditorDiagnosticLog.log("BIND", "decision: willCallSetEditorText=$willCallSetEditorText  (!editorLoaded=${!editorLoaded}  OR  editor.text.isEmpty=${editor.text?.isEmpty()})  content.selection(to use)=${_uiState.value.content.selection}  content.text.length=${_uiState.value.content.text.length}")
+        EditorDiagnosticLog.log("BIND", "decision: willCallSetEditorText=$willCallSetEditorText  (!editorLoaded=${!editorLoaded}  OR  editor.text.isEmpty=${editor.text?.isEmpty()})  content.selection(to use)=${_uiState.value.content.selection}  content.text.length=${_uiState.value.content.text.length}  lastKnownScrollY=$lastKnownScrollY")
         if (!editorLoaded || editor.text?.isEmpty() == true) {
             val content = _uiState.value.content
-            editor.setEditorText(content.text, content.selection.start, content.selection.end)
+            val scrollToRestore = lastKnownScrollY
+            lastKnownScrollY = null
+            editor.setEditorText(content.text, content.selection.start, content.selection.end, scrollToRestore)
         }
     }
 
@@ -344,7 +362,10 @@ class EditorViewModel(
             // end-of-text. Only done when actually leaving the internal document
             // (not when already inside an external session, e.g. opening a second
             // external file — that has no internal caret to preserve here).
-            nativeEditor?.let { savedInternalSelection = TextRange(it.selectionStart, it.selectionEnd) }
+            nativeEditor?.let {
+                savedInternalSelection = TextRange(it.selectionStart, it.selectionEnd)
+                savedInternalScrollY = it.scrollY
+            }
         }
         val previousState = _uiState.value
         val previousText = currentDocumentText()
@@ -503,8 +524,15 @@ class EditorViewModel(
                 val restore = savedInternalSelection?.let {
                     TextRange(it.start.coerceIn(0, internal.length), it.end.coerceIn(0, internal.length))
                 } ?: TextRange(internal.length)
+                // The scroll position, if we captured one, reflects what the user was
+                // actually looking at — which may differ from the caret if they only
+                // scrolled to read. The process is still alive here (this is the
+                // Return-to-editor flow, not a cold start), so prefer it over letting
+                // the caret pull the viewport somewhere else.
+                val restoreScroll = savedInternalScrollY
                 savedInternalSelection = null
-                nativeEditor?.setEditorText(internal, restore.start, restore.end)
+                savedInternalScrollY = null
+                nativeEditor?.setEditorText(internal, restore.start, restore.end, restoreScroll)
                 _uiState.value.content.setFallback(internal, restore)
                 editorDocumentGeneration++
                 _uiState.value = _uiState.value.copy(documentRevision = _uiState.value.documentRevision + 1, isDirty = false, documentName = internalDocumentName(), title = title)
