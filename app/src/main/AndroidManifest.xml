@@ -6,7 +6,6 @@
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application
-        android:name=".ClipNestApplication"
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -79,7 +78,8 @@
             android:theme="@style/Theme.TransparentCapture"
             android:excludeFromRecents="true"
             android:noHistory="true"
-            android:taskAffinity="" />
+            android:taskAffinity=""
+            android:windowSoftInputMode="adjustResize" />
 
         <!-- Quick Settings Tile -->
         <service
