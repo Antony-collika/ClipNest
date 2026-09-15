@@ -83,7 +83,7 @@ class EditorScrollRestoreController(private val application: Application) : Appl
         val editor = lastEditor?.get() ?: findEditor(activity.window.decorView) ?: return
         val key = documentKey(editor)
         if (key.isBlank()) return
-        snapshots[key] = ViewportSnapshot(key, editor.scrollY)
+        snapshots[key] = ViewportSnapshot(key, editor.scrollY.coerceAtLeast(0))
         trimSnapshots()
         lastEditor = WeakReference(editor)
     }
@@ -110,9 +110,7 @@ class EditorScrollRestoreController(private val application: Application) : Appl
 
     private fun applyScrollIfCurrent(editor: NativeEditorView, key: String, target: Int) {
         if (documentKey(editor) != key) return
-        val max = (editor.computeVerticalScrollRange() - editor.computeVerticalScrollExtent()).coerceAtLeast(0)
-        val clamped = target.coerceIn(0, max)
-        if (editor.scrollY != clamped) editor.scrollTo(editor.scrollX, clamped)
+        if (editor.scrollY != target) editor.scrollTo(editor.scrollX, target)
     }
 
     private fun documentKey(editor: NativeEditorView): String {
