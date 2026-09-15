@@ -14,14 +14,13 @@ import java.lang.ref.WeakReference
  *
  * EditorViewModel owns the source of truth for cursor and live scroll state. This
  * controller only re-applies the captured live viewport after Android/Compose has
- * finished replacing and laying out the native editor view.
+ * replaced and laid out a native editor view.
  */
 class EditorScrollRestoreController(private val application: Application) : Application.ActivityLifecycleCallbacks {
     private data class ViewportSnapshot(val documentKey: String, val scrollY: Int)
 
     private val snapshots = LinkedHashMap<String, ViewportSnapshot>(4, 0.75f, true)
     private var lastEditor: WeakReference<NativeEditorView>? = null
-    private var lastEditorKey: String? = null
     private var lastActivity: WeakReference<Activity>? = null
     private var globalLayoutListener: ViewTreeObserver.OnGlobalLayoutListener? = null
 
@@ -43,7 +42,6 @@ class EditorScrollRestoreController(private val application: Application) : Appl
             removeGlobalLayoutObserver(activity)
             lastActivity = null
             lastEditor = null
-            lastEditorKey = null
         }
     }
 
@@ -62,20 +60,12 @@ class EditorScrollRestoreController(private val application: Application) : Appl
                 return@OnGlobalLayoutListener
             }
 
-            val key = documentKey(editor)
-            val identityChanged = lastEditor?.get() !== editor
-            val documentChanged = key.isNotBlank() && key != lastEditorKey
-            when {
-                identityChanged -> {
-                    captureCurrentEditor(activity)
-                    lastEditor = WeakReference(editor)
-                    lastEditorKey = key
-                    scheduleRestore(editor, key)
-                }
-                documentChanged -> {
-                    lastEditorKey = key
-                    scheduleRestore(editor, key)
-                }
+            if (lastEditor?.get() !== editor) {
+                // The old view is still the source of truth for the viewport. Capture it
+                // before replacing the weak reference with the new editor instance.
+                captureCurrentEditor(activity)
+                lastEditor = WeakReference(editor)
+                scheduleRestore(editor)
             }
         }
         globalLayoutListener = listener
@@ -96,13 +86,17 @@ class EditorScrollRestoreController(private val application: Application) : Appl
         snapshots[key] = ViewportSnapshot(key, editor.scrollY)
         trimSnapshots()
         lastEditor = WeakReference(editor)
-        lastEditorKey = key
     }
 
-    private fun scheduleRestore(editor: NativeEditorView, key: String) {
+    private fun scheduleRestore(editor: NativeEditorView) {
+        val key = documentKey(editor)
+        if (key.isBlank()) return
         val snapshot = snapshots[key] ?: return
         val target = snapshot.scrollY
 
+        // NativeEditorView already restores during layout. These frame-delayed checks
+        // cover later cursor/focus/layout passes that can otherwise pull the viewport
+        // back to the cursor after the first restore has completed.
         editor.postOnAnimation {
             applyScrollIfCurrent(editor, key, target)
             editor.postOnAnimation {
