@@ -113,7 +113,12 @@ class EditorViewModel(
     private var pendingExternalOpen: PendingExternalOpen? = null
     private var pendingExternalExitAction: ExternalExitAction? = null
     private var pendingExternalReturnCallback: (() -> Unit)? = null
+    // The internal document's caret position, captured right before switching to an
+    // external document session, so "Return to editor" can restore it instead of
+    // defaulting the caret to end-of-text.
+    private var savedInternalSelection: TextRange? = null
     private var autoSaveJob: Job? = null
+    private var cursorSaveJob: Job? = null
     private var searchJob: Job? = null
     private var nativeEditor: NativeEditorView? = null
     private var editorDocumentGeneration = 0L
@@ -144,6 +149,17 @@ class EditorViewModel(
         // user left off instead of jumping to the end.
         editor.setSelectionChangeListener { start, end ->
             _uiState.value.content.setFallback(editor.text?.toString() ?: "", TextRange(start, end))
+            // Persist the caret to disk (debounced) so it survives the process being
+            // killed outright (swipe-away, low-memory kill) — see loadEditor(), which
+            // reads this back on next launch. Only meaningful for the internal
+            // document; external sessions aren't restored this way.
+            if (!hasExternalSession()) {
+                cursorSaveJob?.cancel()
+                cursorSaveJob = viewModelScope.launch(Dispatchers.Default) {
+                    delay(500)
+                    runCatching { fileManager.writeEditorCursor(start, end) }
+                }
+            }
         }
         editor.setEditorTextSize(settings.value.editorTextSize)
         val willCallSetEditorText = !editorLoaded || editor.text?.isEmpty() == true
@@ -171,10 +187,18 @@ class EditorViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             val text = fileManager.readEditor()
             val title = fileManager.readEditorTitle()
+            // Restore the caret from disk (survives the process being killed, not just
+            // backgrounded — see writeEditorCursor). Falls back to end-of-text only if
+            // nothing was ever saved (fresh install) or the saved value no longer fits
+            // the current document length.
+            val savedCursor = fileManager.readEditorCursor()
+            val restore = savedCursor
+                ?.let { (start, end) -> TextRange(start.coerceIn(0, text.length), end.coerceIn(0, text.length)) }
+                ?: TextRange(text.length)
             withContext(Dispatchers.Main.immediate) {
                 if (!editorLoaded && !_uiState.value.isDirty) {
-                    _uiState.value.content.setFallback(text, TextRange(text.length))
-                    nativeEditor?.setEditorText(text, text.length)
+                    _uiState.value.content.setFallback(text, restore)
+                    nativeEditor?.setEditorText(text, restore.start, restore.end)
                     editorDocumentGeneration++
                     _uiState.value = _uiState.value.copy(documentRevision = _uiState.value.documentRevision + 1, isDirty = false, title = title, lastSavedTimestamp = System.currentTimeMillis())
                 }
@@ -279,7 +303,10 @@ class EditorViewModel(
         pendingExternalExitAction = null
         pendingExternalReturnCallback = null
         when (action) {
-            ExternalExitAction.RETURN_TO_EDITOR -> callback?.invoke()
+            // finishExternalSession() (called by the caller before this runs) clears
+            // the editor to empty text — reload the internal document here so the user
+            // actually sees it again, regardless of which dialog option they picked.
+            ExternalExitAction.RETURN_TO_EDITOR -> loadInternalDocumentIntoEditor { callback?.invoke() }
             ExternalExitAction.OPEN_REPLACEMENT -> open?.let { openExternalDocument(it.uri, contentResolver, it.openContext, it.candidates) }
         }
     }
@@ -311,6 +338,13 @@ class EditorViewModel(
                 return
             }
             finishExternalSession(contentResolver)
+        } else {
+            // Capture where the caret was in the internal document before switching
+            // away, so "Return to editor" can restore it instead of defaulting to
+            // end-of-text. Only done when actually leaving the internal document
+            // (not when already inside an external session, e.g. opening a second
+            // external file — that has no internal caret to preserve here).
+            nativeEditor?.let { savedInternalSelection = TextRange(it.selectionStart, it.selectionEnd) }
         }
         val previousState = _uiState.value
         val previousText = currentDocumentText()
@@ -444,12 +478,34 @@ class EditorViewModel(
             return
         }
         finishExternalSession(contentResolver)
+        loadInternalDocumentIntoEditor(onComplete)
+    }
+
+    /**
+     * Reads the internal document from disk and loads it into the editor, restoring
+     * the caret from savedInternalSelection (captured before we switched to an
+     * external session). Called both when returning to the editor directly (no unsaved
+     * external changes) and after the user resolves the unsaved-changes dialog (Save /
+     * Save As / Don't Save) — previously only the direct path did this, so resolving
+     * the dialog left the editor showing the empty text finishExternalSession() sets,
+     * losing the internal document from view until something reloaded it.
+     */
+    private fun loadInternalDocumentIntoEditor(onComplete: () -> Unit = {}) {
         viewModelScope.launch(Dispatchers.IO) {
             val internal = fileManager.readEditor()
             val title = fileManager.readEditorTitle()
             withContext(Dispatchers.Main.immediate) {
-                nativeEditor?.setEditorText(internal, internal.length)
-                _uiState.value.content.setFallback(internal, TextRange(internal.length))
+                // Restore the caret where the user left it in the internal document,
+                // not end-of-text — the document on disk hasn't changed since we
+                // captured this, so the offsets are still valid. Falls back to
+                // end-of-text only if we never captured a position (e.g. the app was
+                // relaunched directly into an external session).
+                val restore = savedInternalSelection?.let {
+                    TextRange(it.start.coerceIn(0, internal.length), it.end.coerceIn(0, internal.length))
+                } ?: TextRange(internal.length)
+                savedInternalSelection = null
+                nativeEditor?.setEditorText(internal, restore.start, restore.end)
+                _uiState.value.content.setFallback(internal, restore)
                 editorDocumentGeneration++
                 _uiState.value = _uiState.value.copy(documentRevision = _uiState.value.documentRevision + 1, isDirty = false, documentName = internalDocumentName(), title = title)
                 onComplete()
@@ -648,6 +704,14 @@ class EditorViewModel(
     fun onPauseOrExit() { if (!hasExternalSession() && _uiState.value.isDirty) saveCurrentDocumentSilently() }
     override fun onCleared() {
         clearCurrentDocumentPassword()
+        // Best-effort: write the last known caret synchronously, in case this runs
+        // before the process is actually killed. Not guaranteed on a hard swipe-away,
+        // which is why the debounced write in bindNativeEditor's selection listener is
+        // the primary mechanism — this is just a secondary safety net.
+        if (!hasExternalSession()) {
+            val sel = _uiState.value.content.selection
+            runCatching { fileManager.writeEditorCursor(sel.start, sel.end) }
+        }
         super.onCleared()
     }
     private fun emitToast(message: String) { viewModelScope.launch { _eventFlow.emit(EditorEvent.ShowToast(message)) } }
