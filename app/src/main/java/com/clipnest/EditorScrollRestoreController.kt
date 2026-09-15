@@ -10,11 +10,11 @@ import com.clipnest.ui.editor.NativeEditorView
 import java.lang.ref.WeakReference
 
 /**
- * Final guard for same-process editor viewport restoration.
+ * Same-process editor viewport restoration.
  *
- * The native editor can be scrolled to the caret after its first layout. Keep the
- * live viewport as the source of truth for a short settling window so late cursor,
- * focus and Compose layout passes cannot overwrite it.
+ * The live viewport is the source of truth when a new native editor view is created.
+ * Cursor position remains independent; this controller restores the viewport once after
+ * the replacement view has completed a layout pass.
  */
 class EditorScrollRestoreController(private val application: Application) : Application.ActivityLifecycleCallbacks {
     private data class ViewportSnapshot(val documentKey: String, val scrollY: Int)
@@ -61,8 +61,6 @@ class EditorScrollRestoreController(private val application: Application) : Appl
             }
 
             if (lastEditor?.get() !== editor) {
-                // Capture the old native view before replacing the reference. This is
-                // the important hand-off when Compose creates a fresh AndroidView.
                 captureCurrentEditor(activity)
                 lastEditor = WeakReference(editor)
                 scheduleRestore(editor)
@@ -94,21 +92,14 @@ class EditorScrollRestoreController(private val application: Application) : Appl
         val snapshot = snapshots[key] ?: return
         val target = snapshot.scrollY
 
-        // One onLayout restore is not sufficient: setSelection(), focus and Compose
-        // can request the caret into view several frames later. Re-apply the exact
-        // saved viewport for a short settling window (16 frames ~= 250ms at 60Hz).
-        // This is deliberately finite so normal user scrolling immediately regains
-        // control and we never fight the user indefinitely.
-        var remainingFrames = 16
-        fun restoreNextFrame() {
-            if (remainingFrames-- <= 0) return
-            editor.postOnAnimation {
-                if (documentKey(editor) != key || lastEditor?.get() !== editor) return@postOnAnimation
-                editor.scrollTo(editor.scrollX, target)
-                restoreNextFrame()
-            }
+        // The viewport is authoritative for this experiment. Restore it once after
+        // the replacement view has completed a layout pass. Do not repeatedly fight
+        // Android's scrolling policy with a frame-based settling loop.
+        editor.postOnAnimation {
+            if (documentKey(editor) != key || lastEditor?.get() !== editor) return@postOnAnimation
+            editor.scrollTo(editor.scrollX, target)
+            EditorDiagnosticLog.log("SCROLL", "viewport-wins restore target=$target applied once")
         }
-        restoreNextFrame()
     }
 
     private fun documentKey(editor: NativeEditorView): String {
