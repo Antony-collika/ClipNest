@@ -98,7 +98,6 @@ class EditorScrollRestoreController(private val application: Application) : Appl
         editor.postOnAnimation {
             if (documentKey(editor) != key || lastEditor?.get() !== editor) return@postOnAnimation
             editor.scrollTo(editor.scrollX, target)
-            EditorDiagnosticLog.log("SCROLL", "viewport-wins restore target=$target applied once")
         }
     }
 
