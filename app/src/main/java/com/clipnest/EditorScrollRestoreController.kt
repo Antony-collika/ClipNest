@@ -12,9 +12,9 @@ import java.lang.ref.WeakReference
 /**
  * Final guard for same-process editor viewport restoration.
  *
- * EditorViewModel owns the source of truth for cursor and live scroll state. This
- * controller only re-applies the captured live viewport after Android/Compose has
- * replaced and laid out a native editor view.
+ * The native editor can be scrolled to the caret after its first layout. Keep the
+ * live viewport as the source of truth for a short settling window so late cursor,
+ * focus and Compose layout passes cannot overwrite it.
  */
 class EditorScrollRestoreController(private val application: Application) : Application.ActivityLifecycleCallbacks {
     private data class ViewportSnapshot(val documentKey: String, val scrollY: Int)
@@ -61,8 +61,8 @@ class EditorScrollRestoreController(private val application: Application) : Appl
             }
 
             if (lastEditor?.get() !== editor) {
-                // The old view is still the source of truth for the viewport. Capture it
-                // before replacing the weak reference with the new editor instance.
+                // Capture the old native view before replacing the reference. This is
+                // the important hand-off when Compose creates a fresh AndroidView.
                 captureCurrentEditor(activity)
                 lastEditor = WeakReference(editor)
                 scheduleRestore(editor)
@@ -83,7 +83,7 @@ class EditorScrollRestoreController(private val application: Application) : Appl
         val editor = lastEditor?.get() ?: findEditor(activity.window.decorView) ?: return
         val key = documentKey(editor)
         if (key.isBlank()) return
-        snapshots[key] = ViewportSnapshot(key, editor.scrollY.coerceAtLeast(0))
+        snapshots[key] = ViewportSnapshot(key, editor.scrollY)
         trimSnapshots()
         lastEditor = WeakReference(editor)
     }
@@ -94,23 +94,21 @@ class EditorScrollRestoreController(private val application: Application) : Appl
         val snapshot = snapshots[key] ?: return
         val target = snapshot.scrollY
 
-        // NativeEditorView already restores during layout. These frame-delayed checks
-        // cover later cursor/focus/layout passes that can otherwise pull the viewport
-        // back to the cursor after the first restore has completed.
-        editor.postOnAnimation {
-            applyScrollIfCurrent(editor, key, target)
+        // One onLayout restore is not sufficient: setSelection(), focus and Compose
+        // can request the caret into view several frames later. Re-apply the exact
+        // saved viewport for a short settling window (16 frames ~= 250ms at 60Hz).
+        // This is deliberately finite so normal user scrolling immediately regains
+        // control and we never fight the user indefinitely.
+        var remainingFrames = 16
+        fun restoreNextFrame() {
+            if (remainingFrames-- <= 0) return
             editor.postOnAnimation {
-                applyScrollIfCurrent(editor, key, target)
-                editor.postOnAnimation {
-                    applyScrollIfCurrent(editor, key, target)
-                }
+                if (documentKey(editor) != key || lastEditor?.get() !== editor) return@postOnAnimation
+                editor.scrollTo(editor.scrollX, target)
+                restoreNextFrame()
             }
         }
-    }
-
-    private fun applyScrollIfCurrent(editor: NativeEditorView, key: String, target: Int) {
-        if (documentKey(editor) != key) return
-        if (editor.scrollY != target) editor.scrollTo(editor.scrollX, target)
+        restoreNextFrame()
     }
 
     private fun documentKey(editor: NativeEditorView): String {
