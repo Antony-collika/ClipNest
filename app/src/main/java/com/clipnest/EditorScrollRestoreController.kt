@@ -106,7 +106,6 @@ class EditorScrollRestoreController(private val application: Application) : Appl
             val visibleLine = layout.getLineForVertical(safeY)
             val visibleOffset = layout.getLineStart(visibleLine).coerceIn(0, editor.length())
             editor.setSelection(visibleOffset)
-            EditorDiagnosticLog.log("SCROLL", "cursor-in-viewport restore scrollY=$target cursor=$visibleOffset")
         }
     }
 
