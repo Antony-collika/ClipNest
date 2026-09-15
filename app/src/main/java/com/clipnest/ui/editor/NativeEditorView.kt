@@ -49,13 +49,7 @@ class NativeEditorView @JvmOverloads constructor(
         private const val ACCESSIBILITY_TEXT_LIMIT = 10_000
         private const val MAX_UNDO_STEPS = 100
         private const val MAX_HISTORY_CHARS = 100_000
-        private const val SCROLL_POSITION_PREFS = "editor_scroll_positions"
-        private const val SCROLL_POSITION_PREFIX = "position_"
     }
-
-    private val scrollPositionPrefs = context.getSharedPreferences(SCROLL_POSITION_PREFS, Context.MODE_PRIVATE)
-    private var documentScrollKey: String? = null
-    private var pendingRestoreScrollY: Int? = null
 
     private var internalMutation = false
     private var transactionDepth = 0
@@ -155,8 +149,7 @@ class NativeEditorView @JvmOverloads constructor(
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
         super.onLayout(changed, left, top, right, bottom)
         updateStableScrollBounds()
-        EditorDiagnosticLog.log("LIFECYCLE", "onLayout  changed=$changed  scrollY(before restore)=$scrollY  pendingRestoreScrollY=$pendingRestoreScrollY  selection=$selectionStart-$selectionEnd")
-        restorePendingScrollIfReady()
+        EditorDiagnosticLog.log("LIFECYCLE", "onLayout  changed=$changed  scrollY=$scrollY  selection=$selectionStart-$selectionEnd")
     }
 
     override fun onFocusChanged(focused: Boolean, direction: Int, previouslyFocusedRect: android.graphics.Rect?) {
@@ -168,26 +161,41 @@ class NativeEditorView @JvmOverloads constructor(
     override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
         super.onWindowFocusChanged(hasWindowFocus)
         EditorDiagnosticLog.log("LIFECYCLE", "onWindowFocusChanged  hasWindowFocus=$hasWindowFocus  scrollY=$scrollY  selection=$selectionStart-$selectionEnd")
-        if (!hasWindowFocus) saveCurrentScrollPosition()
     }
 
     override fun onWindowVisibilityChanged(visibility: Int) {
         super.onWindowVisibilityChanged(visibility)
         EditorDiagnosticLog.log("LIFECYCLE", "onWindowVisibilityChanged  visibility=$visibility (VISIBLE=0)  scrollY=$scrollY")
-        if (visibility != View.VISIBLE) saveCurrentScrollPosition()
+        // The view may become hidden (e.g. pressing Home) without being detached from
+        // the window yet. Report what's on screen here too, for the same reason as
+        // onDetachedFromWindow below, so "where the user left off" isn't lost between
+        // going to background and the view eventually being torn down.
+        if (visibility != View.VISIBLE && !internalMutation) {
+            val reportOffset = visibleCaretOrTopOfViewport()
+            selectionChangeListener?.invoke(reportOffset, reportOffset)
+            EditorDiagnosticLog.log("LIFECYCLE", "onWindowVisibilityChanged  reported selection=$reportOffset-$reportOffset (actualCaret=$selectionStart-$selectionEnd)")
+        }
     }
 
     override fun onDetachedFromWindow() {
         EditorDiagnosticLog.log("LIFECYCLE", "onDetachedFromWindow BEGIN  text.length=${length()}  selection=$selectionStart-$selectionEnd  scrollY=$scrollY  identity=${System.identityHashCode(this)}")
-        saveCurrentScrollPosition()
         // This is the one callback guaranteed to fire when Compose Navigation removes
         // this screen from composition (e.g. navigating to Settings) or when the
         // process is killed and this view is torn down — well before any save/pause
         // hook might run. Report the final caret position here so the external
-        // "last known selection" never goes stale, which is what caused the caret
-        // and scroll to jump to the end of the document when coming back.
-        if (!internalMutation) selectionChangeListener?.invoke(selectionStart, selectionEnd)
-        EditorDiagnosticLog.log("LIFECYCLE", "onDetachedFromWindow END  reported selection=$selectionStart-$selectionEnd to listener (internalMutation=$internalMutation)")
+        // "last known selection" never goes stale. The caret is the single source of
+        // truth for "where the user left off" — scroll is derived from it on restore
+        // via Android's own scroll-to-caret behavior, the same way most text editors
+        // (Obsidian, VS Code, Nova, etc.) handle this: they persist the caret offset,
+        // not a separate scroll pixel value, and let the platform bring it into view.
+        //
+        // But scrolling to read (without tapping) doesn't move the caret, so if the
+        // caret isn't currently visible in the viewport, what the user actually wants
+        // remembered is what they were looking at, not the stale caret position. Use
+        // the first visible character in that case instead.
+        val reportOffset = visibleCaretOrTopOfViewport()
+        if (!internalMutation) selectionChangeListener?.invoke(reportOffset, reportOffset)
+        EditorDiagnosticLog.log("LIFECYCLE", "onDetachedFromWindow END  reported selection=$reportOffset-$reportOffset to listener (actualCaret=$selectionStart-$selectionEnd, internalMutation=$internalMutation)")
         super.onDetachedFromWindow()
     }
 
@@ -415,27 +423,22 @@ class NativeEditorView @JvmOverloads constructor(
     private fun overscrollDistance(distance: Int): Int = (distance * 0.75f).toInt().coerceAtMost(overscrollLimitPx)
     private fun springBackToBounds(maxScrollY: Int) { if (flingScroller.springBack(scrollX, scrollY, 0, 0, 0, maxScrollY)) postInvalidateOnAnimation() else scrollToClamped(scrollY) }
 
-    private fun scrollKey(value: CharSequence): String = SCROLL_POSITION_PREFIX + value.length + "_" + value.hashCode().toUInt().toString(16)
-
-    private fun saveCurrentScrollPosition() {
-        val key = documentScrollKey ?: return
-        if (length() == 0) return
-        EditorDiagnosticLog.log("SCROLL", "saveCurrentScrollPosition  key=$key  scrollY=${scrollY.coerceAtLeast(0)}")
-        scrollPositionPrefs.edit().putInt(key, scrollY.coerceAtLeast(0)).apply()
-    }
-
-    private fun restorePendingScrollIfReady() {
-        val target = pendingRestoreScrollY ?: return
-        if (height <= 0 || layout?.height ?: 0 <= 0) return
-        pendingRestoreScrollY = null
-        EditorDiagnosticLog.log("SCROLL", "restorePendingScrollIfReady  scheduling scrollToClamped(target=$target)  currentScrollY=$scrollY")
-        post {
-            if (documentScrollKey != null && length() > 0) {
-                EditorDiagnosticLog.log("SCROLL", "restorePendingScrollIfReady.post  applying scrollToClamped(target=$target)  scrollY(before)=$scrollY  selection(before)=$selectionStart-$selectionEnd")
-                scrollToClamped(target)
-                EditorDiagnosticLog.log("SCROLL", "restorePendingScrollIfReady.post  applied  scrollY(after)=$scrollY")
-            }
-        }
+    /**
+     * Returns the current caret offset if it's within the visible viewport, or the
+     * offset of the first character currently visible at the top of the viewport
+     * otherwise. Scrolling to read doesn't move the caret, so when the two disagree,
+     * "what's on screen" better reflects where the user actually left off than a caret
+     * that's still sitting wherever it was last typed (often end-of-text).
+     */
+    private fun visibleCaretOrTopOfViewport(): Int {
+        val lay = layout ?: return selectionStart
+        if (length() == 0 || height <= 0) return selectionStart
+        val topLine = lay.getLineForVertical(scrollY)
+        val bottomVisibleY = (scrollY + height - paddingTop - paddingBottom).coerceAtLeast(scrollY)
+        val bottomLine = lay.getLineForVertical(bottomVisibleY)
+        val caretLine = try { lay.getLineForOffset(selectionStart) } catch (e: Exception) { topLine }
+        if (caretLine in topLine..bottomLine) return selectionStart
+        return lay.getLineStart(topLine).coerceIn(0, length())
     }
 
     fun setTextChangeListener(listener: ((NativeEditorView) -> Unit)?) { textChangeListener = listener }
@@ -512,10 +515,6 @@ class NativeEditorView @JvmOverloads constructor(
 
     fun setEditorText(value: CharSequence, selectionStart: Int = value.length, selectionEnd: Int = selectionStart) {
         EditorDiagnosticLog.log("SET_TEXT", "setEditorText CALLED  requestedSelection=$selectionStart-$selectionEnd  value.length=${value.length}  (default-to-end used = ${selectionStart == value.length})  identity=${System.identityHashCode(this)}")
-        saveCurrentScrollPosition()
-        val key = scrollKey(value)
-        pendingRestoreScrollY = scrollPositionPrefs.getInt(key, 0).takeIf { it > 0 }
-        documentScrollKey = key
         beginBatchEdit()
         internalMutation = true
         try {
@@ -523,13 +522,19 @@ class NativeEditorView @JvmOverloads constructor(
             val safeStart = selectionStart.coerceIn(0, length())
             val safeEnd = selectionEnd.coerceIn(safeStart, length())
             setSelection(safeStart, safeEnd)
-            EditorDiagnosticLog.log("SET_TEXT", "setEditorText applied  safeSelection=$safeStart-$safeEnd  pendingRestoreScrollY=$pendingRestoreScrollY")
+            EditorDiagnosticLog.log("SET_TEXT", "setEditorText applied  safeSelection=$safeStart-$safeEnd")
             undoStack.clear(); redoStack.clear()
         } finally {
             internalMutation = false
             endBatchEdit()
         }
         invalidate()
+        // The caret is the single source of truth for "where the user left off" — once
+        // it's set above, scroll it into view the normal Android way rather than
+        // tracking a separate scroll pixel value ourselves. Calling this directly (not
+        // requestFocus()) scrolls to the caret without forcing focus/keyboard open —
+        // the user still has to tap to start editing, same as before.
+        post { bringPointIntoView(selectionStart) }
     }
 
     fun undo() {
