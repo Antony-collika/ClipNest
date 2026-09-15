@@ -51,6 +51,25 @@ class FileManager(private val context: android.content.Context) {
         File(documentsDir, EDITOR_TITLE_FILE_NAME).writeText(title, StandardCharsets.UTF_8)
     }
 
+    /**
+     * Persists the caret position for the internal editor document to disk, so it
+     * survives the process being killed (swipe-away, low-memory kill), not just
+     * backgrounding. Stored as "start,end"; corrupt or missing files are treated as
+     * "no saved position" rather than crashing.
+     */
+    fun writeEditorCursor(start: Int, end: Int) {
+        File(documentsDir, EDITOR_CURSOR_FILE_NAME).writeText("$start,$end", StandardCharsets.UTF_8)
+    }
+
+    fun readEditorCursor(): Pair<Int, Int>? {
+        val file = File(documentsDir, EDITOR_CURSOR_FILE_NAME)
+        if (!file.exists()) return null
+        return runCatching {
+            val (start, end) = file.readText(StandardCharsets.UTF_8).split(",").map { it.trim().toInt() }
+            start to end
+        }.getOrNull()
+    }
+
     fun saveNewFile(baseName: String, format: ExportFormat, content: String): File {
         return try {
             val finalName = buildFileName(baseName, format)
@@ -122,6 +141,7 @@ class FileManager(private val context: android.content.Context) {
     companion object {
         const val EDITOR_FILE_NAME = "Editor.md"
         const val EDITOR_TITLE_FILE_NAME = "Editor.title"
+        const val EDITOR_CURSOR_FILE_NAME = "Editor.cursor"
 
         fun sanitizeFileName(name: String): String {
             val trimmed = name.trim()
