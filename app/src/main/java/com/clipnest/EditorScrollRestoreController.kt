@@ -65,11 +65,17 @@ class EditorScrollRestoreController(private val application: Application) : Appl
             val key = documentKey(editor)
             val identityChanged = lastEditor?.get() !== editor
             val documentChanged = key.isNotBlank() && key != lastEditorKey
-            if (identityChanged || documentChanged) {
-                captureCurrentEditor(activity)
-                lastEditor = WeakReference(editor)
-                lastEditorKey = key
-                scheduleRestore(editor, key)
+            when {
+                identityChanged -> {
+                    captureCurrentEditor(activity)
+                    lastEditor = WeakReference(editor)
+                    lastEditorKey = key
+                    scheduleRestore(editor, key)
+                }
+                documentChanged -> {
+                    lastEditorKey = key
+                    scheduleRestore(editor, key)
+                }
             }
         }
         globalLayoutListener = listener
@@ -97,9 +103,6 @@ class EditorScrollRestoreController(private val application: Application) : Appl
         val snapshot = snapshots[key] ?: return
         val target = snapshot.scrollY
 
-        // NativeEditorView already restores during layout. These frame-delayed checks
-        // cover later cursor/focus/layout passes that can otherwise pull the viewport
-        // back to the cursor after the first restore has completed.
         editor.postOnAnimation {
             applyScrollIfCurrent(editor, key, target)
             editor.postOnAnimation {
