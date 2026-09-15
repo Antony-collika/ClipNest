@@ -142,6 +142,11 @@ class NativeEditorView @JvmOverloads constructor(
         canvas.restore()
     }
 
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        EditorDiagnosticLog.log("LIFECYCLE", "onAttachedToWindow  text.length=${length()}  selection=$selectionStart-$selectionEnd  identity=${System.identityHashCode(this)}")
+    }
+
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         updateStableScrollBounds()
@@ -150,25 +155,30 @@ class NativeEditorView @JvmOverloads constructor(
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
         super.onLayout(changed, left, top, right, bottom)
         updateStableScrollBounds()
+        EditorDiagnosticLog.log("LIFECYCLE", "onLayout  changed=$changed  scrollY(before restore)=$scrollY  pendingRestoreScrollY=$pendingRestoreScrollY  selection=$selectionStart-$selectionEnd")
         restorePendingScrollIfReady()
     }
 
     override fun onFocusChanged(focused: Boolean, direction: Int, previouslyFocusedRect: android.graphics.Rect?) {
         super.onFocusChanged(focused, direction, previouslyFocusedRect)
         invalidate()
+        EditorDiagnosticLog.log("LIFECYCLE", "onFocusChanged  focused=$focused  selection=$selectionStart-$selectionEnd  scrollY=$scrollY")
     }
 
     override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
         super.onWindowFocusChanged(hasWindowFocus)
+        EditorDiagnosticLog.log("LIFECYCLE", "onWindowFocusChanged  hasWindowFocus=$hasWindowFocus  scrollY=$scrollY  selection=$selectionStart-$selectionEnd")
         if (!hasWindowFocus) saveCurrentScrollPosition()
     }
 
     override fun onWindowVisibilityChanged(visibility: Int) {
         super.onWindowVisibilityChanged(visibility)
+        EditorDiagnosticLog.log("LIFECYCLE", "onWindowVisibilityChanged  visibility=$visibility (VISIBLE=0)  scrollY=$scrollY")
         if (visibility != View.VISIBLE) saveCurrentScrollPosition()
     }
 
     override fun onDetachedFromWindow() {
+        EditorDiagnosticLog.log("LIFECYCLE", "onDetachedFromWindow BEGIN  text.length=${length()}  selection=$selectionStart-$selectionEnd  scrollY=$scrollY  identity=${System.identityHashCode(this)}")
         saveCurrentScrollPosition()
         // This is the one callback guaranteed to fire when Compose Navigation removes
         // this screen from composition (e.g. navigating to Settings) or when the
@@ -177,12 +187,14 @@ class NativeEditorView @JvmOverloads constructor(
         // "last known selection" never goes stale, which is what caused the caret
         // and scroll to jump to the end of the document when coming back.
         if (!internalMutation) selectionChangeListener?.invoke(selectionStart, selectionEnd)
+        EditorDiagnosticLog.log("LIFECYCLE", "onDetachedFromWindow END  reported selection=$selectionStart-$selectionEnd to listener (internalMutation=$internalMutation)")
         super.onDetachedFromWindow()
     }
 
     override fun onSelectionChanged(selStart: Int, selEnd: Int) {
         super.onSelectionChanged(selStart, selEnd)
         invalidate()
+        EditorDiagnosticLog.log("SELECTION", "onSelectionChanged  new=$selStart-$selEnd  internalMutation=$internalMutation  text.length=${length()}")
         // Reports every real selection/caret move so callers can keep an external
         // "last known selection" in sync, for restoring the caret when this view is
         // torn down and recreated (e.g. Compose Navigation removing this screen from
@@ -408,6 +420,7 @@ class NativeEditorView @JvmOverloads constructor(
     private fun saveCurrentScrollPosition() {
         val key = documentScrollKey ?: return
         if (length() == 0) return
+        EditorDiagnosticLog.log("SCROLL", "saveCurrentScrollPosition  key=$key  scrollY=${scrollY.coerceAtLeast(0)}")
         scrollPositionPrefs.edit().putInt(key, scrollY.coerceAtLeast(0)).apply()
     }
 
@@ -415,7 +428,14 @@ class NativeEditorView @JvmOverloads constructor(
         val target = pendingRestoreScrollY ?: return
         if (height <= 0 || layout?.height ?: 0 <= 0) return
         pendingRestoreScrollY = null
-        post { if (documentScrollKey != null && length() > 0) scrollToClamped(target) }
+        EditorDiagnosticLog.log("SCROLL", "restorePendingScrollIfReady  scheduling scrollToClamped(target=$target)  currentScrollY=$scrollY")
+        post {
+            if (documentScrollKey != null && length() > 0) {
+                EditorDiagnosticLog.log("SCROLL", "restorePendingScrollIfReady.post  applying scrollToClamped(target=$target)  scrollY(before)=$scrollY  selection(before)=$selectionStart-$selectionEnd")
+                scrollToClamped(target)
+                EditorDiagnosticLog.log("SCROLL", "restorePendingScrollIfReady.post  applied  scrollY(after)=$scrollY")
+            }
+        }
     }
 
     fun setTextChangeListener(listener: ((NativeEditorView) -> Unit)?) { textChangeListener = listener }
@@ -491,6 +511,7 @@ class NativeEditorView @JvmOverloads constructor(
     }
 
     fun setEditorText(value: CharSequence, selectionStart: Int = value.length, selectionEnd: Int = selectionStart) {
+        EditorDiagnosticLog.log("SET_TEXT", "setEditorText CALLED  requestedSelection=$selectionStart-$selectionEnd  value.length=${value.length}  (default-to-end used = ${selectionStart == value.length})  identity=${System.identityHashCode(this)}")
         saveCurrentScrollPosition()
         val key = scrollKey(value)
         pendingRestoreScrollY = scrollPositionPrefs.getInt(key, 0).takeIf { it > 0 }
@@ -502,6 +523,7 @@ class NativeEditorView @JvmOverloads constructor(
             val safeStart = selectionStart.coerceIn(0, length())
             val safeEnd = selectionEnd.coerceIn(safeStart, length())
             setSelection(safeStart, safeEnd)
+            EditorDiagnosticLog.log("SET_TEXT", "setEditorText applied  safeSelection=$safeStart-$safeEnd  pendingRestoreScrollY=$pendingRestoreScrollY")
             undoStack.clear(); redoStack.clear()
         } finally {
             internalMutation = false

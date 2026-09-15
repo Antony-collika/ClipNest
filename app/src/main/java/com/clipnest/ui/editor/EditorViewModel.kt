@@ -122,12 +122,16 @@ class EditorViewModel(
     val settings: StateFlow<com.clipnest.data.local.UserSettings> = settingsDataStore.userSettingsFlow.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), com.clipnest.data.local.UserSettings())
 
     fun bindNativeEditor(editor: NativeEditorView) {
+        EditorDiagnosticLog.log("BIND", "bindNativeEditor CALLED  sameInstance=${nativeEditor === editor}  incoming.text.length=${editor.text?.length}  incoming.text.isEmpty=${editor.text?.isEmpty()}  editorLoaded=$editorLoaded  content.selection(before)=${_uiState.value.content.selection}")
         if (nativeEditor === editor) return
         // Capture the outgoing view's text + caret position before detaching, in case
         // its own onDetachedFromWindow callback hasn't fired yet at this point. Using
         // setFallback (not setFallbackSelection) so the selection isn't coerced against
         // a possibly-stale fallbackText length.
-        nativeEditor?.let { _uiState.value.content.setFallback(it.text?.toString() ?: "", TextRange(it.selectionStart, it.selectionEnd)) }
+        nativeEditor?.let {
+            EditorDiagnosticLog.log("BIND", "capturing outgoing editor state before switch  selection=${it.selectionStart}-${it.selectionEnd}  text.length=${it.text?.length}")
+            _uiState.value.content.setFallback(it.text?.toString() ?: "", TextRange(it.selectionStart, it.selectionEnd))
+        }
         nativeEditor?.setTextChangeListener(null)
         nativeEditor?.setSelectionChangeListener(null)
         nativeEditor = editor
@@ -142,6 +146,8 @@ class EditorViewModel(
             _uiState.value.content.setFallback(editor.text?.toString() ?: "", TextRange(start, end))
         }
         editor.setEditorTextSize(settings.value.editorTextSize)
+        val willCallSetEditorText = !editorLoaded || editor.text?.isEmpty() == true
+        EditorDiagnosticLog.log("BIND", "decision: willCallSetEditorText=$willCallSetEditorText  (!editorLoaded=${!editorLoaded}  OR  editor.text.isEmpty=${editor.text?.isEmpty()})  content.selection(to use)=${_uiState.value.content.selection}  content.text.length=${_uiState.value.content.text.length}")
         if (!editorLoaded || editor.text?.isEmpty() == true) {
             val content = _uiState.value.content
             editor.setEditorText(content.text, content.selection.start, content.selection.end)
