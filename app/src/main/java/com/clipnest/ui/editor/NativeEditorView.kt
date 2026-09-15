@@ -170,16 +170,24 @@ class NativeEditorView @JvmOverloads constructor(
 
     override fun onDetachedFromWindow() {
         saveCurrentScrollPosition()
+        // This is the one callback guaranteed to fire when Compose Navigation removes
+        // this screen from composition (e.g. navigating to Settings) or when the
+        // process is killed and this view is torn down — well before any save/pause
+        // hook might run. Report the final caret position here so the external
+        // "last known selection" never goes stale, which is what caused the caret
+        // and scroll to jump to the end of the document when coming back.
+        if (!internalMutation) selectionChangeListener?.invoke(selectionStart, selectionEnd)
         super.onDetachedFromWindow()
     }
 
     override fun onSelectionChanged(selStart: Int, selEnd: Int) {
         super.onSelectionChanged(selStart, selEnd)
         invalidate()
-        // Reports every real selection/caret move (typing, tapping, dragging handles,
-        // programmatic setSelection) so callers can keep an external "last known
-        // selection" in sync in real time, instead of only at a few fixed save points.
-        selectionChangeListener?.invoke(selStart, selEnd)
+        // Reports every real selection/caret move so callers can keep an external
+        // "last known selection" in sync, for restoring the caret when this view is
+        // torn down and recreated (e.g. Compose Navigation removing this screen from
+        // composition, then recomposing it on Back) rather than only at save points.
+        if (!internalMutation) selectionChangeListener?.invoke(selStart, selEnd)
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {

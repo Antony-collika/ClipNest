@@ -123,19 +123,22 @@ class EditorViewModel(
 
     fun bindNativeEditor(editor: NativeEditorView) {
         if (nativeEditor === editor) return
+        // Capture the outgoing view's text + caret position before detaching, in case
+        // its own onDetachedFromWindow callback hasn't fired yet at this point. Using
+        // setFallback (not setFallbackSelection) so the selection isn't coerced against
+        // a possibly-stale fallbackText length.
+        nativeEditor?.let { _uiState.value.content.setFallback(it.text?.toString() ?: "", TextRange(it.selectionStart, it.selectionEnd)) }
         nativeEditor?.setTextChangeListener(null)
         nativeEditor?.setSelectionChangeListener(null)
         nativeEditor = editor
         editor.setTextChangeListener { onDocumentTextChanged() }
-        // Keep content.selection continuously in sync with the real caret position
-        // (typing, tapping, dragging) rather than only at fixed fallback points like
-        // save/load. Without this, content.selection could go stale to "end of text"
-        // whenever nativeEditor happened to be null at a save/pause moment (e.g. the
-        // view being destroyed while the app goes to background), which is what made
-        // the cursor and scroll jump to the end after leaving and returning to the editor.
+        // Keep content.selection (and its matching text) continuously in sync with the
+        // real caret position, and in particular on detach (see
+        // NativeEditorView.onDetachedFromWindow), so that when this screen is removed
+        // from composition (e.g. navigating to Settings) and recomposed later with a
+        // brand-new NativeEditorView, the caret and scroll are restored to where the
+        // user left off instead of jumping to the end.
         editor.setSelectionChangeListener { start, end ->
-            // Use the editor's own current text (not the possibly-stale fallbackText)
-            // so the selection isn't coerced against an outdated length while typing.
             _uiState.value.content.setFallback(editor.text?.toString() ?: "", TextRange(start, end))
         }
         editor.setEditorTextSize(settings.value.editorTextSize)
@@ -459,10 +462,7 @@ class EditorViewModel(
         val state = _uiState.value
         val text = currentDocumentText()
         val revision = state.documentRevision
-        // Same reasoning as saveCurrentDocumentSilently(): don't force the selection to
-        // end-of-text just because the live view isn't available at this exact moment.
-        nativeEditor?.let { _uiState.value.content.setFallback(text, TextRange(it.selectionStart, it.selectionEnd)) }
-            ?: _uiState.value.content.setFallback(text, _uiState.value.content.selection)
+        _uiState.value.content.setFallback(text, nativeEditor?.let { TextRange(it.selectionStart, it.selectionEnd) } ?: TextRange(text.length))
         viewModelScope.launch(Dispatchers.IO) {
             val saved = runCatching { writeDocumentSnapshot(state, contentResolver, text) }.isSuccess
             withContext(Dispatchers.Main.immediate) { if (saved && _uiState.value.documentRevision == revision) _uiState.value = _uiState.value.copy(isDirty = false, lastSavedTimestamp = System.currentTimeMillis()); onComplete() }
@@ -544,13 +544,7 @@ class EditorViewModel(
         val text = currentDocumentText()
         val state = _uiState.value
         val revision = state.documentRevision
-        // Only overwrite content.selection when we can read the real caret position from
-        // the live view. If nativeEditor is null here (e.g. the view was already torn down
-        // because the app is going to background), leave content.selection as-is instead of
-        // forcing it to end-of-text — that fallback is what made the cursor/scroll jump to
-        // the end after leaving and returning to the editor.
-        nativeEditor?.let { _uiState.value.content.setFallback(text, TextRange(it.selectionStart, it.selectionEnd)) }
-            ?: _uiState.value.content.setFallback(text, _uiState.value.content.selection)
+        _uiState.value.content.setFallback(text, nativeEditor?.let { TextRange(it.selectionStart, it.selectionEnd) } ?: TextRange(text.length))
         viewModelScope.launch(Dispatchers.IO) {
             val saved = runCatching { writeDocumentSnapshot(state, appContext.contentResolver, text) }.isSuccess
             withContext(Dispatchers.Main.immediate) { if (saved && _uiState.value.documentRevision == revision) _uiState.value = _uiState.value.copy(isDirty = false, lastSavedTimestamp = System.currentTimeMillis()) }
