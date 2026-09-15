@@ -52,6 +52,7 @@ class NativeEditorView @JvmOverloads constructor(
     }
 
     private var internalMutation = false
+    private var pendingScrollRestoreY: Int? = null
     private var transactionDepth = 0
     private var transactionBeforeText: String? = null
     private var transactionBeforeSelectionStart = 0
@@ -150,7 +151,14 @@ class NativeEditorView @JvmOverloads constructor(
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
         super.onLayout(changed, left, top, right, bottom)
         updateStableScrollBounds()
-        EditorDiagnosticLog.log("LIFECYCLE", "onLayout  changed=$changed  scrollY=$scrollY  selection=$selectionStart-$selectionEnd")
+        EditorDiagnosticLog.log("LIFECYCLE", "onLayout  changed=$changed  scrollY=$scrollY  selection=$selectionStart-$selectionEnd  pendingScrollRestoreY=$pendingScrollRestoreY")
+        val target = pendingScrollRestoreY
+        if (target != null && height > 0) {
+            pendingScrollRestoreY = null
+            EditorDiagnosticLog.log("SCROLL", "onLayout  applying pending scroll restore target=$target  scrollY(before)=$scrollY")
+            scrollToClamped(target)
+            EditorDiagnosticLog.log("SCROLL", "onLayout  applied  scrollY(after)=$scrollY")
+        }
     }
 
     override fun onFocusChanged(focused: Boolean, direction: Int, previouslyFocusedRect: android.graphics.Rect?) {
@@ -454,7 +462,10 @@ class NativeEditorView @JvmOverloads constructor(
 
     fun setTextChangeListener(listener: ((NativeEditorView) -> Unit)?) { textChangeListener = listener }
     fun setSelectionChangeListener(listener: ((Int, Int) -> Unit)?) { selectionChangeListener = listener }
-    fun setScrollPositionListener(listener: ((Int) -> Unit)?) { scrollPositionListener = listener }
+    fun setScrollPositionListener(listener: ((Int) -> Unit)?) {
+        scrollPositionListener = listener
+        EditorDiagnosticLog.log("SCROLL", "setScrollPositionListener  listenerIsNull=${listener == null}  identity=${System.identityHashCode(this)}")
+    }
 
     fun setEditorTextSize(size: EditorTextSize) {
         setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, size.sp.toFloat())
@@ -546,13 +557,20 @@ class NativeEditorView @JvmOverloads constructor(
             // e.g. Settings, or closing an external file — not a fresh process after
             // being killed). This is what the user was actually looking at, which may
             // be nowhere near the caret if they only scrolled to read without tapping.
-            // Apply it last, after layout settles, so it wins over the caret-follow
-            // behavior below.
-            post { scrollToClamped(restoreScrollY) }
+            //
+            // Deferred to onLayout (not post{}): setEditorText can run before this view
+            // is even attached to a window (e.g. called from the AndroidView factory
+            // lambda, before onAttachedToWindow/onLayout have happened yet). post{}
+            // silently drops or reorders work queued before a view has a Handler, so a
+            // plain post{} here was intermittently losing the scroll restore. onLayout
+            // is the first point layout (and thus a valid maxScrollY()) is guaranteed.
+            pendingScrollRestoreY = restoreScrollY
+            EditorDiagnosticLog.log("SCROLL", "setEditorText  queued pendingScrollRestoreY=$restoreScrollY for onLayout")
         } else {
             // No live scroll to restore (fresh process, or first load) — fall back to
             // scrolling to the caret the normal Android way. Calling this directly
             // (not requestFocus()) scrolls without forcing focus/keyboard open.
+            pendingScrollRestoreY = null
             post { bringPointIntoView(selectionStart) }
         }
     }
