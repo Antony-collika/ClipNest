@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
+import com.clipnest.ui.editor.EditorDiagnosticLog
 import com.clipnest.ui.editor.NativeEditorView
 import java.lang.ref.WeakReference
 
@@ -66,9 +67,6 @@ class EditorScrollRestoreController(private val application: Application) : Appl
             }
 
             if (lastEditor?.get() !== editor) {
-                // Capture the outgoing editor before replacing the identity. Do not
-                // capture the incoming editor here: its scrollY is usually zero and
-                // would overwrite the viewport snapshot we actually want to restore.
                 captureCurrentEditor(activity)
                 lastEditor = WeakReference(editor)
                 scheduleRestoreAfterLayout(editor)
@@ -110,9 +108,6 @@ class EditorScrollRestoreController(private val application: Application) : Appl
                 stopCaretEnforcement()
                 return@OnPreDrawListener true
             }
-
-            // A real touch means the user has taken control of the caret. From this
-            // point on Android's normal selection/scroll behavior must be allowed.
             if (editor.isPressed) {
                 stopCaretEnforcement()
                 return@OnPreDrawListener true
@@ -122,8 +117,6 @@ class EditorScrollRestoreController(private val application: Application) : Appl
             val maxScroll = (layout.height - editor.height).coerceAtLeast(0)
             val restoredScrollY = target.coerceIn(0, maxScroll)
 
-            // Always establish the viewport first. The selection operation below is
-            // deliberately made while this exact viewport is active.
             if (editor.scrollY != restoredScrollY) {
                 editor.scrollTo(editor.scrollX, restoredScrollY)
             }
@@ -141,11 +134,8 @@ class EditorScrollRestoreController(private val application: Application) : Appl
 
             if (!selectionInsideViewport) {
                 editor.setSelection(targetOffset)
-                // setSelection() can synchronously invoke bringPointIntoView().
-                // Re-apply the restored viewport immediately so that Android cannot
-                // turn the caret move into a scroll back to the old selection.
                 editor.scrollTo(editor.scrollX, restoredScrollY)
-                EditorDiagnosticLog.log("SCROLL", "viewport caret enforcement target=$targetOffset restoredScrollY=$restoredScrollY oldSelection=${editor.selectionStart}-${editor.selectionEnd}")
+                EditorDiagnosticLog.log("SCROLL", "viewport caret enforcement target=$targetOffset restoredScrollY=$restoredScrollY")
             }
             true
         }
