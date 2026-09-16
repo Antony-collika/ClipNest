@@ -19,8 +19,8 @@ import java.lang.ref.WeakReference
  * the NativeEditorView during same-process navigation.
  *
  * The snapshot is captured only at the hand-off (the editor disappears or the
- * activity pauses). Restoration is a one-shot pre-draw operation after the new
- * editor has a real layout, so it does not fight normal scrolling during editing.
+ * activity pauses). Restoration is tied to layout readiness, with one additional
+ * animation-step check for late focus/caret work. User touch cancels the restore.
  */
 class EditorViewportRestoreProvider : ContentProvider() {
     private var callbacks: Application.ActivityLifecycleCallbacks? = null
@@ -143,7 +143,20 @@ class EditorViewportRestoreProvider : ContentProvider() {
                         return true
                     }
                     editor.scrollTo(editor.scrollX, target.coerceIn(0, maxScroll))
-                    clearPendingRestore()
+                    observer.removeOnPreDrawListener(this)
+                    pendingPreDraw = null
+                    editor.postOnAnimation {
+                        if (documentKey(editor) != key || lastEditor?.get() !== editor) {
+                            clearPendingRestore()
+                            return@postOnAnimation
+                        }
+                        val lateTarget = pendingTarget ?: return@postOnAnimation
+                        if (editor.scrollY != lateTarget) {
+                            val lateMax = (editor.computeVerticalScrollRange() - editor.computeVerticalScrollExtent()).coerceAtLeast(0)
+                            editor.scrollTo(editor.scrollX, lateTarget.coerceIn(0, lateMax))
+                        }
+                        clearPendingRestore()
+                    }
                     return true
                 }
             }
