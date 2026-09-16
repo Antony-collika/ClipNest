@@ -84,8 +84,7 @@
             android:theme="@style/Theme.TransparentCapture"
             android:excludeFromRecents="true"
             android:noHistory="true"
-            android:taskAffinity=""
-            android:windowSoftInputMode="adjustResize" />
+            android:taskAffinity="" />
 
         <!-- Quick Settings Tile -->
         <service
