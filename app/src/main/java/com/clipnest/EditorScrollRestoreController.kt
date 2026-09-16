@@ -120,10 +120,6 @@ class EditorScrollRestoreController(private val application: Application) : Appl
             // inside the restored viewport, but keep the exact viewport if that call
             // made any adjustment while applying the selection.
             editor.scrollTo(editor.scrollX, restoredScrollY)
-            EditorDiagnosticLog.log(
-                "SCROLL",
-                "Experiment B restored viewport=$restoredScrollY and moved cursor to offset=$targetOffset line=$targetLine"
-            )
             true
         }
         observer.addOnPreDrawListener(preDrawListener)
