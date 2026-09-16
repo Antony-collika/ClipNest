@@ -54,6 +54,12 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
+        <provider
+            android:name=".EditorViewportRestoreProvider"
+            android:authorities="${applicationId}.editor-viewport-restore"
+            android:exported="false"
+            android:initOrder="100" />
+
         <!-- Translucent Overlay Share Dialog (Does NOT switch app, appears on top of calling app) -->
         <activity
             android:name=".ui.share.ShareDialogActivity"
@@ -78,7 +84,8 @@
             android:theme="@style/Theme.TransparentCapture"
             android:excludeFromRecents="true"
             android:noHistory="true"
-            android:taskAffinity="" />
+            android:taskAffinity=""
+            android:windowSoftInputMode="adjustResize" />
 
         <!-- Quick Settings Tile -->
         <service
