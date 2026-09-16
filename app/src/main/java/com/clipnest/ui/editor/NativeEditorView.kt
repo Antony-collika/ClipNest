@@ -58,6 +58,8 @@ class NativeEditorView @JvmOverloads constructor(
     private var transactionBeforeSelectionEnd = 0
     private var textChangeListener: ((NativeEditorView) -> Unit)? = null
     private var selectionChangeListener: ((Int, Int) -> Unit)? = null
+    private var viewportChangeListener: ((Int) -> Unit)? = null
+    private var pendingViewportAnchorRestore: Int? = null
     private val undoStack = ArrayDeque<EditOperation>()
     private val redoStack = ArrayDeque<EditOperation>()
     private var pendingBefore: PendingChange? = null
@@ -171,9 +173,9 @@ class NativeEditorView @JvmOverloads constructor(
         // onDetachedFromWindow below, so "where the user left off" isn't lost between
         // going to background and the view eventually being torn down.
         if (visibility != View.VISIBLE && !internalMutation) {
-            val reportOffset = visibleCaretOrTopOfViewport()
-            selectionChangeListener?.invoke(reportOffset, reportOffset)
-            EditorDiagnosticLog.log("LIFECYCLE", "onWindowVisibilityChanged  reported selection=$reportOffset-$reportOffset (actualCaret=$selectionStart-$selectionEnd)")
+            val anchor = topOfViewportOffset()
+            viewportChangeListener?.invoke(anchor)
+            EditorDiagnosticLog.log("LIFECYCLE", "onWindowVisibilityChanged  reported viewportAnchor=$anchor (actualCaret=$selectionStart-$selectionEnd)")
         }
     }
 
@@ -182,20 +184,22 @@ class NativeEditorView @JvmOverloads constructor(
         // This is the one callback guaranteed to fire when Compose Navigation removes
         // this screen from composition (e.g. navigating to Settings) or when the
         // process is killed and this view is torn down — well before any save/pause
-        // hook might run. Report the final caret position here so the external
-        // "last known selection" never goes stale. The caret is the single source of
-        // truth for "where the user left off" — scroll is derived from it on restore
-        // via Android's own scroll-to-caret behavior, the same way most text editors
-        // (Obsidian, VS Code, Nova, etc.) handle this: they persist the caret offset,
-        // not a separate scroll pixel value, and let the platform bring it into view.
+        // hook might run. Report the final state here so the external "last known"
+        // caret/viewport never goes stale.
         //
-        // But scrolling to read (without tapping) doesn't move the caret, so if the
-        // caret isn't currently visible in the viewport, what the user actually wants
-        // remembered is what they were looking at, not the stale caret position. Use
-        // the first visible character in that case instead.
-        val reportOffset = visibleCaretOrTopOfViewport()
-        if (!internalMutation) selectionChangeListener?.invoke(reportOffset, reportOffset)
-        EditorDiagnosticLog.log("LIFECYCLE", "onDetachedFromWindow END  reported selection=$reportOffset-$reportOffset to listener (actualCaret=$selectionStart-$selectionEnd, internalMutation=$internalMutation)")
+        // Caret and viewport are reported as two independent values, not one. Scrolling
+        // to read (without tapping) moves the viewport but not the caret, and that's a
+        // very common thing for a user to do right before switching screens — so on
+        // restore, the caret must go back to its own last position and the viewport
+        // must go back to its own last position, independently of each other.
+        if (!internalMutation) {
+            val anchor = topOfViewportOffset()
+            selectionChangeListener?.invoke(selectionStart, selectionEnd)
+            viewportChangeListener?.invoke(anchor)
+            EditorDiagnosticLog.log("LIFECYCLE", "onDetachedFromWindow END  reported caret=$selectionStart-$selectionEnd  viewportAnchor=$anchor")
+        } else {
+            EditorDiagnosticLog.log("LIFECYCLE", "onDetachedFromWindow END  skipped report (internalMutation=true)")
+        }
         super.onDetachedFromWindow()
     }
 
@@ -207,7 +211,19 @@ class NativeEditorView @JvmOverloads constructor(
         // "last known selection" in sync, for restoring the caret when this view is
         // torn down and recreated (e.g. Compose Navigation removing this screen from
         // composition, then recomposing it on Back) rather than only at save points.
+        // This never reports a viewport anchor — moving the caret while typing should
+        // never overwrite "where the user was scrolled to".
         if (!internalMutation) selectionChangeListener?.invoke(selStart, selEnd)
+    }
+
+    override fun onScrollChanged(l: Int, t: Int, oldl: Int, oldt: Int) {
+        super.onScrollChanged(l, t, oldl, oldt)
+        // Reports every real scroll (user dragging, flinging, or fast-scrolling) so
+        // callers can keep an external "last known viewport" in sync, the same way
+        // onSelectionChanged keeps the caret in sync. Skipped during internal
+        // mutations (e.g. setEditorText's own scroll-restore) to avoid feeding a
+        // restore value back in as if the user had scrolled there themselves.
+        if (!internalMutation) viewportChangeListener?.invoke(topOfViewportOffset())
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -424,25 +440,25 @@ class NativeEditorView @JvmOverloads constructor(
     private fun springBackToBounds(maxScrollY: Int) { if (flingScroller.springBack(scrollX, scrollY, 0, 0, 0, maxScrollY)) postInvalidateOnAnimation() else scrollToClamped(scrollY) }
 
     /**
-     * Returns the current caret offset if it's within the visible viewport, or the
-     * offset of the first character currently visible at the top of the viewport
-     * otherwise. Scrolling to read doesn't move the caret, so when the two disagree,
-     * "what's on screen" better reflects where the user actually left off than a caret
-     * that's still sitting wherever it was last typed (often end-of-text).
+     * Returns the offset of the first character currently visible at the top of the
+     * viewport. This is always reported as its own value — independent of the caret —
+     * because scrolling to read doesn't move the caret, and "what's on screen" is a
+     * separate fact from "where the caret is" that both need to be restorable on their
+     * own.
      */
-    private fun visibleCaretOrTopOfViewport(): Int {
-        val lay = layout ?: return selectionStart
-        if (length() == 0 || height <= 0) return selectionStart
+    private fun topOfViewportOffset(): Int {
+        val lay = layout ?: return 0
+        if (length() == 0 || height <= 0) return 0
         val topLine = lay.getLineForVertical(scrollY)
-        val bottomVisibleY = (scrollY + height - paddingTop - paddingBottom).coerceAtLeast(scrollY)
-        val bottomLine = lay.getLineForVertical(bottomVisibleY)
-        val caretLine = try { lay.getLineForOffset(selectionStart) } catch (e: Exception) { topLine }
-        if (caretLine in topLine..bottomLine) return selectionStart
         return lay.getLineStart(topLine).coerceIn(0, length())
     }
 
     fun setTextChangeListener(listener: ((NativeEditorView) -> Unit)?) { textChangeListener = listener }
     fun setSelectionChangeListener(listener: ((Int, Int) -> Unit)?) { selectionChangeListener = listener }
+    fun setViewportChangeListener(listener: ((Int) -> Unit)?) { viewportChangeListener = listener }
+
+    /** Current viewport anchor, for callers that want to read it without waiting for a callback. */
+    fun currentViewportAnchor(): Int = topOfViewportOffset()
 
     fun setEditorTextSize(size: EditorTextSize) {
         setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, size.sp.toFloat())
@@ -513,8 +529,24 @@ class NativeEditorView @JvmOverloads constructor(
         invalidate()
     }
 
-    fun setEditorText(value: CharSequence, selectionStart: Int = value.length, selectionEnd: Int = selectionStart) {
-        EditorDiagnosticLog.log("SET_TEXT", "setEditorText CALLED  requestedSelection=$selectionStart-$selectionEnd  value.length=${value.length}  (default-to-end used = ${selectionStart == value.length})  identity=${System.identityHashCode(this)}")
+    /**
+     * Sets the editor's text, caret, and (optionally) the scroll position — as three
+     * independent things.
+     *
+     * [viewportAnchor], when provided, is the offset of the character that should end
+     * up at the top of the viewport after this call — i.e. "what the user was looking
+     * at", which may be far from the caret if they scrolled to read without tapping.
+     * When omitted, this scrolls to the caret instead (the old default-to-end / open a
+     * document behavior), which is what you want for brand-new documents or when there
+     * is no prior scroll position to restore.
+     */
+    fun setEditorText(
+        value: CharSequence,
+        selectionStart: Int = value.length,
+        selectionEnd: Int = selectionStart,
+        viewportAnchor: Int? = null
+    ) {
+        EditorDiagnosticLog.log("SET_TEXT", "setEditorText CALLED  requestedSelection=$selectionStart-$selectionEnd  requestedViewportAnchor=$viewportAnchor  value.length=${value.length}  (default-to-end used = ${selectionStart == value.length})  identity=${System.identityHashCode(this)}")
         beginBatchEdit()
         internalMutation = true
         try {
@@ -529,12 +561,38 @@ class NativeEditorView @JvmOverloads constructor(
             endBatchEdit()
         }
         invalidate()
-        // The caret is the single source of truth for "where the user left off" — once
-        // it's set above, scroll it into view the normal Android way rather than
-        // tracking a separate scroll pixel value ourselves. Calling this directly (not
-        // requestFocus()) scrolls to the caret without forcing focus/keyboard open —
-        // the user still has to tap to start editing, same as before.
-        post { bringPointIntoView(selectionStart) }
+        if (viewportAnchor != null) {
+            // Restore the viewport independently of the caret: scroll so the saved
+            // anchor offset is back at the top of the screen, without ever calling
+            // bringPointIntoView on the caret (that would silently override this and
+            // drag the screen back to wherever the caret happens to be).
+            pendingViewportAnchorRestore = viewportAnchor.coerceIn(0, length())
+            post { applyPendingViewportAnchorRestore() }
+        } else {
+            // No saved viewport to restore (fresh document, new file opened, etc.) —
+            // fall back to scrolling to the caret, same as before.
+            post { bringPointIntoView(selectionStart.coerceIn(0, length())) }
+        }
+    }
+
+    private fun applyPendingViewportAnchorRestore() {
+        val anchor = pendingViewportAnchorRestore ?: return
+        pendingViewportAnchorRestore = null
+        val lay = layout ?: run {
+            // Layout not ready yet on this pass; try again on the next one rather than
+            // silently dropping the restore.
+            pendingViewportAnchorRestore = anchor
+            post { applyPendingViewportAnchorRestore() }
+            return
+        }
+        val line = lay.getLineForOffset(anchor.coerceIn(0, length()))
+        val target = (lay.getLineTop(line) - paddingTop)
+        internalMutation = true
+        try {
+            scrollTo(scrollX, target.coerceIn(0, maxScrollY()))
+        } finally {
+            internalMutation = false
+        }
     }
 
     fun undo() {

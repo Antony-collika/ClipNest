@@ -113,10 +113,14 @@ class EditorViewModel(
     private var pendingExternalOpen: PendingExternalOpen? = null
     private var pendingExternalExitAction: ExternalExitAction? = null
     private var pendingExternalReturnCallback: (() -> Unit)? = null
-    // The internal document's caret position, captured right before switching to an
-    // external document session, so "Return to editor" can restore it instead of
-    // defaulting the caret to end-of-text.
+    // The internal document's caret position and viewport anchor, captured right
+    // before switching to an external document session, so "Return to editor" can
+    // restore both instead of defaulting the caret to end-of-text. Kept as two
+    // separate fields deliberately — the user may have scrolled away from the caret
+    // to read before opening the external document, and that scroll position should
+    // come back too, not just the caret.
     private var savedInternalSelection: TextRange? = null
+    private var savedInternalViewportAnchor: Int? = null
     private var autoSaveJob: Job? = null
     private var cursorSaveJob: Job? = null
     private var searchJob: Job? = null
@@ -127,46 +131,75 @@ class EditorViewModel(
     val settings: StateFlow<com.clipnest.data.local.UserSettings> = settingsDataStore.userSettingsFlow.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), com.clipnest.data.local.UserSettings())
 
     fun bindNativeEditor(editor: NativeEditorView) {
-        EditorDiagnosticLog.log("BIND", "bindNativeEditor CALLED  sameInstance=${nativeEditor === editor}  incoming.text.length=${editor.text?.length}  incoming.text.isEmpty=${editor.text?.isEmpty()}  editorLoaded=$editorLoaded  content.selection(before)=${_uiState.value.content.selection}")
+        EditorDiagnosticLog.log("BIND", "bindNativeEditor CALLED  sameInstance=${nativeEditor === editor}  incoming.text.length=${editor.text?.length}  incoming.text.isEmpty=${editor.text?.isEmpty()}  editorLoaded=$editorLoaded  content.selection(before)=${_uiState.value.content.selection}  content.viewportAnchor(before)=${_uiState.value.content.viewportAnchor}")
         if (nativeEditor === editor) return
-        // Capture the outgoing view's text + caret position before detaching, in case
-        // its own onDetachedFromWindow callback hasn't fired yet at this point. Using
-        // setFallback (not setFallbackSelection) so the selection isn't coerced against
-        // a possibly-stale fallbackText length.
+        // Capture the outgoing view's text + caret + viewport before detaching, in
+        // case its own onDetachedFromWindow callback hasn't fired yet at this point.
+        // Caret and viewport are captured as two independent values — the caret from
+        // selectionStart/selectionEnd, the viewport from currentViewportAnchor() — so
+        // a user who scrolled away from the caret to read doesn't lose that scroll
+        // position just because this capture races the view's own teardown.
         nativeEditor?.let {
-            EditorDiagnosticLog.log("BIND", "capturing outgoing editor state before switch  selection=${it.selectionStart}-${it.selectionEnd}  text.length=${it.text?.length}")
-            _uiState.value.content.setFallback(it.text?.toString() ?: "", TextRange(it.selectionStart, it.selectionEnd))
+            val anchor = it.currentViewportAnchor()
+            EditorDiagnosticLog.log("BIND", "capturing outgoing editor state before switch  selection=${it.selectionStart}-${it.selectionEnd}  viewportAnchor=$anchor  text.length=${it.text?.length}")
+            _uiState.value.content.setFallback(it.text?.toString() ?: "", TextRange(it.selectionStart, it.selectionEnd), anchor)
         }
         nativeEditor?.setTextChangeListener(null)
         nativeEditor?.setSelectionChangeListener(null)
+        nativeEditor?.setViewportChangeListener(null)
         nativeEditor = editor
         editor.setTextChangeListener { onDocumentTextChanged() }
         // Keep content.selection (and its matching text) continuously in sync with the
         // real caret position, and in particular on detach (see
         // NativeEditorView.onDetachedFromWindow), so that when this screen is removed
         // from composition (e.g. navigating to Settings) and recomposed later with a
-        // brand-new NativeEditorView, the caret and scroll are restored to where the
-        // user left off instead of jumping to the end.
+        // brand-new NativeEditorView, the caret is restored to where the user left it.
+        // This callback never touches viewportAnchor — moving the caret while typing
+        // must not overwrite "where the user was scrolled to".
         editor.setSelectionChangeListener { start, end ->
-            _uiState.value.content.setFallback(editor.text?.toString() ?: "", TextRange(start, end))
+            val previousAnchor = _uiState.value.content.viewportAnchor
+            _uiState.value.content.setFallback(editor.text?.toString() ?: "", TextRange(start, end), previousAnchor)
             // Persist the caret to disk (debounced) so it survives the process being
             // killed outright (swipe-away, low-memory kill) — see loadEditor(), which
             // reads this back on next launch. Only meaningful for the internal
-            // document; external sessions aren't restored this way.
+            // document; external sessions aren't restored this way. The viewport
+            // anchor written alongside it is whatever was last known — this listener
+            // only ever changes the caret, never the viewport.
             if (!hasExternalSession()) {
                 cursorSaveJob?.cancel()
                 cursorSaveJob = viewModelScope.launch(Dispatchers.Default) {
                     delay(500)
-                    runCatching { fileManager.writeEditorCursor(start, end) }
+                    runCatching { fileManager.writeEditorCursor(start, end, previousAnchor) }
+                }
+            }
+        }
+        // Mirrors the caret listener above, but for scroll position instead. Fires
+        // whenever the user actually scrolls (drag, fling, fast-scroll) or when the
+        // view reports its last-visible-line on hide/detach — never as a side effect
+        // of caret movement.
+        editor.setViewportChangeListener { anchor ->
+            val current = _uiState.value.content
+            current.setFallback(current.text, current.selection, anchor)
+            if (!hasExternalSession()) {
+                cursorSaveJob?.cancel()
+                cursorSaveJob = viewModelScope.launch(Dispatchers.Default) {
+                    delay(500)
+                    val sel = current.selection
+                    runCatching { fileManager.writeEditorCursor(sel.start, sel.end, anchor) }
                 }
             }
         }
         editor.setEditorTextSize(settings.value.editorTextSize)
         val willCallSetEditorText = !editorLoaded || editor.text?.isEmpty() == true
-        EditorDiagnosticLog.log("BIND", "decision: willCallSetEditorText=$willCallSetEditorText  (!editorLoaded=${!editorLoaded}  OR  editor.text.isEmpty=${editor.text?.isEmpty()})  content.selection(to use)=${_uiState.value.content.selection}  content.text.length=${_uiState.value.content.text.length}")
+        EditorDiagnosticLog.log("BIND", "decision: willCallSetEditorText=$willCallSetEditorText  (!editorLoaded=${!editorLoaded}  OR  editor.text.isEmpty=${editor.text?.isEmpty()})  content.selection(to use)=${_uiState.value.content.selection}  content.viewportAnchor(to use)=${_uiState.value.content.viewportAnchor}  content.text.length=${_uiState.value.content.text.length}")
         if (!editorLoaded || editor.text?.isEmpty() == true) {
             val content = _uiState.value.content
-            editor.setEditorText(content.text, content.selection.start, content.selection.end)
+            // Restore caret and viewport as two independent calls into the same
+            // setEditorText invocation: the caret goes to content.selection, and the
+            // screen scrolls to content.viewportAnchor — NOT to the caret. If the user
+            // had scrolled away from the caret before leaving, this brings back what
+            // they were looking at, not the caret position.
+            editor.setEditorText(content.text, content.selection.start, content.selection.end, content.viewportAnchor)
         }
     }
 
@@ -187,18 +220,22 @@ class EditorViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             val text = fileManager.readEditor()
             val title = fileManager.readEditorTitle()
-            // Restore the caret from disk (survives the process being killed, not just
-            // backgrounded — see writeEditorCursor). Falls back to end-of-text only if
-            // nothing was ever saved (fresh install) or the saved value no longer fits
-            // the current document length.
+            // Restore the caret and viewport from disk (survives the process being
+            // killed, not just backgrounded — see writeEditorCursor). Falls back to
+            // end-of-text / end-of-text for both only if nothing was ever saved (fresh
+            // install) or the saved values no longer fit the current document length.
+            // The viewport anchor is read as its own field, not derived from the
+            // caret — the two can legitimately be far apart if the user had scrolled
+            // away from the caret before the process was killed.
             val savedCursor = fileManager.readEditorCursor()
-            val restore = savedCursor
-                ?.let { (start, end) -> TextRange(start.coerceIn(0, text.length), end.coerceIn(0, text.length)) }
+            val restoreSelection = savedCursor
+                ?.let { (start, end, _) -> TextRange(start.coerceIn(0, text.length), end.coerceIn(0, text.length)) }
                 ?: TextRange(text.length)
+            val restoreViewportAnchor = savedCursor?.third?.coerceIn(0, text.length) ?: restoreSelection.start
             withContext(Dispatchers.Main.immediate) {
                 if (!editorLoaded && !_uiState.value.isDirty) {
-                    _uiState.value.content.setFallback(text, restore)
-                    nativeEditor?.setEditorText(text, restore.start, restore.end)
+                    _uiState.value.content.setFallback(text, restoreSelection, restoreViewportAnchor)
+                    nativeEditor?.setEditorText(text, restoreSelection.start, restoreSelection.end, restoreViewportAnchor)
                     editorDocumentGeneration++
                     _uiState.value = _uiState.value.copy(documentRevision = _uiState.value.documentRevision + 1, isDirty = false, title = title, lastSavedTimestamp = System.currentTimeMillis())
                 }
@@ -339,12 +376,18 @@ class EditorViewModel(
             }
             finishExternalSession(contentResolver)
         } else {
-            // Capture where the caret was in the internal document before switching
-            // away, so "Return to editor" can restore it instead of defaulting to
-            // end-of-text. Only done when actually leaving the internal document
-            // (not when already inside an external session, e.g. opening a second
-            // external file — that has no internal caret to preserve here).
-            nativeEditor?.let { savedInternalSelection = TextRange(it.selectionStart, it.selectionEnd) }
+            // Capture where the caret AND the viewport were in the internal document
+            // before switching away, so "Return to editor" can restore both instead of
+            // defaulting to end-of-text. Only done when actually leaving the internal
+            // document (not when already inside an external session, e.g. opening a
+            // second external file — that has no internal caret/viewport to preserve
+            // here). Captured as two independent values: if the user had scrolled away
+            // from the caret to read before opening this external file, that scroll
+            // position is what should come back, not the caret's position.
+            nativeEditor?.let {
+                savedInternalSelection = TextRange(it.selectionStart, it.selectionEnd)
+                savedInternalViewportAnchor = it.currentViewportAnchor()
+            }
         }
         val previousState = _uiState.value
         val previousText = currentDocumentText()
@@ -483,8 +526,9 @@ class EditorViewModel(
 
     /**
      * Reads the internal document from disk and loads it into the editor, restoring
-     * the caret from savedInternalSelection (captured before we switched to an
-     * external session). Called both when returning to the editor directly (no unsaved
+     * the caret from savedInternalSelection and the scroll position from
+     * savedInternalViewportAnchor (both captured before we switched to an external
+     * session). Called both when returning to the editor directly (no unsaved
      * external changes) and after the user resolves the unsaved-changes dialog (Save /
      * Save As / Don't Save) — previously only the direct path did this, so resolving
      * the dialog left the editor showing the empty text finishExternalSession() sets,
@@ -500,12 +544,17 @@ class EditorViewModel(
                 // captured this, so the offsets are still valid. Falls back to
                 // end-of-text only if we never captured a position (e.g. the app was
                 // relaunched directly into an external session).
-                val restore = savedInternalSelection?.let {
+                val restoreSelection = savedInternalSelection?.let {
                     TextRange(it.start.coerceIn(0, internal.length), it.end.coerceIn(0, internal.length))
                 } ?: TextRange(internal.length)
+                // Restore the viewport independently — if the user had scrolled away
+                // from the caret before opening the external document, this brings the
+                // screen back to what they were looking at, not to the caret.
+                val restoreViewportAnchor = savedInternalViewportAnchor?.coerceIn(0, internal.length) ?: restoreSelection.start
                 savedInternalSelection = null
-                nativeEditor?.setEditorText(internal, restore.start, restore.end)
-                _uiState.value.content.setFallback(internal, restore)
+                savedInternalViewportAnchor = null
+                nativeEditor?.setEditorText(internal, restoreSelection.start, restoreSelection.end, restoreViewportAnchor)
+                _uiState.value.content.setFallback(internal, restoreSelection, restoreViewportAnchor)
                 editorDocumentGeneration++
                 _uiState.value = _uiState.value.copy(documentRevision = _uiState.value.documentRevision + 1, isDirty = false, documentName = internalDocumentName(), title = title)
                 onComplete()
@@ -704,13 +753,15 @@ class EditorViewModel(
     fun onPauseOrExit() { if (!hasExternalSession() && _uiState.value.isDirty) saveCurrentDocumentSilently() }
     override fun onCleared() {
         clearCurrentDocumentPassword()
-        // Best-effort: write the last known caret synchronously, in case this runs
-        // before the process is actually killed. Not guaranteed on a hard swipe-away,
-        // which is why the debounced write in bindNativeEditor's selection listener is
-        // the primary mechanism — this is just a secondary safety net.
+        // Best-effort: write the last known caret + viewport synchronously, in case
+        // this runs before the process is actually killed. Not guaranteed on a hard
+        // swipe-away, which is why the debounced write in bindNativeEditor's
+        // selection/viewport listeners is the primary mechanism — this is just a
+        // secondary safety net. Reads both fields independently off content rather
+        // than re-deriving one from the other.
         if (!hasExternalSession()) {
-            val sel = _uiState.value.content.selection
-            runCatching { fileManager.writeEditorCursor(sel.start, sel.end) }
+            val content = _uiState.value.content
+            runCatching { fileManager.writeEditorCursor(content.selection.start, content.selection.end, content.viewportAnchor) }
         }
         super.onCleared()
     }
