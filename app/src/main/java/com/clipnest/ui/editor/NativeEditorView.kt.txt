@@ -1,0 +1,777 @@
+package com.clipnest.ui.editor
+
+import android.content.Context
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.RectF
+import android.graphics.drawable.GradientDrawable
+import android.os.Build
+import android.text.TextWatcher
+import android.util.AttributeSet
+import android.view.Gravity
+import android.view.MotionEvent
+import android.view.VelocityTracker
+import android.view.View
+import android.view.ViewConfiguration
+import android.view.accessibility.AccessibilityEvent
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
+import android.widget.OverScroller
+import androidx.appcompat.widget.AppCompatEditText
+import com.clipnest.data.local.EditorTextSize
+
+/** Native text editing surface; the Android Editable is the live editor buffer. */
+class NativeEditorView @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null,
+    defStyleAttr: Int = androidx.appcompat.R.attr.editTextStyle
+) : AppCompatEditText(context, attrs, defStyleAttr) {
+    private data class EditOperation(
+        val start: Int,
+        val removed: String,
+        val insertedLength: Int,
+        val insertedContent: String?,
+        val beforeSelectionStart: Int,
+        val beforeSelectionEnd: Int,
+        val afterSelectionStart: Int,
+        val afterSelectionEnd: Int
+    )
+
+    private data class PendingChange(
+        val start: Int,
+        val removed: String,
+        val originalLength: Int,
+        val selectionStart: Int,
+        val selectionEnd: Int
+    )
+
+    companion object {
+        private const val ACCESSIBILITY_TEXT_LIMIT = 10_000
+        private const val MAX_UNDO_STEPS = 100
+        private const val MAX_HISTORY_CHARS = 100_000
+    }
+
+    private var internalMutation = false
+    private var transactionDepth = 0
+    private var transactionBeforeText: String? = null
+    private var transactionBeforeSelectionStart = 0
+    private var transactionBeforeSelectionEnd = 0
+    private var textChangeListener: ((NativeEditorView) -> Unit)? = null
+    private var selectionChangeListener: ((Int, Int) -> Unit)? = null
+    private var viewportChangeListener: ((Int) -> Unit)? = null
+    private var pendingViewportAnchorRestore: Int? = null
+    private val undoStack = ArrayDeque<EditOperation>()
+    private val redoStack = ArrayDeque<EditOperation>()
+    private var pendingBefore: PendingChange? = null
+
+    private val flingScroller = OverScroller(context)
+    private var velocityTracker: VelocityTracker? = null
+    private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+    private val minimumFlingVelocity = ViewConfiguration.get(context).scaledMinimumFlingVelocity
+    private val maximumFlingVelocity = ViewConfiguration.get(context).scaledMaximumFlingVelocity
+    private val overscrollLimitPx = (150 * resources.displayMetrics.density).toInt()
+    private var draggingScroll = false
+    private var draggingFastScroll = false
+    private var lastTouchY = 0f
+    private var downTouchX = 0f
+    private var downTouchY = 0f
+    private var scrollRemainderY = 0f
+    private var stableMaxScrollY = 0
+    private val fastScrollHitWidthPx = dp(48)
+    private val fastScrollThumbWidthPx = dp(4)
+    private val fastScrollActiveThumbWidthPx = dp(8)
+    private val fastScrollMinThumbHeightPx = dp(32)
+    private val fastScrollPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+    private val fastScrollRect = RectF()
+    private var staticCursorEnabled = false
+
+    init {
+        setSingleLine(false)
+        gravity = Gravity.TOP or Gravity.START
+        maxLines = Int.MAX_VALUE
+        minLines = 1
+        isVerticalScrollBarEnabled = false
+        isHorizontalScrollBarEnabled = false
+        overScrollMode = OVER_SCROLL_IF_CONTENT_SCROLLS
+        setPadding(dp(12), dp(8), dp(12), dp(8))
+        setHorizontallyScrolling(false)
+        inputType = android.text.InputType.TYPE_CLASS_TEXT or
+            android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE or
+            android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+        imeOptions = EditorInfo.IME_FLAG_NO_EXTRACT_UI
+        setTextIsSelectable(true)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) setFallbackLineSpacing(false)
+        setEmojiCompatEnabled(false)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_AUTO
+        setCursorVisible(true)
+
+        addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
+                if (!internalMutation) {
+                    pendingBefore = PendingChange(start, s?.subSequence(start, start + count)?.toString().orEmpty(), s?.length ?: length(), selectionStart, selectionEnd)
+                }
+            }
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
+            override fun afterTextChanged(s: android.text.Editable?) {
+                if (internalMutation) return
+                val before = pendingBefore ?: return
+                val editable = s ?: return
+                val insertedLength = editable.length - before.originalLength + before.removed.length
+                val operation = EditOperation(before.start, before.removed, insertedLength.coerceAtLeast(0), null, before.selectionStart, before.selectionEnd, selectionStart, selectionEnd)
+                if (transactionDepth == 0) {
+                    recordUndo(operation)
+                    textChangeListener?.invoke(this@NativeEditorView)
+                }
+                pendingBefore = null
+                invalidate()
+            }
+        })
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        // View.draw() translates the canvas by -scrollY before onDraw(). Restore viewport
+        // coordinates for the custom fast-scroll thumb so it never drifts with the document.
+        canvas.save()
+        canvas.translate(0f, scrollY.toFloat())
+        drawFastScrollThumb(canvas)
+        canvas.restore()
+    }
+
+    /**
+     * TextView (this class's grandparent) calls bringPointIntoView(getSelectionEnd())
+     * from many places: after typing, after undo/redo, after programmatic selection
+     * changes (arrow keys, toolbar formatting, search), and ALSO as a side effect of
+     * regaining window/view focus, the IME showing/hiding and resizing this view, or a
+     * layout pass during rotation/multi-window transitions.
+     *
+     * Trying to allow-list every legitimate editing call (typing, undo, redo, delete,
+     * formatting, arrow keys...) turned out to be the wrong shape for this problem —
+     * that list keeps growing and is easy to leave a gap in (undo/redo and
+     * toolbar-driven edits were missed on the first pass). The calls that actually
+     * need blocking share one simple, narrow trait instead: they only ever fire
+     * because the editor just came back into view after being backgrounded, hidden, or
+     * detached — never while the user is actively working in it. So this blocks by
+     * that trait directly, rather than by cataloguing what to allow.
+     *
+     * [suppressBringPointIntoView] is set the moment the editor leaves the working
+     * screen (loses window focus, becomes hidden, or is detached) and cleared once it
+     * has fully returned (window focus regained AND at least one layout pass has
+     * settled afterwards — the IME resize that follows regaining focus needs a beat to
+     * finish first, or its own layout passes would still be inside the "just came
+     * back" window and get through). Everything that happens once the flag is clear —
+     * typing, undo, redo, deleting, toolbar formatting, arrow keys, tapping to place
+     * the caret — is real user interaction with an editor that's already stably on
+     * screen, and is allowed through without needing its own special case here.
+     */
+    private var suppressBringPointIntoView = false
+    private var clearSuppressionOnNextLayout = false
+
+    override fun bringPointIntoView(offset: Int): Boolean {
+        if (suppressBringPointIntoView) return false
+        return super.bringPointIntoView(offset)
+    }
+
+    private fun suppressBringPointIntoViewUntilResettled() {
+        suppressBringPointIntoView = true
+        clearSuppressionOnNextLayout = false
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        EditorDiagnosticLog.log("LIFECYCLE", "onAttachedToWindow  text.length=${length()}  selection=$selectionStart-$selectionEnd  identity=${System.identityHashCode(this)}")
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        updateStableScrollBounds()
+    }
+
+    override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+        val scrollYBefore = scrollY
+        super.onLayout(changed, left, top, right, bottom)
+        updateStableScrollBounds()
+        if (scrollY != scrollYBefore) {
+            // scrollY moved as a side effect of layout itself (not through our own
+            // scrollTo/scrollToClamped calls, not through a user touch path) — most
+            // likely the IME showing/hiding and resizing this view, or TextView's own
+            // internal re-clamping of scrollY against the newly measured height/maxScrollY.
+            // Logged distinctly from the routine onLayout line below so this is easy to
+            // find: if this fires with a large jump right before a background/detach,
+            // that confirms layout-driven scroll drift rather than a real user scroll.
+            EditorDiagnosticLog.log("LIFECYCLE", "onLayout  scrollY changed as a side effect of layout itself: $scrollYBefore -> $scrollY  height=$height  maxScrollY=${maxScrollY()}  suppressBringPointIntoView=$suppressBringPointIntoView")
+        }
+        // See suppressBringPointIntoView's doc comment. This is the "has fully
+        // returned" half of the condition: once a layout pass runs after the editor
+        // regained window focus, give it one more pass to actually settle (the IME
+        // resize triggers a short burst of layout passes, not just one) before letting
+        // bringPointIntoView respond to platform-internal calls again.
+        if (clearSuppressionOnNextLayout) {
+            clearSuppressionOnNextLayout = false
+            suppressBringPointIntoView = false
+            EditorDiagnosticLog.log("LIFECYCLE", "onLayout  suppressBringPointIntoView cleared (layout settled after returning)")
+        }
+        EditorDiagnosticLog.log("LIFECYCLE", "onLayout  changed=$changed  scrollY=$scrollY  selection=$selectionStart-$selectionEnd")
+    }
+
+    override fun onFocusChanged(focused: Boolean, direction: Int, previouslyFocusedRect: android.graphics.Rect?) {
+        super.onFocusChanged(focused, direction, previouslyFocusedRect)
+        invalidate()
+        EditorDiagnosticLog.log("LIFECYCLE", "onFocusChanged  focused=$focused  selection=$selectionStart-$selectionEnd  scrollY=$scrollY")
+    }
+
+    override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
+        super.onWindowFocusChanged(hasWindowFocus)
+        EditorDiagnosticLog.log("LIFECYCLE", "onWindowFocusChanged  hasWindowFocus=$hasWindowFocus  scrollY=$scrollY  selection=$selectionStart-$selectionEnd")
+        if (!hasWindowFocus) {
+            // Leaving the working screen (backgrounding, switching to another app via
+            // recents, a system dialog taking focus, etc.). See
+            // suppressBringPointIntoView's doc comment for why this is blocked rather
+            // than allow-listing every legitimate editing call.
+            suppressBringPointIntoViewUntilResettled()
+        } else {
+            // Regained window focus — the editor is coming back, but the IME resize
+            // that follows this needs a layout pass or two to settle first. Start
+            // counting from here; onLayout clears the flag once things are stable.
+            clearSuppressionOnNextLayout = true
+        }
+    }
+
+    override fun onWindowVisibilityChanged(visibility: Int) {
+        super.onWindowVisibilityChanged(visibility)
+        EditorDiagnosticLog.log("LIFECYCLE", "onWindowVisibilityChanged  visibility=$visibility (VISIBLE=0)  scrollY=$scrollY")
+        // The view may become hidden (e.g. pressing Home) without being detached from
+        // the window yet. Report what's on screen here too, for the same reason as
+        // onDetachedFromWindow below, so "where the user left off" isn't lost between
+        // going to background and the view eventually being torn down.
+        if (visibility != View.VISIBLE) {
+            suppressBringPointIntoViewUntilResettled()
+            if (!internalMutation) {
+                val anchor = topOfViewportOffset()
+                viewportChangeListener?.invoke(anchor)
+                EditorDiagnosticLog.log("LIFECYCLE", "onWindowVisibilityChanged  reported viewportAnchor=$anchor (actualCaret=$selectionStart-$selectionEnd)")
+            }
+        }
+    }
+
+    override fun onDetachedFromWindow() {
+        EditorDiagnosticLog.log("LIFECYCLE", "onDetachedFromWindow BEGIN  text.length=${length()}  selection=$selectionStart-$selectionEnd  scrollY=$scrollY  identity=${System.identityHashCode(this)}")
+        // Leaving the working screen entirely (Compose Navigation removing this screen
+        // from composition, or the process being torn down). See
+        // suppressBringPointIntoView's doc comment.
+        suppressBringPointIntoViewUntilResettled()
+        // This is the one callback guaranteed to fire when Compose Navigation removes
+        // this screen from composition (e.g. navigating to Settings) or when the
+        // process is killed and this view is torn down — well before any save/pause
+        // hook might run. Report the final state here so the external "last known"
+        // caret/viewport never goes stale.
+        //
+        // Caret and viewport are reported as two independent values, not one. Scrolling
+        // to read (without tapping) moves the viewport but not the caret, and that's a
+        // very common thing for a user to do right before switching screens — so on
+        // restore, the caret must go back to its own last position and the viewport
+        // must go back to its own last position, independently of each other.
+        if (!internalMutation) {
+            val anchor = topOfViewportOffset()
+            selectionChangeListener?.invoke(selectionStart, selectionEnd)
+            viewportChangeListener?.invoke(anchor)
+            EditorDiagnosticLog.log("LIFECYCLE", "onDetachedFromWindow END  reported caret=$selectionStart-$selectionEnd  viewportAnchor=$anchor")
+        } else {
+            EditorDiagnosticLog.log("LIFECYCLE", "onDetachedFromWindow END  skipped report (internalMutation=true)")
+        }
+        super.onDetachedFromWindow()
+    }
+
+    override fun onSelectionChanged(selStart: Int, selEnd: Int) {
+        super.onSelectionChanged(selStart, selEnd)
+        invalidate()
+        EditorDiagnosticLog.log("SELECTION", "onSelectionChanged  new=$selStart-$selEnd  internalMutation=$internalMutation  text.length=${length()}")
+        // Reports every real selection/caret move so callers can keep an external
+        // "last known selection" in sync, for restoring the caret when this view is
+        // torn down and recreated (e.g. Compose Navigation removing this screen from
+        // composition, then recomposing it on Back) rather than only at save points.
+        // This never reports a viewport anchor — moving the caret while typing should
+        // never overwrite "where the user was scrolled to".
+        if (!internalMutation) selectionChangeListener?.invoke(selStart, selEnd)
+    }
+
+    override fun onScrollChanged(l: Int, t: Int, oldl: Int, oldt: Int) {
+        super.onScrollChanged(l, t, oldl, oldt)
+        EditorDiagnosticLog.log("SCROLL", "onScrollChanged  oldScrollY=$oldt  newScrollY=$t  internalMutation=$internalMutation  userDriven=${isUserDrivenScroll()}  selection=$selectionStart-$selectionEnd")
+        // Reports scroll so callers can keep an external "last known viewport" in sync,
+        // the same way onSelectionChanged keeps the caret in sync. But unlike caret
+        // moves, scrollY can also change for reasons that have nothing to do with the
+        // user scrolling to read: the IME showing/hiding resizes this view and the
+        // platform TextView machinery re-clamps scrollY to fit the new size, layout
+        // passes during rotation/multi-window transitions do the same, and
+        // setEditorText's own scroll-restore also calls scrollTo(). None of those are
+        // "the user scrolled to a new place to read" — reporting them as if they were
+        // would silently overwrite a correct saved viewport with wherever the platform
+        // happened to clamp scrollY to mid-transition (this is what caused the anchor
+        // to jump to near-zero right before backgrounding in earlier logs).
+        //
+        // Only report when scroll changed via one of the three user-driven paths this
+        // view itself tracks: an active drag, an active fast-scroll drag, or an active
+        // fling — see isUserDrivenScroll(). Programmatic/platform-driven scrollY
+        // changes (internalMutation, layout re-clamping, IME resize) are never reported.
+        if (!internalMutation && isUserDrivenScroll()) viewportChangeListener?.invoke(topOfViewportOffset())
+    }
+
+    /** True only while the user is actively dragging, fast-scrolling, or a fling from either is still animating. */
+    private fun isUserDrivenScroll(): Boolean = draggingScroll || draggingFastScroll || !flingScroller.isFinished
+
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                flingScroller.abortAnimation()
+                velocityTracker?.recycle()
+                velocityTracker = VelocityTracker.obtain()
+                velocityTracker?.addMovement(event)
+                draggingScroll = false
+                draggingFastScroll = isFastScrollHit(event.x, event.y)
+                scrollRemainderY = 0f
+                downTouchX = event.x
+                downTouchY = event.y
+                lastTouchY = event.y
+                if (draggingFastScroll) {
+                    parent?.requestDisallowInterceptTouchEvent(true)
+                    scrollToFastScroll(event.y)
+                    invalidate()
+                    return true
+                }
+                return super.onTouchEvent(event)
+            }
+            MotionEvent.ACTION_MOVE -> {
+                velocityTracker?.addMovement(event)
+                if (draggingFastScroll) {
+                    scrollToFastScroll(event.y)
+                    invalidate()
+                    return true
+                }
+                val dyFromDown = event.y - downTouchY
+                val dxFromDown = event.x - downTouchX
+                val verticalDominance = kotlin.math.abs(dyFromDown) > kotlin.math.abs(dxFromDown) * 0.75f
+                if (!draggingScroll && kotlin.math.abs(dyFromDown) > touchSlop && verticalDominance) {
+                    draggingScroll = true
+                    parent?.requestDisallowInterceptTouchEvent(true)
+                    val cancel = MotionEvent.obtain(event)
+                    cancel.action = MotionEvent.ACTION_CANCEL
+                    super.onTouchEvent(cancel)
+                    cancel.recycle()
+                }
+                if (draggingScroll) {
+                    val deltaY = event.y - lastTouchY
+                    if (deltaY != 0f) {
+                        scrollRemainderY += -deltaY
+                        val integerDelta = scrollRemainderY.toInt()
+                        scrollRemainderY -= integerDelta
+                        if (integerDelta != 0) scrollForDrag(scrollY + integerDelta)
+                    }
+                    lastTouchY = event.y
+                    return true
+                }
+                return super.onTouchEvent(event)
+            }
+            MotionEvent.ACTION_UP -> {
+                velocityTracker?.addMovement(event)
+                if (draggingFastScroll) {
+                    velocityTracker?.recycle(); velocityTracker = null; draggingFastScroll = false
+                    parent?.requestDisallowInterceptTouchEvent(false)
+                    invalidate()
+                    return true
+                }
+                if (draggingScroll) {
+                    velocityTracker?.computeCurrentVelocity(1000, maximumFlingVelocity.toFloat())
+                    val velocityY = velocityTracker?.yVelocity ?: 0f
+                    velocityTracker?.recycle(); velocityTracker = null
+                    draggingScroll = false; scrollRemainderY = 0f
+                    parent?.requestDisallowInterceptTouchEvent(false)
+                    val maxScrollY = maxScrollY()
+                    if (scrollY < 0 || scrollY > maxScrollY) {
+                        springBackToBounds(maxScrollY)
+                    } else {
+                        val scrollVelocity = -velocityY
+                        if (kotlin.math.abs(scrollVelocity) >= minimumFlingVelocity && maxScrollY > 0 && ((scrollVelocity > 0f && scrollY < maxScrollY) || (scrollVelocity < 0f && scrollY > 0))) {
+                            flingScroller.fling(scrollX, scrollY, 0, scrollVelocity.toInt(), 0, 0, 0, maxScrollY)
+                            postInvalidateOnAnimation()
+                        } else scrollToClamped(scrollY)
+                    }
+                    return true
+                }
+                velocityTracker?.recycle(); velocityTracker = null
+                return super.onTouchEvent(event)
+            }
+            MotionEvent.ACTION_CANCEL -> {
+                velocityTracker?.addMovement(event)
+                velocityTracker?.recycle(); velocityTracker = null
+                val wasFastScroll = draggingFastScroll
+                draggingFastScroll = false; draggingScroll = false; scrollRemainderY = 0f
+                parent?.requestDisallowInterceptTouchEvent(false)
+                val maxScrollY = maxScrollY()
+                if (!wasFastScroll && (scrollY < 0 || scrollY > maxScrollY)) springBackToBounds(maxScrollY) else flingScroller.abortAnimation()
+                invalidate()
+                return super.onTouchEvent(event)
+            }
+        }
+        return super.onTouchEvent(event)
+    }
+
+    override fun computeScroll() {
+        super.computeScroll()
+        if (flingScroller.computeScrollOffset()) {
+            scrollTo(scrollX, flingScroller.currY)
+            postInvalidateOnAnimation()
+        }
+    }
+
+    override fun sendAccessibilityEventUnchecked(event: AccessibilityEvent) {
+        if (length() < ACCESSIBILITY_TEXT_LIMIT) super.sendAccessibilityEventUnchecked(event)
+    }
+
+    override fun getAutofillType(): Int = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && length() >= ACCESSIBILITY_TEXT_LIMIT) View.AUTOFILL_TYPE_NONE else super.getAutofillType()
+
+    fun hideKeyboardAndClearFocus() {
+        requestFocus()
+        (context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager)?.hideSoftInputFromWindow(windowToken, 0)
+    }
+
+    fun setEditorTextColor(color: Int) {
+        setTextColor(color)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            textCursorDrawable = GradientDrawable().apply { setColor(color); setSize(dp(2), dp(24)) }
+        }
+        invalidate()
+    }
+
+    fun setStaticCursorEnabled(enabled: Boolean) {
+        staticCursorEnabled = enabled
+        setCursorVisible(!enabled)
+        invalidate()
+    }
+
+    private fun scrollMetrics(): Pair<Int, Int> {
+        val layoutHeight = layout?.height ?: 0
+        if (layoutHeight > 0) {
+            val range = (layoutHeight + compoundPaddingTop + compoundPaddingBottom).coerceAtLeast(height)
+            return range to height.coerceAtLeast(0)
+        }
+        val range = computeVerticalScrollRange().coerceAtLeast(0)
+        val extent = computeVerticalScrollExtent().coerceAtLeast(0)
+        return range to extent
+    }
+
+    private fun drawFastScrollThumb(canvas: Canvas) {
+        val (range, extent) = scrollMetrics()
+        val maxScroll = maxScrollY()
+        if (range <= extent || maxScroll <= 0 || height <= 0 || extent <= 0) return
+        val thumbHeight = (height.toFloat() * extent / range).toInt().coerceAtLeast(fastScrollMinThumbHeightPx).coerceAtMost(height)
+        val travel = (height - thumbHeight).coerceAtLeast(0)
+        val top = if (travel == 0) 0f else travel.toFloat() * scrollY.coerceIn(0, maxScroll) / maxScroll
+        fastScrollPaint.color = currentTextColor
+        fastScrollPaint.alpha = if (draggingFastScroll) 190 else 110
+        val thumbWidth = if (draggingFastScroll) fastScrollActiveThumbWidthPx else fastScrollThumbWidthPx
+        val left = width - thumbWidth.toFloat()
+        fastScrollRect.set(left, top, width.toFloat(), top + thumbHeight)
+        canvas.drawRoundRect(fastScrollRect, thumbWidth.toFloat(), thumbWidth.toFloat(), fastScrollPaint)
+    }
+
+    private fun isFastScrollHit(x: Float, y: Float): Boolean {
+        val (range, extent) = scrollMetrics()
+        if (range <= extent || width <= 0 || height <= 0) return false
+        if (x < width - fastScrollHitWidthPx) return false
+        val maxScroll = maxScrollY()
+        val thumbHeight = (height.toFloat() * extent / range).toInt().coerceAtLeast(fastScrollMinThumbHeightPx).coerceAtMost(height)
+        val travel = (height - thumbHeight).coerceAtLeast(0)
+        val top = if (travel == 0) 0f else travel.toFloat() * scrollY.coerceIn(0, maxScroll) / maxScroll
+        return y >= top - fastScrollHitWidthPx / 2f && y <= top + thumbHeight + fastScrollHitWidthPx / 2f
+    }
+
+    private fun scrollToFastScroll(touchY: Float) {
+        val (range, extent) = scrollMetrics()
+        val maxScroll = maxScrollY()
+        if (range <= extent || maxScroll <= 0) return
+        val thumbHeight = (height.toFloat() * extent / range).toInt().coerceAtLeast(fastScrollMinThumbHeightPx).coerceAtMost(height)
+        val travel = (height - thumbHeight).coerceAtLeast(0)
+        val target = if (travel == 0) 0 else ((touchY - thumbHeight / 2f).coerceIn(0f, travel.toFloat()) * maxScroll / travel).toInt()
+        scrollToClamped(target)
+    }
+
+    private fun calculatedMaxScrollY(): Int {
+        val (range, extent) = scrollMetrics()
+        return (range - extent).coerceAtLeast(0)
+    }
+
+    private fun updateStableScrollBounds() {
+        val calculated = calculatedMaxScrollY()
+        if (!draggingScroll && !draggingFastScroll && flingScroller.isFinished) {
+            stableMaxScrollY = calculated
+        } else if (calculated > stableMaxScrollY) {
+            stableMaxScrollY = calculated
+        }
+    }
+
+    private fun maxScrollY(): Int {
+        val calculated = calculatedMaxScrollY()
+        if (!draggingScroll && !draggingFastScroll && flingScroller.isFinished) {
+            stableMaxScrollY = maxOf(stableMaxScrollY, calculated)
+            return stableMaxScrollY
+        }
+        stableMaxScrollY = maxOf(stableMaxScrollY, calculated)
+        return stableMaxScrollY
+    }
+
+    private fun scrollToClamped(targetY: Int) { scrollTo(scrollX, targetY.coerceIn(0, maxScrollY())) }
+    private fun scrollForDrag(targetY: Int) {
+        val max = maxScrollY()
+        val resistedY = when {
+            targetY < 0 -> -overscrollDistance(-targetY)
+            targetY > max -> max + overscrollDistance(targetY - max)
+            else -> targetY
+        }
+        scrollTo(scrollX, resistedY)
+    }
+    private fun overscrollDistance(distance: Int): Int = (distance * 0.75f).toInt().coerceAtMost(overscrollLimitPx)
+    private fun springBackToBounds(maxScrollY: Int) { if (flingScroller.springBack(scrollX, scrollY, 0, 0, 0, maxScrollY)) postInvalidateOnAnimation() else scrollToClamped(scrollY) }
+
+    /**
+     * Returns the offset of the first character currently visible at the top of the
+     * viewport. This is always reported as its own value — independent of the caret —
+     * because scrolling to read doesn't move the caret, and "what's on screen" is a
+     * separate fact from "where the caret is" that both need to be restorable on their
+     * own.
+     */
+    private fun topOfViewportOffset(): Int {
+        val lay = layout ?: return 0
+        if (length() == 0 || height <= 0) return 0
+        val topLine = lay.getLineForVertical(scrollY)
+        return lay.getLineStart(topLine).coerceIn(0, length())
+    }
+
+    fun setTextChangeListener(listener: ((NativeEditorView) -> Unit)?) { textChangeListener = listener }
+    fun setSelectionChangeListener(listener: ((Int, Int) -> Unit)?) { selectionChangeListener = listener }
+    fun setViewportChangeListener(listener: ((Int) -> Unit)?) { viewportChangeListener = listener }
+
+    /** Current viewport anchor, for callers that want to read it without waiting for a callback. */
+    fun currentViewportAnchor(): Int = topOfViewportOffset()
+
+    fun setEditorTextSize(size: EditorTextSize) {
+        setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, size.sp.toFloat())
+        setLineSpacing(0f, size.lineHeightSp.toFloat() / size.sp.toFloat())
+        invalidate()
+    }
+
+    fun beginTransaction() {
+        if (transactionDepth == 0) {
+            transactionBeforeText = text?.toString().orEmpty()
+            transactionBeforeSelectionStart = selectionStart
+            transactionBeforeSelectionEnd = selectionEnd
+            beginBatchEdit()
+        }
+        transactionDepth++
+    }
+
+    fun endTransaction() {
+        if (transactionDepth == 0) return
+        transactionDepth--
+        if (transactionDepth != 0) return
+        try {
+            val before = transactionBeforeText ?: return
+            transactionBeforeText = null
+            val after = text?.toString().orEmpty()
+            if (before == after) return
+            val prefix = commonPrefix(before, after)
+            val suffix = commonSuffix(before, after, prefix)
+            val removedEnd = before.length - suffix
+            val insertedEnd = after.length - suffix
+            recordUndo(EditOperation(prefix, before.substring(prefix, removedEnd), insertedEnd - prefix, null, transactionBeforeSelectionStart, transactionBeforeSelectionEnd, selectionStart, selectionEnd))
+            textChangeListener?.invoke(this)
+        } finally {
+            endBatchEdit()
+            invalidate()
+        }
+    }
+
+    fun <T> transaction(block: NativeEditorView.() -> T): T {
+        beginTransaction()
+        return try { block() } finally { endTransaction() }
+    }
+
+    fun replaceText(start: Int, end: Int, replacement: CharSequence, selectionStart: Int? = null, selectionEnd: Int? = null) {
+        val safeStart = start.coerceIn(0, length())
+        val safeEnd = end.coerceIn(safeStart, length())
+        val beforeStart = this.selectionStart
+        val beforeEnd = this.selectionEnd
+        val removed = text?.subSequence(safeStart, safeEnd)?.toString().orEmpty()
+        val inserted = replacement.toString()
+        val shouldBatch = transactionDepth == 0
+        if (shouldBatch) beginBatchEdit()
+        internalMutation = true
+        try {
+            text?.replace(safeStart, safeEnd, inserted)
+            val targetStart = (selectionStart ?: safeStart + inserted.length).coerceIn(0, length())
+            val targetEnd = (selectionEnd ?: targetStart).coerceIn(targetStart, length())
+            setSelection(targetStart, targetEnd)
+        } finally {
+            internalMutation = false
+            if (shouldBatch) endBatchEdit()
+        }
+        if (transactionDepth == 0) {
+            recordUndo(EditOperation(safeStart, removed, inserted.length, null, beforeStart, beforeEnd, selectionStart ?: safeStart + inserted.length, selectionEnd ?: selectionStart ?: safeStart + inserted.length))
+            redoStack.clear()
+            textChangeListener?.invoke(this)
+        }
+        invalidate()
+    }
+
+    /**
+     * Sets the editor's text, caret, and (optionally) the scroll position — as three
+     * independent things.
+     *
+     * [viewportAnchor], when provided, is the offset of the character that should end
+     * up at the top of the viewport after this call — i.e. "what the user was looking
+     * at", which may be far from the caret if they scrolled to read without tapping.
+     * When omitted, this scrolls to the caret instead (the old default-to-end / open a
+     * document behavior), which is what you want for brand-new documents or when there
+     * is no prior scroll position to restore.
+     */
+    fun setEditorText(
+        value: CharSequence,
+        selectionStart: Int = value.length,
+        selectionEnd: Int = selectionStart,
+        viewportAnchor: Int? = null
+    ) {
+        EditorDiagnosticLog.log("SET_TEXT", "setEditorText CALLED  requestedSelection=$selectionStart-$selectionEnd  requestedViewportAnchor=$viewportAnchor  value.length=${value.length}  (default-to-end used = ${selectionStart == value.length})  identity=${System.identityHashCode(this)}")
+        beginBatchEdit()
+        internalMutation = true
+        try {
+            setText(value)
+            val safeStart = selectionStart.coerceIn(0, length())
+            val safeEnd = selectionEnd.coerceIn(safeStart, length())
+            setSelection(safeStart, safeEnd)
+            EditorDiagnosticLog.log("SET_TEXT", "setEditorText applied  safeSelection=$safeStart-$safeEnd")
+            undoStack.clear(); redoStack.clear()
+        } finally {
+            internalMutation = false
+            endBatchEdit()
+        }
+        invalidate()
+        // Both branches scroll via the same layout-based scrollTo mechanism
+        // (applyPendingViewportAnchorRestore), not via bringPointIntoView — this
+        // call happens right when the editor is (re)bound, which is exactly the "just
+        // came back" moment bringPointIntoView is suppressed during anyway (see
+        // suppressBringPointIntoView below), so relying on it here would be fragile.
+        // A restored viewportAnchor takes priority; with none (fresh/new document),
+        // this scrolls to the caret instead, matching the previous default-to-end
+        // behavior for newly opened documents.
+        pendingViewportAnchorRestore = (viewportAnchor ?: selectionStart).coerceIn(0, length())
+        post { applyPendingViewportAnchorRestore() }
+    }
+
+    private fun applyPendingViewportAnchorRestore() {
+        val anchor = pendingViewportAnchorRestore ?: return
+        pendingViewportAnchorRestore = null
+        val lay = layout ?: run {
+            // Layout not ready yet on this pass; try again on the next one rather than
+            // silently dropping the restore.
+            pendingViewportAnchorRestore = anchor
+            post { applyPendingViewportAnchorRestore() }
+            return
+        }
+        val line = lay.getLineForOffset(anchor.coerceIn(0, length()))
+        val target = (lay.getLineTop(line) - paddingTop)
+        internalMutation = true
+        try {
+            scrollTo(scrollX, target.coerceIn(0, maxScrollY()))
+        } finally {
+            internalMutation = false
+        }
+    }
+
+    fun undo() {
+        val operation = undoStack.removeLastOrNull() ?: return
+        val currentInserted = readText(operation.start, operation.insertedLength)
+        internalMutation = true
+        beginBatchEdit()
+        try {
+            text?.replace(operation.start.coerceIn(0, length()), (operation.start + operation.insertedLength).coerceIn(operation.start, length()), operation.removed)
+            val safeStart = operation.beforeSelectionStart.coerceIn(0, length())
+            setSelection(safeStart, operation.beforeSelectionEnd.coerceIn(safeStart, length()))
+        } finally {
+            internalMutation = false
+            endBatchEdit()
+        }
+        redoStack.addLast(operation.copy(insertedContent = currentInserted))
+        trimHistory()
+        textChangeListener?.invoke(this)
+        invalidate()
+    }
+
+    fun redo() {
+        val operation = redoStack.removeLastOrNull() ?: return
+        val inserted = operation.insertedContent
+        if (inserted == null) return
+        internalMutation = true
+        beginBatchEdit()
+        try {
+            text?.replace(operation.start.coerceIn(0, length()), (operation.start + operation.removed.length).coerceIn(operation.start, length()), inserted)
+            val safeStart = operation.afterSelectionStart.coerceIn(0, length())
+            setSelection(safeStart, operation.afterSelectionEnd.coerceIn(safeStart, length()))
+        } finally {
+            internalMutation = false
+            endBatchEdit()
+        }
+        undoStack.addLast(operation.copy(insertedContent = null, insertedLength = inserted.length))
+        trimHistory()
+        textChangeListener?.invoke(this)
+        invalidate()
+    }
+
+    fun withInternalMutation(block: () -> Unit) {
+        internalMutation = true
+        try { block() } finally { internalMutation = false }
+    }
+
+    private fun readText(start: Int, count: Int): String {
+        if (count <= 0 || start < 0 || start >= length()) return ""
+        val end = (start + count).coerceAtMost(length())
+        return text?.subSequence(start, end)?.toString().orEmpty()
+    }
+
+    private fun recordUndo(operation: EditOperation) {
+        if (operation.removed.isEmpty() && operation.insertedLength == 0) return
+        redoStack.clear()
+        val previous = undoStack.lastOrNull()
+        if (previous != null && canCoalesce(previous, operation)) {
+            undoStack.removeLast(); undoStack.addLast(coalesce(previous, operation))
+        } else undoStack.addLast(operation)
+        trimHistory()
+    }
+
+    private fun canCoalesce(previous: EditOperation, current: EditOperation): Boolean {
+        if (previous.insertedContent != null || current.insertedContent != null) return false
+        val bothInsert = previous.removed.isEmpty() && current.removed.isEmpty() && previous.insertedLength > 0 && current.insertedLength > 0
+        if (bothInsert) return current.start == previous.start + previous.insertedLength && current.beforeSelectionStart == previous.afterSelectionStart && current.beforeSelectionEnd == previous.afterSelectionEnd
+        val bothDelete = previous.insertedLength == 0 && current.insertedLength == 0 && previous.removed.isNotEmpty() && current.removed.isNotEmpty()
+        if (!bothDelete) return false
+        return (current.start == previous.start || current.start + current.removed.length == previous.start) && current.beforeSelectionStart == previous.afterSelectionStart && current.beforeSelectionEnd == previous.afterSelectionEnd
+    }
+
+    private fun coalesce(previous: EditOperation, current: EditOperation): EditOperation {
+        val bothInsert = previous.removed.isEmpty() && current.removed.isEmpty()
+        if (bothInsert) return previous.copy(insertedLength = previous.insertedLength + current.insertedLength, afterSelectionStart = current.afterSelectionStart, afterSelectionEnd = current.afterSelectionEnd)
+        val currentBeforePrevious = current.start + current.removed.length == previous.start
+        return previous.copy(start = if (currentBeforePrevious) current.start else previous.start, removed = if (currentBeforePrevious) current.removed + previous.removed else previous.removed + current.removed, beforeSelectionStart = current.beforeSelectionStart, beforeSelectionEnd = current.beforeSelectionEnd, afterSelectionStart = current.afterSelectionStart, afterSelectionEnd = current.afterSelectionEnd)
+    }
+
+    private fun trimHistory() {
+        while (undoStack.size > MAX_UNDO_STEPS) undoStack.removeFirst()
+        while (redoStack.size > MAX_UNDO_STEPS) redoStack.removeFirst()
+        while (historyWeight(undoStack) > MAX_HISTORY_CHARS && undoStack.isNotEmpty()) undoStack.removeFirst()
+        while (historyWeight(redoStack) > MAX_HISTORY_CHARS && redoStack.isNotEmpty()) redoStack.removeFirst()
+    }
+
+    private fun historyWeight(stack: ArrayDeque<EditOperation>): Int = stack.sumOf { it.removed.length + (it.insertedContent?.length ?: 0) }
+    private fun commonPrefix(a: String, b: String): Int { val max = minOf(a.length, b.length); var i = 0; while (i < max && a[i] == b[i]) i++; return i }
+    private fun commonSuffix(a: String, b: String, prefix: Int): Int { val max = minOf(a.length, b.length) - prefix; var i = 0; while (i < max && a[a.length - 1 - i] == b[b.length - 1 - i]) i++; return i }
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+}
