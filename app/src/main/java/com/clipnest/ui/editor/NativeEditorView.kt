@@ -57,6 +57,9 @@ class NativeEditorView @JvmOverloads constructor(
     private var transactionBeforeSelectionStart = 0
     private var transactionBeforeSelectionEnd = 0
     private var textChangeListener: ((NativeEditorView) -> Unit)? = null
+    private var selectionChangeListener: ((Int, Int) -> Unit)? = null
+    private var viewportChangeListener: ((Int) -> Unit)? = null
+    private var pendingViewportAnchorRestore: Int? = null
     private val undoStack = ArrayDeque<EditOperation>()
     private val redoStack = ArrayDeque<EditOperation>()
     private var pendingBefore: PendingChange? = null
@@ -74,12 +77,14 @@ class NativeEditorView @JvmOverloads constructor(
     private var downTouchY = 0f
     private var scrollRemainderY = 0f
     private var stableMaxScrollY = 0
-    private val fastScrollHitWidthPx = dp(24)
+    private val fastScrollHitWidthPx = dp(48)
     private val fastScrollThumbWidthPx = dp(4)
+    private val fastScrollActiveThumbWidthPx = dp(8)
     private val fastScrollMinThumbHeightPx = dp(32)
     private val fastScrollPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val fastScrollRect = RectF()
     private var staticCursorEnabled = false
+    private var allowBringPointIntoView = false
 
     init {
         setSingleLine(false)
@@ -134,25 +139,140 @@ class NativeEditorView @JvmOverloads constructor(
         canvas.restore()
     }
 
+    /**
+     * TextView (this class's grandparent) calls bringPointIntoView(getSelectionEnd())
+     * on its own, internally, in several situations that have nothing to do with
+     * setEditorText's own restore call: regaining window/view focus, the IME
+     * showing/hiding and resizing this view, and some layout passes during rotation or
+     * multi-window transitions. Each of those silently scrolls the screen back to
+     * wherever the caret happens to be — which is exactly the "jumps to the caret
+     * instead of staying where the user was looking" behavior this class exists to
+     * prevent, and it was happening from here even after setEditorText itself stopped
+     * doing it.
+     *
+     * [allowBringPointIntoView] is only ever set to true for the instant setEditorText
+     * calls this on purpose (no viewportAnchor to restore, e.g. opening a new/external
+     * document) — every other caller, including the platform's own internal calls,
+     * is refused.
+     */
+    override fun bringPointIntoView(offset: Int): Boolean {
+        if (!allowBringPointIntoView) return false
+        return super.bringPointIntoView(offset)
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        EditorDiagnosticLog.log("LIFECYCLE", "onAttachedToWindow  text.length=${length()}  selection=$selectionStart-$selectionEnd  identity=${System.identityHashCode(this)}")
+    }
+
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         updateStableScrollBounds()
     }
 
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+        val scrollYBefore = scrollY
         super.onLayout(changed, left, top, right, bottom)
         updateStableScrollBounds()
+        if (scrollY != scrollYBefore) {
+            // scrollY moved as a side effect of layout itself (not through our own
+            // scrollTo/scrollToClamped calls, not through a user touch path) — most
+            // likely the IME showing/hiding and resizing this view, or TextView's own
+            // internal re-clamping of scrollY against the newly measured height/maxScrollY.
+            // Logged distinctly from the routine onLayout line below so this is easy to
+            // find: if this fires with a large jump right before a background/detach,
+            // that confirms layout-driven scroll drift rather than a real user scroll.
+            EditorDiagnosticLog.log("LIFECYCLE", "onLayout  scrollY changed as a side effect of layout itself: $scrollYBefore -> $scrollY  height=$height  maxScrollY=${maxScrollY()}  allowBringPointIntoView=$allowBringPointIntoView")
+        }
+        EditorDiagnosticLog.log("LIFECYCLE", "onLayout  changed=$changed  scrollY=$scrollY  selection=$selectionStart-$selectionEnd")
     }
 
     override fun onFocusChanged(focused: Boolean, direction: Int, previouslyFocusedRect: android.graphics.Rect?) {
         super.onFocusChanged(focused, direction, previouslyFocusedRect)
         invalidate()
+        EditorDiagnosticLog.log("LIFECYCLE", "onFocusChanged  focused=$focused  selection=$selectionStart-$selectionEnd  scrollY=$scrollY")
+    }
+
+    override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
+        super.onWindowFocusChanged(hasWindowFocus)
+        EditorDiagnosticLog.log("LIFECYCLE", "onWindowFocusChanged  hasWindowFocus=$hasWindowFocus  scrollY=$scrollY  selection=$selectionStart-$selectionEnd")
+    }
+
+    override fun onWindowVisibilityChanged(visibility: Int) {
+        super.onWindowVisibilityChanged(visibility)
+        EditorDiagnosticLog.log("LIFECYCLE", "onWindowVisibilityChanged  visibility=$visibility (VISIBLE=0)  scrollY=$scrollY")
+        // The view may become hidden (e.g. pressing Home) without being detached from
+        // the window yet. Report what's on screen here too, for the same reason as
+        // onDetachedFromWindow below, so "where the user left off" isn't lost between
+        // going to background and the view eventually being torn down.
+        if (visibility != View.VISIBLE && !internalMutation) {
+            val anchor = topOfViewportOffset()
+            viewportChangeListener?.invoke(anchor)
+            EditorDiagnosticLog.log("LIFECYCLE", "onWindowVisibilityChanged  reported viewportAnchor=$anchor (actualCaret=$selectionStart-$selectionEnd)")
+        }
+    }
+
+    override fun onDetachedFromWindow() {
+        EditorDiagnosticLog.log("LIFECYCLE", "onDetachedFromWindow BEGIN  text.length=${length()}  selection=$selectionStart-$selectionEnd  scrollY=$scrollY  identity=${System.identityHashCode(this)}")
+        // This is the one callback guaranteed to fire when Compose Navigation removes
+        // this screen from composition (e.g. navigating to Settings) or when the
+        // process is killed and this view is torn down — well before any save/pause
+        // hook might run. Report the final state here so the external "last known"
+        // caret/viewport never goes stale.
+        //
+        // Caret and viewport are reported as two independent values, not one. Scrolling
+        // to read (without tapping) moves the viewport but not the caret, and that's a
+        // very common thing for a user to do right before switching screens — so on
+        // restore, the caret must go back to its own last position and the viewport
+        // must go back to its own last position, independently of each other.
+        if (!internalMutation) {
+            val anchor = topOfViewportOffset()
+            selectionChangeListener?.invoke(selectionStart, selectionEnd)
+            viewportChangeListener?.invoke(anchor)
+            EditorDiagnosticLog.log("LIFECYCLE", "onDetachedFromWindow END  reported caret=$selectionStart-$selectionEnd  viewportAnchor=$anchor")
+        } else {
+            EditorDiagnosticLog.log("LIFECYCLE", "onDetachedFromWindow END  skipped report (internalMutation=true)")
+        }
+        super.onDetachedFromWindow()
     }
 
     override fun onSelectionChanged(selStart: Int, selEnd: Int) {
         super.onSelectionChanged(selStart, selEnd)
         invalidate()
+        EditorDiagnosticLog.log("SELECTION", "onSelectionChanged  new=$selStart-$selEnd  internalMutation=$internalMutation  text.length=${length()}")
+        // Reports every real selection/caret move so callers can keep an external
+        // "last known selection" in sync, for restoring the caret when this view is
+        // torn down and recreated (e.g. Compose Navigation removing this screen from
+        // composition, then recomposing it on Back) rather than only at save points.
+        // This never reports a viewport anchor — moving the caret while typing should
+        // never overwrite "where the user was scrolled to".
+        if (!internalMutation) selectionChangeListener?.invoke(selStart, selEnd)
     }
+
+    override fun onScrollChanged(l: Int, t: Int, oldl: Int, oldt: Int) {
+        super.onScrollChanged(l, t, oldl, oldt)
+        EditorDiagnosticLog.log("SCROLL", "onScrollChanged  oldScrollY=$oldt  newScrollY=$t  internalMutation=$internalMutation  userDriven=${isUserDrivenScroll()}  selection=$selectionStart-$selectionEnd")
+        // Reports scroll so callers can keep an external "last known viewport" in sync,
+        // the same way onSelectionChanged keeps the caret in sync. But unlike caret
+        // moves, scrollY can also change for reasons that have nothing to do with the
+        // user scrolling to read: the IME showing/hiding resizes this view and the
+        // platform TextView machinery re-clamps scrollY to fit the new size, layout
+        // passes during rotation/multi-window transitions do the same, and
+        // setEditorText's own scroll-restore also calls scrollTo(). None of those are
+        // "the user scrolled to a new place to read" — reporting them as if they were
+        // would silently overwrite a correct saved viewport with wherever the platform
+        // happened to clamp scrollY to mid-transition (this is what caused the anchor
+        // to jump to near-zero right before backgrounding in earlier logs).
+        //
+        // Only report when scroll changed via one of the three user-driven paths this
+        // view itself tracks: an active drag, an active fast-scroll drag, or an active
+        // fling — see isUserDrivenScroll(). Programmatic/platform-driven scrollY
+        // changes (internalMutation, layout re-clamping, IME resize) are never reported.
+        if (!internalMutation && isUserDrivenScroll()) viewportChangeListener?.invoke(topOfViewportOffset())
+    }
+
+    /** True only while the user is actively dragging, fast-scrolling, or a fling from either is still animating. */
+    private fun isUserDrivenScroll(): Boolean = draggingScroll || draggingFastScroll || !flingScroller.isFinished
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
@@ -170,6 +290,7 @@ class NativeEditorView @JvmOverloads constructor(
                 if (draggingFastScroll) {
                     parent?.requestDisallowInterceptTouchEvent(true)
                     scrollToFastScroll(event.y)
+                    invalidate()
                     return true
                 }
                 return super.onTouchEvent(event)
@@ -178,6 +299,7 @@ class NativeEditorView @JvmOverloads constructor(
                 velocityTracker?.addMovement(event)
                 if (draggingFastScroll) {
                     scrollToFastScroll(event.y)
+                    invalidate()
                     return true
                 }
                 val dyFromDown = event.y - downTouchY
@@ -209,6 +331,7 @@ class NativeEditorView @JvmOverloads constructor(
                 if (draggingFastScroll) {
                     velocityTracker?.recycle(); velocityTracker = null; draggingFastScroll = false
                     parent?.requestDisallowInterceptTouchEvent(false)
+                    invalidate()
                     return true
                 }
                 if (draggingScroll) {
@@ -240,6 +363,7 @@ class NativeEditorView @JvmOverloads constructor(
                 parent?.requestDisallowInterceptTouchEvent(false)
                 val maxScrollY = maxScrollY()
                 if (!wasFastScroll && (scrollY < 0 || scrollY > maxScrollY)) springBackToBounds(maxScrollY) else flingScroller.abortAnimation()
+                invalidate()
                 return super.onTouchEvent(event)
             }
         }
@@ -299,9 +423,10 @@ class NativeEditorView @JvmOverloads constructor(
         val top = if (travel == 0) 0f else travel.toFloat() * scrollY.coerceIn(0, maxScroll) / maxScroll
         fastScrollPaint.color = currentTextColor
         fastScrollPaint.alpha = if (draggingFastScroll) 190 else 110
-        val left = width - fastScrollThumbWidthPx.toFloat()
+        val thumbWidth = if (draggingFastScroll) fastScrollActiveThumbWidthPx else fastScrollThumbWidthPx
+        val left = width - thumbWidth.toFloat()
         fastScrollRect.set(left, top, width.toFloat(), top + thumbHeight)
-        canvas.drawRoundRect(fastScrollRect, fastScrollThumbWidthPx.toFloat(), fastScrollThumbWidthPx.toFloat(), fastScrollPaint)
+        canvas.drawRoundRect(fastScrollRect, thumbWidth.toFloat(), thumbWidth.toFloat(), fastScrollPaint)
     }
 
     private fun isFastScrollHit(x: Float, y: Float): Boolean {
@@ -362,7 +487,26 @@ class NativeEditorView @JvmOverloads constructor(
     private fun overscrollDistance(distance: Int): Int = (distance * 0.75f).toInt().coerceAtMost(overscrollLimitPx)
     private fun springBackToBounds(maxScrollY: Int) { if (flingScroller.springBack(scrollX, scrollY, 0, 0, 0, maxScrollY)) postInvalidateOnAnimation() else scrollToClamped(scrollY) }
 
+    /**
+     * Returns the offset of the first character currently visible at the top of the
+     * viewport. This is always reported as its own value — independent of the caret —
+     * because scrolling to read doesn't move the caret, and "what's on screen" is a
+     * separate fact from "where the caret is" that both need to be restorable on their
+     * own.
+     */
+    private fun topOfViewportOffset(): Int {
+        val lay = layout ?: return 0
+        if (length() == 0 || height <= 0) return 0
+        val topLine = lay.getLineForVertical(scrollY)
+        return lay.getLineStart(topLine).coerceIn(0, length())
+    }
+
     fun setTextChangeListener(listener: ((NativeEditorView) -> Unit)?) { textChangeListener = listener }
+    fun setSelectionChangeListener(listener: ((Int, Int) -> Unit)?) { selectionChangeListener = listener }
+    fun setViewportChangeListener(listener: ((Int) -> Unit)?) { viewportChangeListener = listener }
+
+    /** Current viewport anchor, for callers that want to read it without waiting for a callback. */
+    fun currentViewportAnchor(): Int = topOfViewportOffset()
 
     fun setEditorTextSize(size: EditorTextSize) {
         setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, size.sp.toFloat())
@@ -433,7 +577,24 @@ class NativeEditorView @JvmOverloads constructor(
         invalidate()
     }
 
-    fun setEditorText(value: CharSequence, selectionStart: Int = value.length, selectionEnd: Int = selectionStart) {
+    /**
+     * Sets the editor's text, caret, and (optionally) the scroll position — as three
+     * independent things.
+     *
+     * [viewportAnchor], when provided, is the offset of the character that should end
+     * up at the top of the viewport after this call — i.e. "what the user was looking
+     * at", which may be far from the caret if they scrolled to read without tapping.
+     * When omitted, this scrolls to the caret instead (the old default-to-end / open a
+     * document behavior), which is what you want for brand-new documents or when there
+     * is no prior scroll position to restore.
+     */
+    fun setEditorText(
+        value: CharSequence,
+        selectionStart: Int = value.length,
+        selectionEnd: Int = selectionStart,
+        viewportAnchor: Int? = null
+    ) {
+        EditorDiagnosticLog.log("SET_TEXT", "setEditorText CALLED  requestedSelection=$selectionStart-$selectionEnd  requestedViewportAnchor=$viewportAnchor  value.length=${value.length}  (default-to-end used = ${selectionStart == value.length})  identity=${System.identityHashCode(this)}")
         beginBatchEdit()
         internalMutation = true
         try {
@@ -441,12 +602,56 @@ class NativeEditorView @JvmOverloads constructor(
             val safeStart = selectionStart.coerceIn(0, length())
             val safeEnd = selectionEnd.coerceIn(safeStart, length())
             setSelection(safeStart, safeEnd)
+            EditorDiagnosticLog.log("SET_TEXT", "setEditorText applied  safeSelection=$safeStart-$safeEnd")
             undoStack.clear(); redoStack.clear()
         } finally {
             internalMutation = false
             endBatchEdit()
         }
         invalidate()
+        if (viewportAnchor != null) {
+            // Restore the viewport independently of the caret: scroll so the saved
+            // anchor offset is back at the top of the screen, without ever calling
+            // bringPointIntoView on the caret (that would silently override this and
+            // drag the screen back to wherever the caret happens to be).
+            pendingViewportAnchorRestore = viewportAnchor.coerceIn(0, length())
+            post { applyPendingViewportAnchorRestore() }
+        } else {
+            // No saved viewport to restore (fresh document, new file opened, etc.) —
+            // fall back to scrolling to the caret, same as before. This is the one
+            // legitimate caller of bringPointIntoView; the flag is flipped on only for
+            // this single call and back off immediately after, so the platform's own
+            // internal calls to bringPointIntoView (on focus/window/IME changes) stay
+            // refused the rest of the time — see the override above.
+            allowBringPointIntoView = true
+            post {
+                try {
+                    bringPointIntoView(selectionStart.coerceIn(0, length()))
+                } finally {
+                    allowBringPointIntoView = false
+                }
+            }
+        }
+    }
+
+    private fun applyPendingViewportAnchorRestore() {
+        val anchor = pendingViewportAnchorRestore ?: return
+        pendingViewportAnchorRestore = null
+        val lay = layout ?: run {
+            // Layout not ready yet on this pass; try again on the next one rather than
+            // silently dropping the restore.
+            pendingViewportAnchorRestore = anchor
+            post { applyPendingViewportAnchorRestore() }
+            return
+        }
+        val line = lay.getLineForOffset(anchor.coerceIn(0, length()))
+        val target = (lay.getLineTop(line) - paddingTop)
+        internalMutation = true
+        try {
+            scrollTo(scrollX, target.coerceIn(0, maxScrollY()))
+        } finally {
+            internalMutation = false
+        }
     }
 
     fun undo() {
