@@ -18,9 +18,9 @@ import java.lang.ref.WeakReference
  * - selectionStart/selectionEnd: the caret/selection
  * - scrollY: the viewport
  *
- * This is deliberately attached to the Activity lifecycle instead of the editor's
- * text callbacks. Internal/external document switches replace the Editable and can
- * therefore be detected even when the same NativeEditorView instance is reused.
+ * Internal/external document switches can reuse the same NativeEditorView, so the
+ * controller also watches the Editable identity. This lets it capture the outgoing
+ * position before setText()/setSelection() replace it.
  */
 class EditorViewportRestoreProvider : ContentProvider() {
     private var callbacks: Application.ActivityLifecycleCallbacks? = null
@@ -51,6 +51,9 @@ class EditorViewportRestoreProvider : ContentProvider() {
         private var lastEditor: WeakReference<NativeEditorView>? = null
         private var lastTextObject: Any? = null
         private var lastDocumentKey: String = ""
+        private var lastSelectionStart = 0
+        private var lastSelectionEnd = 0
+        private var lastScrollY = 0
         private var lastActivity: WeakReference<Activity>? = null
         private var layoutListener: ViewTreeObserver.OnGlobalLayoutListener? = null
         private var pendingPreDraw: ViewTreeObserver.OnPreDrawListener? = null
@@ -100,6 +103,7 @@ class EditorViewportRestoreProvider : ContentProvider() {
                     lastEditor = WeakReference(editor)
                     lastTextObject = editor.text
                     lastDocumentKey = documentKey(editor)
+                    rememberCurrentPosition(editor)
                     scheduleRestoreIfAvailable(editor, lastDocumentKey)
                     return@OnGlobalLayoutListener
                 }
@@ -107,11 +111,14 @@ class EditorViewportRestoreProvider : ContentProvider() {
                 val currentTextObject = editor.text
                 val currentKey = documentKey(editor)
                 if (currentTextObject !== lastTextObject) {
-                    if (lastDocumentKey.isNotEmpty()) captureSnapshot(previousEditor = editor, key = lastDocumentKey)
+                    captureLastObservedPosition()
                     clearPendingRestore()
                     lastTextObject = currentTextObject
                     lastDocumentKey = currentKey
+                    rememberCurrentPosition(editor)
                     scheduleRestoreIfAvailable(editor, currentKey)
+                } else {
+                    rememberCurrentPosition(editor)
                 }
             }
             layoutListener = listener
@@ -131,27 +138,45 @@ class EditorViewportRestoreProvider : ContentProvider() {
             lastEditor = WeakReference(editor)
             lastTextObject = editor.text
             lastDocumentKey = documentKey(editor)
+            rememberCurrentPosition(editor)
         }
 
         private fun captureEditor(editor: NativeEditorView) {
             val key = documentKey(editor)
             if (key.isEmpty()) return
-            captureSnapshot(editor, key)
-        }
-
-        private fun captureSnapshot(previousEditor: NativeEditorView, key: String) {
-            val snapshotsForKey = snapshots.getOrPut(key) { ArrayDeque(2) }
             val snapshot = Snapshot(
                 documentKey = key,
-                selectionStart = previousEditor.selectionStart.coerceAtLeast(0),
-                selectionEnd = previousEditor.selectionEnd.coerceAtLeast(0),
-                scrollY = previousEditor.scrollY.coerceAtLeast(0)
+                selectionStart = editor.selectionStart.coerceAtLeast(0),
+                selectionEnd = editor.selectionEnd.coerceAtLeast(0),
+                scrollY = editor.scrollY.coerceAtLeast(0)
             )
-            if (snapshotsForKey.firstOrNull() == snapshot) return
+            store(snapshot)
+        }
+
+        private fun captureLastObservedPosition() {
+            if (lastDocumentKey.isEmpty()) return
+            store(
+                Snapshot(
+                    documentKey = lastDocumentKey,
+                    selectionStart = lastSelectionStart,
+                    selectionEnd = lastSelectionEnd,
+                    scrollY = lastScrollY
+                )
+            )
+        }
+
+        private fun store(snapshot: Snapshot) {
+            val snapshotsForKey = snapshots.getOrPut(snapshot.documentKey) { ArrayDeque(2) }
             snapshotsForKey.removeAll { it.selectionStart == snapshot.selectionStart && it.selectionEnd == snapshot.selectionEnd && it.scrollY == snapshot.scrollY }
             snapshotsForKey.addFirst(snapshot)
             while (snapshotsForKey.size > 2) snapshotsForKey.removeLast()
             while (snapshots.size > 8) snapshots.entries.iterator().let { it.next(); it.remove() }
+        }
+
+        private fun rememberCurrentPosition(editor: NativeEditorView) {
+            lastSelectionStart = editor.selectionStart.coerceAtLeast(0)
+            lastSelectionEnd = editor.selectionEnd.coerceAtLeast(lastSelectionStart)
+            lastScrollY = editor.scrollY.coerceAtLeast(0)
         }
 
         private fun scheduleRestoreIfAvailable(editor: NativeEditorView, key: String) {
