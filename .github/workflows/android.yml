@@ -4,10 +4,10 @@ name: Android CI/CD
 on:
   push:
     branches:
-      - fix-cursor-scroll-startup-position
+      - fix-view-position
   pull_request:
     branches:
-      - fix-cursor-scroll-startup-position
+      - fix-view-position
   workflow_dispatch:
 
 jobs:
