@@ -15,6 +15,12 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.MyApplication">
 
+        <provider
+            android:name=".EditorViewportRestoreProvider"
+            android:authorities="${applicationId}.editor-viewport-restore"
+            android:exported="false"
+            android:initOrder="100" />
+
         <!-- Main Dashboard Activity -->
         <activity
             android:name=".MainActivity"
