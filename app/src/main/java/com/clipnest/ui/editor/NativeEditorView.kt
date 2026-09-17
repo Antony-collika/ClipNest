@@ -84,7 +84,27 @@ class NativeEditorView @JvmOverloads constructor(
     private val fastScrollPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val fastScrollRect = RectF()
     private var staticCursorEnabled = false
-    private var allowBringPointIntoView = false
+
+    /**
+     * "Follow mode": whether the viewport should keep tracking the caret.
+     *
+     * True by default (typing near the bottom edge should push the screen up, same as
+     * any normal text editor). Set to false the moment the user drags/flings the
+     * viewport by hand — see onScrollChanged below — because that's an explicit signal
+     * they want to read somewhere else and no longer want the caret pulling the screen
+     * around. Set back to true the moment the user does anything that expresses intent
+     * to look at the caret again: typing, pasting, undo/redo, or tapping to place the
+     * caret — see onSelectionChanged and the text-changed listener below.
+     *
+     * This replaces trying to allow-list every caller of bringPointIntoView (typing,
+     * paste, undo, redo, arrow keys, autocomplete, ...) or trying to distinguish
+     * "legitimate" focus/window callbacks from "restore" ones — both approaches either
+     * miss cases or rely on signals (like focus) that mean different things in
+     * different situations. A single durable flag, flipped only by the two things that
+     * actually carry unambiguous intent (a manual drag vs. any caret-directed action),
+     * covers every caller without needing to know who they are.
+     */
+    private var followCaret = true
 
     init {
         setSingleLine(false)
@@ -124,6 +144,10 @@ class NativeEditorView @JvmOverloads constructor(
                     textChangeListener?.invoke(this@NativeEditorView)
                 }
                 pendingBefore = null
+                // A real text change the user caused (typing, pasting, autocomplete,
+                // IME composition) — they're actively working at the caret and want to
+                // see it, so the screen should follow again from here on.
+                followCaret = true
                 invalidate()
             }
         })
@@ -141,22 +165,21 @@ class NativeEditorView @JvmOverloads constructor(
 
     /**
      * TextView (this class's grandparent) calls bringPointIntoView(getSelectionEnd())
-     * on its own, internally, in several situations that have nothing to do with
-     * setEditorText's own restore call: regaining window/view focus, the IME
-     * showing/hiding and resizing this view, and some layout passes during rotation or
-     * multi-window transitions. Each of those silently scrolls the screen back to
-     * wherever the caret happens to be — which is exactly the "jumps to the caret
-     * instead of staying where the user was looking" behavior this class exists to
-     * prevent, and it was happening from here even after setEditorText itself stopped
-     * doing it.
+     * on its own, internally, in several situations: typing near the edge, regaining
+     * window/view focus, the IME showing/hiding and resizing this view, and some
+     * layout passes during rotation or multi-window transitions.
      *
-     * [allowBringPointIntoView] is only ever set to true for the instant setEditorText
-     * calls this on purpose (no viewportAnchor to restore, e.g. opening a new/external
-     * document) — every other caller, including the platform's own internal calls,
-     * is refused.
+     * Whether to honor that call is decided by [followCaret], not by who's calling.
+     * When true (the normal state, and the state any caret-directed user action
+     * restores), every caller is allowed through — including typing near the bottom
+     * edge, which is what should push the screen up as the user types. When false
+     * (only right after the user has manually scrolled away to read), every caller is
+     * refused, including the platform's own focus/IME/layout-driven calls — this is
+     * what stops resuming the app, opening Settings, or the IME resizing the view from
+     * silently dragging the screen back to the caret.
      */
     override fun bringPointIntoView(offset: Int): Boolean {
-        if (!allowBringPointIntoView) return false
+        if (!followCaret) return false
         return super.bringPointIntoView(offset)
     }
 
@@ -182,7 +205,7 @@ class NativeEditorView @JvmOverloads constructor(
             // Logged distinctly from the routine onLayout line below so this is easy to
             // find: if this fires with a large jump right before a background/detach,
             // that confirms layout-driven scroll drift rather than a real user scroll.
-            EditorDiagnosticLog.log("LIFECYCLE", "onLayout  scrollY changed as a side effect of layout itself: $scrollYBefore -> $scrollY  height=$height  maxScrollY=${maxScrollY()}  allowBringPointIntoView=$allowBringPointIntoView")
+            EditorDiagnosticLog.log("LIFECYCLE", "onLayout  scrollY changed as a side effect of layout itself: $scrollYBefore -> $scrollY  height=$height  maxScrollY=${maxScrollY()}  followCaret=$followCaret")
         }
         EditorDiagnosticLog.log("LIFECYCLE", "onLayout  changed=$changed  scrollY=$scrollY  selection=$selectionStart-$selectionEnd")
     }
@@ -239,14 +262,22 @@ class NativeEditorView @JvmOverloads constructor(
     override fun onSelectionChanged(selStart: Int, selEnd: Int) {
         super.onSelectionChanged(selStart, selEnd)
         invalidate()
-        EditorDiagnosticLog.log("SELECTION", "onSelectionChanged  new=$selStart-$selEnd  internalMutation=$internalMutation  text.length=${length()}")
+        EditorDiagnosticLog.log("SELECTION", "onSelectionChanged  new=$selStart-$selEnd  internalMutation=$internalMutation  text.length=${length()}  followCaret=$followCaret")
         // Reports every real selection/caret move so callers can keep an external
         // "last known selection" in sync, for restoring the caret when this view is
         // torn down and recreated (e.g. Compose Navigation removing this screen from
         // composition, then recomposing it on Back) rather than only at save points.
         // This never reports a viewport anchor — moving the caret while typing should
         // never overwrite "where the user was scrolled to".
-        if (!internalMutation) selectionChangeListener?.invoke(selStart, selEnd)
+        if (!internalMutation) {
+            selectionChangeListener?.invoke(selStart, selEnd)
+            // A real (non-programmatic) selection change is always something the user
+            // did on purpose to the caret — most commonly tapping to place it — and
+            // that's a clear signal they want the screen following it again, including
+            // right now: re-enabling here (rather than waiting for the next keystroke)
+            // is what keeps the IME from covering the line the user just tapped into.
+            followCaret = true
+        }
     }
 
     override fun onScrollChanged(l: Int, t: Int, oldl: Int, oldt: Int) {
@@ -268,7 +299,17 @@ class NativeEditorView @JvmOverloads constructor(
         // view itself tracks: an active drag, an active fast-scroll drag, or an active
         // fling — see isUserDrivenScroll(). Programmatic/platform-driven scrollY
         // changes (internalMutation, layout re-clamping, IME resize) are never reported.
-        if (!internalMutation && isUserDrivenScroll()) viewportChangeListener?.invoke(topOfViewportOffset())
+        if (!internalMutation && isUserDrivenScroll()) {
+            viewportChangeListener?.invoke(topOfViewportOffset())
+            // The user just moved the screen with their own hand while reading — that's
+            // an explicit signal they no longer want the caret pulling the viewport
+            // around. Turn follow mode off so subsequent typing (or a focus/IME/layout
+            // event) doesn't drag the screen back to the caret out from under them.
+            // It comes back on the moment they do anything caret-directed again: type,
+            // paste, undo/redo (all go through the text-changed listener below), or tap
+            // to place the caret (onSelectionChanged above).
+            followCaret = false
+        }
     }
 
     /** True only while the user is actively dragging, fast-scrolling, or a fling from either is still animating. */
@@ -539,6 +580,9 @@ class NativeEditorView @JvmOverloads constructor(
             val insertedEnd = after.length - suffix
             recordUndo(EditOperation(prefix, before.substring(prefix, removedEnd), insertedEnd - prefix, null, transactionBeforeSelectionStart, transactionBeforeSelectionEnd, selectionStart, selectionEnd))
             textChangeListener?.invoke(this)
+            // A transaction that actually changed text is a programmatic edit the user
+            // asked for (e.g. a formatting toolbar button) — same intent as typing.
+            followCaret = true
         } finally {
             endBatchEdit()
             invalidate()
@@ -573,6 +617,9 @@ class NativeEditorView @JvmOverloads constructor(
             recordUndo(EditOperation(safeStart, removed, inserted.length, null, beforeStart, beforeEnd, selectionStart ?: safeStart + inserted.length, selectionEnd ?: selectionStart ?: safeStart + inserted.length))
             redoStack.clear()
             textChangeListener?.invoke(this)
+            // Same reasoning as the transaction path above: a direct programmatic edit
+            // is still something the user asked for.
+            followCaret = true
         }
         invalidate()
     }
@@ -610,27 +657,21 @@ class NativeEditorView @JvmOverloads constructor(
         }
         invalidate()
         if (viewportAnchor != null) {
-            // Restore the viewport independently of the caret: scroll so the saved
-            // anchor offset is back at the top of the screen, without ever calling
-            // bringPointIntoView on the caret (that would silently override this and
-            // drag the screen back to wherever the caret happens to be).
+            // Restoring a previously-saved reading position — this is the platform
+            // opening/recreating the view (app resume, Compose recomposition after
+            // Back, etc.), not the user doing anything to the caret right now. Turn
+            // follow mode off *before* the pending restore runs, so that neither the
+            // setSelection() call above nor any focus/layout/IME callback that fires
+            // in between now and applyPendingViewportAnchorRestore() can drag the
+            // screen back to the caret and stomp the restore.
+            followCaret = false
             pendingViewportAnchorRestore = viewportAnchor.coerceIn(0, length())
             post { applyPendingViewportAnchorRestore() }
         } else {
             // No saved viewport to restore (fresh document, new file opened, etc.) —
-            // fall back to scrolling to the caret, same as before. This is the one
-            // legitimate caller of bringPointIntoView; the flag is flipped on only for
-            // this single call and back off immediately after, so the platform's own
-            // internal calls to bringPointIntoView (on focus/window/IME changes) stay
-            // refused the rest of the time — see the override above.
-            allowBringPointIntoView = true
-            post {
-                try {
-                    bringPointIntoView(selectionStart.coerceIn(0, length()))
-                } finally {
-                    allowBringPointIntoView = false
-                }
-            }
+            // fall back to scrolling to the caret, same as opening any new document.
+            followCaret = true
+            post { bringPointIntoView(selectionStart.coerceIn(0, length())) }
         }
     }
 
@@ -670,6 +711,10 @@ class NativeEditorView @JvmOverloads constructor(
         redoStack.addLast(operation.copy(insertedContent = currentInserted))
         trimHistory()
         textChangeListener?.invoke(this)
+        // undo() sets internalMutation itself, so afterTextChanged's own followCaret
+        // reset above never runs for this path — set it here instead. The user asked
+        // to undo, so they want to see where that landed.
+        followCaret = true
         invalidate()
     }
 
@@ -690,6 +735,9 @@ class NativeEditorView @JvmOverloads constructor(
         undoStack.addLast(operation.copy(insertedContent = null, insertedLength = inserted.length))
         trimHistory()
         textChangeListener?.invoke(this)
+        // Same reasoning as undo(): this path sets internalMutation itself, so it
+        // never reaches the text-changed listener's followCaret reset.
+        followCaret = true
         invalidate()
     }
 
