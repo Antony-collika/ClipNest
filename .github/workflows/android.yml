@@ -4,10 +4,10 @@ name: Android CI/CD
 on:
   push:
     branches:
-      - fix-view-position
+      - hybrid
   pull_request:
     branches:
-      - fix-view-position
+      - hybrid
   workflow_dispatch:
 
 jobs:
