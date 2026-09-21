@@ -66,7 +66,7 @@ data class UserSettings(
     val firstRunEducationShown: Boolean = false,
     val retentionPolicy: RetentionPolicy = RetentionPolicy.NEVER,
     val defaultSaveFolderUri: String? = null,
-    val aiProvider: String = "GEMINI",
+    val aiProvider: String = "VERCEL",
     val geminiModelId: String = "gemini-3.5-flash-lite",
     val vercelModelId: String = "gemini-3.5-flash-lite",
     val aiPrompt: String = ""
@@ -119,7 +119,7 @@ class SettingsDataStore(private val context: Context) {
             firstRunEducationShown = preferences[PreferencesKeys.FIRST_RUN_EDUCATION_SHOWN] ?: false,
             retentionPolicy = retention,
             defaultSaveFolderUri = preferences[PreferencesKeys.DEFAULT_SAVE_FOLDER_URI],
-            aiProvider = preferences[PreferencesKeys.AI_PROVIDER] ?: "GEMINI",
+            aiProvider = preferences[PreferencesKeys.AI_PROVIDER] ?: "VERCEL",
             geminiModelId = preferences[PreferencesKeys.GEMINI_MODEL_ID] ?: "gemini-3.5-flash-lite",
             vercelModelId = preferences[PreferencesKeys.VERCEL_MODEL_ID] ?: "gemini-3.5-flash-lite",
             aiPrompt = preferences[PreferencesKeys.AI_PROMPT] ?: ""
