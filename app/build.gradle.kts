@@ -14,7 +14,7 @@ android {
     targetSdk = 36
     versionCode = 1
     versionName = "1.0"
-    buildConfigField("String", "AI_API_BASE_URL", "\"${System.getenv("AI_API_BASE_URL") ?: "https://clip-nest-hxncaoyda-antony-collikas-projects.vercel.app"}\"")
+    buildConfigField("String", "AI_API_BASE_URL", "\"${System.getenv("AI_API_BASE_URL") ?: "https://clip-nest-git-hybrid-antony-collikas-projects.vercel.app"}\"")
   }
 
   signingConfigs {
