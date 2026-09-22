@@ -67,6 +67,9 @@ private const val PREVIEW_LARGE_DOCUMENT_THRESHOLD = 500_000
 private const val PREVIEW_SMALL_DEBOUNCE_MS = 140L
 private const val PREVIEW_LARGE_DEBOUNCE_MS = 360L
 private const val PREVIEW_HUGE_DEBOUNCE_MS = 650L
+// Lưới an toàn cho shimmer: nếu WebView không báo "đã load xong" trong
+// khoảng thời gian này, ta tự coi như xong để tránh shimmer bị kẹt mãi mãi.
+private const val MARKDOWN_PREVIEW_READY_TIMEOUT_MS = 5_000L
 private val PREVIEW_HEADER_HEIGHT = 48.dp
 
 @Composable
@@ -293,9 +296,22 @@ private fun MarkdownPreviewDialog(html: String, headings: List<MarkdownHeading>,
     val surfaceColor = backgroundColor.toArgb()
     val shape = RoundedCornerShape(18.dp)
     val visibility = remember { MutableTransitionState(true) }
-    var ready by remember(html) { mutableStateOf(false) }
+    // Thay vì một cờ true/false đơn thuần, ta lưu lại CHÍNH nội dung html mà
+    // WebView đã thực sự báo là load xong. Nhờ vậy, nếu tín hiệu "đã xong"
+    // đến muộn (của một html cũ, đã bị thay bằng html mới hơn) thì nó sẽ
+    // không còn khớp với `html` hiện tại nữa và sẽ tự động bị bỏ qua, thay vì
+    // âm thầm được hiểu nhầm là "html hiện tại cũng đã xong".
+    var readyHtml by remember { mutableStateOf<String?>(null) }
+    val ready = readyHtml == html
     var showToc by remember { mutableStateOf(false) }
     var pendingHeadingIndex by remember { mutableStateOf<Int?>(null) }
+    // Lưới an toàn: nếu vì lý do gì đó (ví dụ WebView gặp trục trặc) mà
+    // tín hiệu "đã xong" không bao giờ tới, shimmer sẽ không bị kẹt vĩnh
+    // viễn - sau một khoảng thời gian hợp lý, ta tự coi như đã xong.
+    LaunchedEffect(html) {
+        delay(MARKDOWN_PREVIEW_READY_TIMEOUT_MS)
+        if (readyHtml != html) readyHtml = html
+    }
     fun dismiss() { if (visibility.targetState) visibility.targetState = false }
     LaunchedEffect(visibility.currentState, visibility.targetState) { if (!visibility.currentState && !visibility.targetState) onDismiss() }
     Dialog(onDismissRequest = ::dismiss, properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = true, dismissOnClickOutside = true)) {
@@ -322,7 +338,7 @@ private fun MarkdownPreviewDialog(html: String, headings: List<MarkdownHeading>,
                                 }
                             }
                         } else {
-                            if (html.isNotBlank()) MarkdownPreviewWebView(html, surfaceColor, pendingHeadingIndex) { ready = true }
+                            if (html.isNotBlank()) MarkdownPreviewWebView(html, surfaceColor, pendingHeadingIndex) { loadedHtml -> readyHtml = loadedHtml }
                             MarkdownPreviewLoadingOverlay(!ready, backgroundColor, contentColor)
                         }
                     }

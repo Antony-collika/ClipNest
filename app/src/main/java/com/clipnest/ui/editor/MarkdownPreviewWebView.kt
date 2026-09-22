@@ -101,6 +101,14 @@ private class FastScrollWebView(context: android.content.Context) : WebView(cont
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+
+    // Theo dõi "đang muốn load gì", thay cho việc dùng `tag` làm nguồn sự
+    // thật. Trước đây `tag` bị gán ngay lúc BẮT ĐẦU gọi load, nên nếu
+    // update() chạy lại đúng lúc trang còn đang tải dở, hệ thống tưởng nhầm
+    // là đã xong và bỏ qua lượt load, khiến tín hiệu "đã xong" (onReady)
+    // không bao giờ được gửi cho nội dung đó. Việc "đã thực sự xong" giờ chỉ
+    // được xác nhận trong onPageFinished, tách biệt hẳn khỏi việc này.
+    var requestedHtml: String? = null
 }
 
 @Composable
@@ -108,7 +116,7 @@ internal fun MarkdownPreviewWebView(
     html: String,
     previewSurfaceColor: Int,
     jumpToHeadingIndex: Int?,
-    onReady: () -> Unit
+    onReady: (loadedHtml: String) -> Unit
 ) {
     AndroidView(
         factory = { context ->
@@ -124,7 +132,11 @@ internal fun MarkdownPreviewWebView(
                 isNestedScrollingEnabled = true
                 webViewClient = object : WebViewClient() {
                     override fun onPageFinished(view: WebView?, url: String?) {
-                        onReady()
+                        // Tín hiệu "đã load xong" chỉ được gửi ở đây - sau khi
+                        // trang thực sự tải xong - chứ không phải lúc bắt đầu
+                        // gọi load.
+                        val requested = (view as? FastScrollWebView)?.requestedHtml
+                        if (requested != null) onReady(requested)
                         jumpToHeadingIndex?.let { index ->
                             view?.evaluateJavascript("jumpToHeading('md-heading-$index')", null)
                         }
@@ -135,12 +147,12 @@ internal fun MarkdownPreviewWebView(
         },
         update = { webView ->
             webView.setBackgroundColor(previewSurfaceColor)
-            if (webView.tag != html) {
+            if (webView.requestedHtml != html) {
                 val previousScrollY = webView.scrollY
-                webView.tag = html
+                webView.requestedHtml = html
                 webView.loadDataWithBaseURL("https://x-board.local/", html, "text/html", "UTF-8", null)
                 webView.post {
-                    if (webView.tag == html) webView.scrollTo(0, previousScrollY)
+                    if (webView.requestedHtml == html) webView.scrollTo(0, previousScrollY)
                 }
             } else {
                 jumpToHeadingIndex?.let { index ->
