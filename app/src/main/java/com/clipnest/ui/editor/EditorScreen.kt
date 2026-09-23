@@ -189,7 +189,15 @@ fun EditorScreen(
         if (!visible) viewModel.hideNativeKeyboard()
     }) {
         Column(Modifier.fillMaxSize()) {
-            EditorNoteBreadcrumbBar(mode = uiState.mode, origin = uiState.noteOrigin, onExit = { viewModel.flushPendingSaveAndExit(context.contentResolver, onExit) })
+            if (uiState.mode == EditorMode.NOTE) {
+                EditorNoteBreadcrumbBar(
+                    mode = uiState.mode,
+                    origin = uiState.noteOrigin,
+                    onExit = viewModel::returnToFreeEditor,
+                    onSave = viewModel::saveCurrentNoteNow,
+                    onSaveToNote = { viewModel.createNoteAndEnterNoteMode(viewModel.currentDocumentText()) }
+                )
+            }
             EditorToolbox(
                 isMarkdownToolsExpanded = uiState.isMarkdownToolsExpanded,
                 isPreviewVisible = uiState.showMarkdownPreview,
@@ -211,14 +219,46 @@ fun EditorScreen(
                 onHorizontalRule = viewModel::insertMarkdownHorizontalRule,
                 onTogglePreview = viewModel::toggleMarkdownPreview
             )
-            EditorNoteTitleField(value = titleFieldValue, onValueChange = ::updateTitle, onFocusChanged = { titleFocused = it }, editorTextSize = editorTextSize, textColor = MaterialTheme.colorScheme.onSurface, hintColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f))
-            EditorNoteTitleDivider()
+            if (uiState.mode == EditorMode.NOTE) {
+                EditorNoteTitleField(
+                    value = titleFieldValue,
+                    onValueChange = ::updateTitle,
+                    onFocusChanged = { titleFocused = it },
+                    editorTextSize = editorTextSize,
+                    textColor = MaterialTheme.colorScheme.onSurface,
+                    hintColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+                )
+                EditorNoteTitleDivider()
+            }
             AndroidView(
                 factory = { NativeEditorView(it).apply { setEditorTextSize(editorTextSize); setEditorTextColor(editorTextColor); nativeEditorView = this; viewModel.bindNativeEditor(this) } },
                 update = { it.setEditorTextSize(editorTextSize); it.setEditorTextColor(editorTextColor); nativeEditorView = it; if (uiState.showMarkdownPreview || !editorVisible) it.hideKeyboardAndClearFocus(); viewModel.bindNativeEditor(it) },
                 modifier = Modifier.fillMaxWidth().weight(1f).testTag("editor_text_input")
             )
         }
+    }
+
+    if (uiState.showEmptyNoteExitDialog) {
+        AlertDialog(
+            onDismissRequest = viewModel::cancelEmptyNoteExit,
+            title = { Text(stringResource(com.clipnest.R.string.empty_note_title)) },
+            text = { Text(stringResource(com.clipnest.R.string.empty_note_message)) },
+            confirmButton = {
+                TextButton(onClick = viewModel::saveEmptyNoteAndExit) {
+                    Text(stringResource(com.clipnest.R.string.save))
+                }
+            },
+            dismissButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    TextButton(onClick = viewModel::discardEmptyNoteAndExit) {
+                        Text(stringResource(com.clipnest.R.string.discard_note))
+                    }
+                    TextButton(onClick = viewModel::cancelEmptyNoteExit) {
+                        Text(stringResource(com.clipnest.R.string.cancel))
+                    }
+                }
+            }
+        )
     }
 
     if (uiState.showMarkdownPreview) MarkdownPreviewDialog(html = previewHtml, headings = tocHeadings, tocIndexing = tocIndexing, backgroundColor = previewBackground, contentColor = previewTextColor, onDismiss = viewModel::toggleMarkdownPreview)
