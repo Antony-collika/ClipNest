@@ -321,7 +321,20 @@ fun MainAppContent(
     }
     fun openExternalFile() { onRequestOpenFile { uri -> editorViewModel.openExternalDocument(uri, context.contentResolver); scope.launch { pagerState.animateScrollToPage(2) } } }
     fun openEditorFromVault() {
-        val navigate = { vaultViewModel.copySelectedCardsThenOpenEditor(context) { scope.launch { pagerState.animateScrollToPage(2) } } }
+        val navigate = {
+            vaultViewModel.copySelectedCardsThenOpenEditor(context) { combinedText ->
+                editorViewModel.createNoteAndEnterNoteMode(initialContent = combinedText)
+                scope.launch { pagerState.animateScrollToPage(2, animationSpec = tween(durationMillis = 180)) }
+            }
+        }
+        if (editorUiState.externalDocumentUri != null) editorViewModel.returnToInternalEditor(context.contentResolver, onComplete = navigate) else navigate()
+    }
+
+    fun createNoteFromVault() {
+        val navigate = {
+            editorViewModel.createNoteAndEnterNoteMode()
+            scope.launch { pagerState.animateScrollToPage(2, animationSpec = tween(durationMillis = 180)) }
+        }
         if (editorUiState.externalDocumentUri != null) editorViewModel.returnToInternalEditor(context.contentResolver, onComplete = navigate) else navigate()
     }
 
@@ -388,6 +401,7 @@ fun MainAppContent(
                 },
                 isExternalDocument = editorUiState.externalDocumentUri != null || editorUiState.mode == com.clipnest.ui.editor.EditorMode.NOTE,
                 onOpenEditor = ::openEditorFromVault,
+                onCreateNoteFromVault = ::createNoteFromVault,
                 onToggleShowPinnedFirst = vaultViewModel::toggleShowPinnedFirst,
                 onPinSelected = vaultViewModel::togglePinSelected,
                 onCopySelected = { vaultViewModel.copySelectedCards(context) },
@@ -485,6 +499,7 @@ private fun MainTopBar(
     onReturnToEditor: () -> Unit,
     isExternalDocument: Boolean,
     onOpenEditor: () -> Unit,
+    onCreateNoteFromVault: () -> Unit,
     onToggleShowPinnedFirst: () -> Unit,
     onPinSelected: () -> Unit,
     onCopySelected: () -> Unit,
@@ -601,7 +616,8 @@ private fun MainTopBar(
                                     DropdownMenuItem(text = { Text(if (allSelected) stringResource(com.clipnest.R.string.clear_selection) else stringResource(com.clipnest.R.string.select_all)) }, onClick = { overflowExpanded = false; onToggleSelectAll() }, modifier = Modifier.testTag("main_menu_select_all"))
                                     DropdownMenuItem(text = { Text(stringResource(com.clipnest.R.string.share)) }, enabled = selectedCount > 0, onClick = { overflowExpanded = false; onShareSelected() }, modifier = Modifier.testTag("main_menu_share"))
                                     DropdownMenuItem(text = { Text(stringResource(com.clipnest.R.string.save_file)) }, enabled = selectedCount > 0, onClick = { overflowExpanded = false; onSaveFile() }, modifier = Modifier.testTag("main_menu_save_file"))
-                                    DropdownMenuItem(text = { Text(stringResource(com.clipnest.R.string.open_editor)) }, enabled = selectedCount > 0, onClick = { overflowExpanded = false; onOpenEditor() }, modifier = Modifier.testTag("main_menu_open_editor"))
+                                    DropdownMenuItem(text = { Text(stringResource(com.clipnest.R.string.new_note)) }, onClick = { overflowExpanded = false; onCreateNoteFromVault() }, modifier = Modifier.testTag("main_menu_new_note"))
+                                    DropdownMenuItem(text = { Text(stringResource(com.clipnest.R.string.create_note_from_selection)) }, enabled = selectedCount > 0, onClick = { overflowExpanded = false; onOpenEditor() }, modifier = Modifier.testTag("main_menu_create_note_from_selection"))
                                     DropdownMenuItem(text = { Text(stringResource(com.clipnest.R.string.show_pinned_first)) }, trailingIcon = { if (showPinnedFirst) Icon(Icons.Default.Check, contentDescription = stringResource(com.clipnest.R.string.active)) }, onClick = { overflowExpanded = false; onToggleShowPinnedFirst() }, modifier = Modifier.testTag("main_menu_show_pinned_first"))
                                     DropdownMenuItem(text = { Text(stringResource(com.clipnest.R.string.settings)) }, onClick = { overflowExpanded = false; onOpenSettings() }, modifier = Modifier.testTag("main_menu_settings"))
                                 } else if (isEditor) {
