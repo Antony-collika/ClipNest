@@ -338,8 +338,8 @@ fun MainAppContent(
         if (editorUiState.externalDocumentUri != null) editorViewModel.returnToInternalEditor(context.contentResolver, onComplete = navigate) else navigate()
     }
 
-    fun openNewNote(origin: com.clipnest.ui.editor.EditorNoteOrigin?) {
-        editorViewModel.createNoteAndEnterNoteMode(origin = origin)
+    fun openNewNote(origin: com.clipnest.ui.editor.EditorNoteOrigin?, topicId: Long?) {
+        editorViewModel.createNoteAndEnterNoteMode(origin = origin, topicId = topicId)
         scope.launch { pagerState.animateScrollToPage(2, animationSpec = tween(durationMillis = 180)) }
     }
 
