@@ -46,7 +46,7 @@ import com.clipnest.ui.editor.EditorNoteOrigin
 fun NoteScreen(
     noteDao: NoteDao,
     topicDao: TopicDao,
-    onCreateNote: (EditorNoteOrigin?) -> Unit,
+    onCreateNote: (EditorNoteOrigin?, Long?) -> Unit,
     onOpenNote: (Long, EditorNoteOrigin?) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -135,7 +135,7 @@ fun NoteScreen(
         }
 
         FloatingActionButton(
-            onClick = { onCreateNote(origin) },
+            onClick = { onCreateNote(origin, selectedTopicId) },
             modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp)
         ) {
             Icon(Icons.Default.Add, contentDescription = stringResource(R.string.new_note))
