@@ -29,6 +29,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -51,26 +52,20 @@ fun getSmartTitleSize(editorTextSize: EditorTextSize): TextUnit {
 }
 
 /**
- * Breadcrumb row above the toolbar. Always visible (Title/Divider/Content
- * below are also always visible) — only the label and the right-hand
- * action change with [mode]:
+ * Breadcrumb row above the toolbar. Its actions are mode-specific:
  *
- * - [EditorMode.PLAIN]: left side reads "Editor mode" (no back icon), right
- *   side reads "Save to Note" with a Save icon.
- * - [EditorMode.NOTE]: left side shows a back arrow plus "Taking note" (or
- *   "<origin>/New Note" when [origin] is set), right side reads "Done" with
- *   a Check icon.
- *
- * Both right-side actions call the same [onExit] — autosave already
- * persists on every change, so neither one "saves" anything the other
- * doesn't; "Save to Note" and "Done" just communicate different intent to
- * the user depending on which mode they're in.
+ * - [EditorMode.PLAIN]: "Save to Note" creates a Note from the current free
+ *   Editor content and stays on the Editor screen.
+ * - [EditorMode.NOTE]: the back arrow leaves Note mode; the right-hand "Save"
+ *   button saves the current Note immediately and stays in Note mode.
  */
 @Composable
 fun EditorNoteBreadcrumbBar(
     mode: EditorMode,
     origin: EditorNoteOrigin?,
     onExit: () -> Unit,
+    onSave: () -> Unit,
+    onSaveToNote: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -103,22 +98,24 @@ fun EditorNoteBreadcrumbBar(
                     else -> stringResource(com.clipnest.R.string.note_breadcrumb_default)
                 },
                 style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
         TextButton(
-            onClick = onExit,
+            onClick = if (mode == EditorMode.NOTE) onSave else onSaveToNote,
             modifier = Modifier.testTag("note_breadcrumb_action")
         ) {
             Icon(
-                if (mode == EditorMode.NOTE) Icons.Default.Check else Icons.Default.Save,
+                if (mode == EditorMode.NOTE) Icons.Default.Save else Icons.Default.Save,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(end = 4.dp)
             )
             Text(
                 text = if (mode == EditorMode.NOTE)
-                    stringResource(com.clipnest.R.string.done)
+                    stringResource(com.clipnest.R.string.save_file)
                 else
                     stringResource(com.clipnest.R.string.save_to_note),
                 color = MaterialTheme.colorScheme.primary
