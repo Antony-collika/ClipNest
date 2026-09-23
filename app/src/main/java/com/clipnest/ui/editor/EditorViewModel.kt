@@ -22,13 +22,19 @@ import com.clipnest.data.repository.EncryptedDocumentCodec
 import com.clipnest.ui.localization.withAppLanguage
 import com.clipnest.data.local.FileManager
 import com.clipnest.data.local.NoteDao
+import com.clipnest.data.local.TopicDao
 import com.clipnest.data.model.Note
+import com.clipnest.data.model.NoteTopicCrossRef
+import com.clipnest.data.model.NoteTopicRole
+import com.clipnest.data.model.Topic
+import com.clipnest.data.model.TopicLevel
 import com.clipnest.data.local.SettingsDataStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -88,10 +94,15 @@ class EditorViewModel(
     private val fileManager: FileManager,
     private val settingsDataStore: SettingsDataStore,
     private val appContext: Context,
-    private val noteDao: NoteDao
+    private val noteDao: NoteDao,
+    private val topicDao: TopicDao
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(EditorUiState())
     val uiState: StateFlow<EditorUiState> = _uiState.asStateFlow()
+    private val _topicSuggestionQuery = MutableStateFlow<String?>(null)
+    val topicSuggestionQuery: StateFlow<String?> = _topicSuggestionQuery.asStateFlow()
+    private val _topicSuggestions = MutableStateFlow<List<Topic>>(emptyList())
+    val topicSuggestions: StateFlow<List<Topic>> = _topicSuggestions.asStateFlow()
     private val _eventFlow = MutableSharedFlow<EditorEvent>()
     val eventFlow: SharedFlow<EditorEvent> = _eventFlow.asSharedFlow()
     private val _openWithDiagnostic = MutableStateFlow<String?>(null)
@@ -128,6 +139,7 @@ class EditorViewModel(
     private var savedInternalSelection: TextRange? = null
     private var savedInternalViewportAnchor: Int? = null
     private var autoSaveJob: Job? = null
+    private var topicSuggestionJob: Job? = null
     private var cursorSaveJob: Job? = null
     private var searchJob: Job? = null
     private var nativeEditor: NativeEditorView? = null
@@ -171,6 +183,7 @@ class EditorViewModel(
             // document; external sessions aren't restored this way. The viewport
             // anchor written alongside it is whatever was last known — this listener
             // only ever changes the caret, never the viewport.
+            updateTopicSuggestions()
             if (!hasExternalSession()) {
                 cursorSaveJob?.cancel()
                 cursorSaveJob = viewModelScope.launch(Dispatchers.Default) {
@@ -582,7 +595,7 @@ class EditorViewModel(
     private fun internalDocumentName() = appContext.withAppLanguage(settings.value.language).getString(com.clipnest.R.string.editor)
 
     private fun resetSearchState() { _isSearchOpen.value = false; _searchQuery.value = ""; _replaceQuery.value = ""; searchMatchStarts = emptyList(); _searchMatchCount.value = 0; _activeSearchMatch.value = 0 }
-    fun onDocumentTextChanged() { editorLoaded = true; _uiState.value = _uiState.value.copy(documentRevision = _uiState.value.documentRevision + 1, isDirty = true); if (_searchQuery.value.isNotBlank()) scheduleSearchResults(_searchQuery.value, true); if (!hasExternalSession()) scheduleDebouncedAutoSave() }
+    fun onDocumentTextChanged() { editorLoaded = true; _uiState.value = _uiState.value.copy(documentRevision = _uiState.value.documentRevision + 1, isDirty = true); updateTopicSuggestions(); if (_searchQuery.value.isNotBlank()) scheduleSearchResults(_searchQuery.value, true); if (!hasExternalSession()) scheduleDebouncedAutoSave() }
 
     fun returnToFreeEditor(onComplete: () -> Unit = {}) {
         pendingNoteReturnCallback = onComplete
@@ -650,6 +663,93 @@ class EditorViewModel(
                 )
                 loadInternalDocumentIntoEditor()
                 returnCallback?.invoke()
+            }
+        }
+    }
+
+    private fun updateTopicSuggestions() {
+        val state = _uiState.value
+        if (state.mode != EditorMode.NOTE || state.activeNoteId == null) {
+            _topicSuggestionQuery.value = null
+            _topicSuggestions.value = emptyList()
+            topicSuggestionJob?.cancel()
+            return
+        }
+        val editor = nativeEditor ?: run {
+            _topicSuggestionQuery.value = null
+            _topicSuggestions.value = emptyList()
+            return
+        }
+        if (editor.selectionStart != editor.selectionEnd) {
+            _topicSuggestionQuery.value = null
+            _topicSuggestions.value = emptyList()
+            return
+        }
+        val cursor = editor.selectionStart
+        val text = editor.text?.toString().orEmpty()
+        if (cursor !in 0..text.length) return
+        val beforeCursor = text.substring(0, cursor)
+        val match = Regex("""(?:^|\\s)#([^\\s#]*)$""").find(beforeCursor)
+        if (match == null) {
+            _topicSuggestionQuery.value = null
+            _topicSuggestions.value = emptyList()
+            topicSuggestionJob?.cancel()
+            return
+        }
+        val query = match.groupValues[1]
+        _topicSuggestionQuery.value = query
+        topicSuggestionJob?.cancel()
+        topicSuggestionJob = viewModelScope.launch(Dispatchers.IO) {
+            val suggestions = runCatching { topicDao.searchTopics(query).first() }.getOrDefault(emptyList())
+            withContext(Dispatchers.Main.immediate) {
+                if (_topicSuggestionQuery.value == query && _uiState.value.mode == EditorMode.NOTE) {
+                    _topicSuggestions.value = suggestions
+                }
+            }
+        }
+    }
+
+    fun dismissTopicSuggestions() {
+        _topicSuggestionQuery.value = null
+        _topicSuggestions.value = emptyList()
+        topicSuggestionJob?.cancel()
+    }
+
+    fun selectExistingTopic(topic: Topic) {
+        val noteId = _uiState.value.activeNoteId ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                topicDao.addNoteTopicCrossRef(NoteTopicCrossRef(noteId = noteId, topicId = topic.id))
+            }
+            withContext(Dispatchers.Main.immediate) {
+                dismissTopicSuggestions()
+            }
+        }
+    }
+
+    fun createTopicFromSuggestion() {
+        val noteId = _uiState.value.activeNoteId ?: return
+        val name = _topicSuggestionQuery.value?.trim().orEmpty()
+        if (name.isBlank()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            val topic = runCatching {
+                topicDao.searchTopics(name).first().firstOrNull { it.name.equals(name, ignoreCase = true) }
+                    ?: runCatching {
+                        val id = topicDao.insertTopic(
+                            Topic(
+                                name = name,
+                                level = TopicLevel.PARENT,
+                                createdAtMillis = System.currentTimeMillis()
+                            )
+                        )
+                        topicDao.getTopicById(id)
+                    }.getOrNull()
+            }.getOrNull() ?: return@launch
+            runCatching {
+                topicDao.addNoteTopicCrossRef(NoteTopicCrossRef(noteId = noteId, topicId = topic.id, role = NoteTopicRole.USER_TAG))
+            }
+            withContext(Dispatchers.Main.immediate) {
+                dismissTopicSuggestions()
             }
         }
     }
@@ -951,12 +1051,13 @@ class EditorViewModelFactory(
     private val fileManager: FileManager,
     private val settingsDataStore: SettingsDataStore,
     private val appContext: Context,
-    private val noteDao: NoteDao
+    private val noteDao: NoteDao,
+    private val topicDao: TopicDao
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(EditorViewModel::class.java)) {
-            return EditorViewModel(fileManager, settingsDataStore, appContext, noteDao) as T
+            return EditorViewModel(fileManager, settingsDataStore, appContext, noteDao, topicDao) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }
