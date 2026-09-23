@@ -245,4 +245,7 @@
 <string name="note_title_placeholder">Ghi gì cũng được</string>
 <string name="edit_note">Đang memoa</string>
 <string name="done">👌</string>
-<string name="back">am bách</string></resources>
+<string name="back">am bách</string>    <string name="empty_note_title">Note trống</string>
+    <string name="empty_note_message">Note này đang trống. Bạn có muốn lưu không?</string>
+    <string name="discard_note">Bỏ Note</string>
+</resources>
