@@ -21,6 +21,8 @@ import com.clipnest.data.local.ExportFormat
 import com.clipnest.data.repository.EncryptedDocumentCodec
 import com.clipnest.ui.localization.withAppLanguage
 import com.clipnest.data.local.FileManager
+import com.clipnest.data.local.NoteDao
+import com.clipnest.data.model.Note
 import com.clipnest.data.local.SettingsDataStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -71,7 +73,8 @@ data class EditorUiState(
     val externalDocumentEncrypted: Boolean = false,
     val mode: EditorMode = EditorMode.PLAIN,
     val title: String = "",
-    val noteOrigin: EditorNoteOrigin? = null
+    val noteOrigin: EditorNoteOrigin? = null,
+    val activeNoteId: Long? = null
 )
 
 sealed class EditorEvent {
@@ -83,7 +86,8 @@ sealed class EditorEvent {
 class EditorViewModel(
     private val fileManager: FileManager,
     private val settingsDataStore: SettingsDataStore,
-    private val appContext: Context
+    private val appContext: Context,
+    private val noteDao: NoteDao
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(EditorUiState())
     val uiState: StateFlow<EditorUiState> = _uiState.asStateFlow()
@@ -498,8 +502,20 @@ class EditorViewModel(
         stream.use { it.write(output.toByteArray(Charsets.UTF_8)); it.flush() }
     }
     private fun queryDisplayName(uri: Uri, resolver: ContentResolver): String = runCatching { resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { if (it.moveToFirst()) it.getString(0) else null } }.getOrNull()?.takeIf(String::isNotBlank) ?: uri.lastPathSegment?.substringAfterLast('/')?.takeIf(String::isNotBlank) ?: appContext.withAppLanguage(settings.value.language).getString(com.clipnest.R.string.open_file)
-    private fun writeDocumentSnapshot(state: EditorUiState, resolver: ContentResolver, text: String = state.content.text, password: CharArray? = currentDocumentPassword) {
+    private suspend fun writeDocumentSnapshot(state: EditorUiState, resolver: ContentResolver, text: String = state.content.text, password: CharArray? = currentDocumentPassword) {
         if (state.externalDocumentSaveAsOnly) return
+        val noteId = state.activeNoteId
+        if (noteId != null) {
+            if (state.isDirty) {
+                noteDao.updateContentAndBumpEditSession(
+                    noteId = noteId,
+                    title = state.title,
+                    content = text,
+                    now = System.currentTimeMillis()
+                )
+            }
+            return
+        }
         val uri = state.externalDocumentUri?.let(Uri::parse)
         if (uri == null) {
             if (state.isDirty) { fileManager.writeEditor(text); fileManager.writeEditorTitle(state.title) }
@@ -566,7 +582,96 @@ class EditorViewModel(
     private fun resetSearchState() { _isSearchOpen.value = false; _searchQuery.value = ""; _replaceQuery.value = ""; searchMatchStarts = emptyList(); _searchMatchCount.value = 0; _activeSearchMatch.value = 0 }
     fun onDocumentTextChanged() { editorLoaded = true; _uiState.value = _uiState.value.copy(documentRevision = _uiState.value.documentRevision + 1, isDirty = true); if (_searchQuery.value.isNotBlank()) scheduleSearchResults(_searchQuery.value, true); if (!hasExternalSession()) scheduleDebouncedAutoSave() }
 
-    fun configureNoteMode(origin: EditorNoteOrigin?) { _uiState.value = _uiState.value.copy(mode = EditorMode.NOTE, noteOrigin = origin) }
+    fun configureNoteMode(origin: EditorNoteOrigin?) {
+        _uiState.value = _uiState.value.copy(mode = EditorMode.NOTE, noteOrigin = origin)
+    }
+
+    fun createNoteAndEnterNoteMode(
+        initialContent: String = "",
+        origin: EditorNoteOrigin? = null,
+        title: String = ""
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val now = System.currentTimeMillis()
+            val noteId = noteDao.insertNote(
+                Note(
+                    title = title,
+                    content = initialContent,
+                    createdAtMillis = now,
+                    updatedAtMillis = now
+                )
+            )
+            withContext(Dispatchers.Main.immediate) {
+                configureNoteMode(origin)
+                val content = initialContent.replace("\r\n", "\n").replace('\r', '\n')
+                nativeEditor?.setEditorText(content, content.length, content.length, content.length)
+                _uiState.value.content.setFallback(content, TextRange(content.length), content.length)
+                _uiState.value = _uiState.value.copy(
+                    mode = EditorMode.NOTE,
+                    title = title,
+                    noteOrigin = origin,
+                    activeNoteId = noteId,
+                    documentRevision = _uiState.value.documentRevision + 1,
+                    isDirty = false,
+                    documentName = "Note"
+                )
+                editorDocumentGeneration++
+            }
+        }
+    }
+
+    fun openNoteInEditor(noteId: Long, origin: EditorNoteOrigin? = null) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val note = noteDao.getNoteById(noteId) ?: return@launch
+            withContext(Dispatchers.Main.immediate) {
+                configureNoteMode(origin)
+                val content = note.content.replace("\r\n", "\n").replace('\r', '\n')
+                nativeEditor?.setEditorText(content, content.length, content.length, content.length)
+                _uiState.value.content.setFallback(content, TextRange(content.length), content.length)
+                _uiState.value = _uiState.value.copy(
+                    mode = EditorMode.NOTE,
+                    title = note.title,
+                    noteOrigin = origin,
+                    activeNoteId = note.id,
+                    documentRevision = _uiState.value.documentRevision + 1,
+                    isDirty = false,
+                    documentName = "Note"
+                )
+                editorDocumentGeneration++
+            }
+        }
+    }
+
+    fun saveCurrentNoteNow() {
+        val state = _uiState.value
+        val noteId = state.activeNoteId ?: return
+        autoSaveJob?.cancel()
+        val text = currentDocumentText()
+        val revision = state.documentRevision
+        _uiState.value.content.setFallback(
+            text,
+            nativeEditor?.let { TextRange(it.selectionStart, it.selectionEnd) } ?: TextRange(text.length)
+        )
+        viewModelScope.launch(Dispatchers.IO) {
+            val saved = runCatching {
+                noteDao.updateContentAndBumpEditSession(
+                    id = noteId,
+                    title = state.title,
+                    content = text,
+                    now = System.currentTimeMillis()
+                )
+            }.isSuccess
+            withContext(Dispatchers.Main.immediate) {
+                if (saved && _uiState.value.documentRevision == revision) {
+                    _uiState.value = _uiState.value.copy(
+                        isDirty = false,
+                        lastSavedTimestamp = System.currentTimeMillis()
+                    )
+                }
+            }
+        }
+    }
+
     fun onTitleChange(newTitle: String) { editorLoaded = true; _uiState.value = _uiState.value.copy(title = newTitle, isDirty = true); if (!hasExternalSession()) scheduleDebouncedAutoSave() }
     fun flushPendingSaveAndExit(contentResolver: ContentResolver = appContext.contentResolver, onComplete: () -> Unit = {}) {
         autoSaveJob?.cancel()
@@ -770,6 +875,17 @@ class EditorViewModel(
     companion object { private const val TAG = "XBoard.Editor" }
 }
 
-class EditorViewModelFactory(private val fileManager: FileManager, private val settingsDataStore: SettingsDataStore, private val appContext: Context) : ViewModelProvider.Factory {
-    @Suppress("UNCHECKED_CAST") override fun <T : ViewModel> create(modelClass: Class<T>): T { if (modelClass.isAssignableFrom(EditorViewModel::class.java)) return EditorViewModel(fileManager, settingsDataStore, appContext) as T; throw IllegalArgumentException("Unknown ViewModel class") }
+class EditorViewModelFactory(
+    private val fileManager: FileManager,
+    private val settingsDataStore: SettingsDataStore,
+    private val appContext: Context,
+    private val noteDao: NoteDao
+) : ViewModelProvider.Factory {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(EditorViewModel::class.java)) {
+            return EditorViewModel(fileManager, settingsDataStore, appContext, noteDao) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class")
+    }
 }
