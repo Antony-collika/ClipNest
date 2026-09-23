@@ -183,7 +183,6 @@ class EditorViewModel(
             // document; external sessions aren't restored this way. The viewport
             // anchor written alongside it is whatever was last known — this listener
             // only ever changes the caret, never the viewport.
-            updateTopicSuggestions()
             if (!hasExternalSession()) {
                 cursorSaveJob?.cancel()
                 cursorSaveJob = viewModelScope.launch(Dispatchers.Default) {
@@ -667,36 +666,50 @@ class EditorViewModel(
         }
     }
 
+    /**
+     * Detects only the hashtag token immediately before the caret.
+     *
+     * This deliberately does not create a substring of the whole document or run
+     * a regex over it. The scan walks backwards from the caret until whitespace or
+     * another '#' is reached, so its work is proportional to the current hashtag
+     * token, not to the size of the document.
+     */
     private fun updateTopicSuggestions() {
         val state = _uiState.value
-        if (state.mode != EditorMode.NOTE || state.activeNoteId == null) {
-            _topicSuggestionQuery.value = null
-            _topicSuggestions.value = emptyList()
-            topicSuggestionJob?.cancel()
-            return
-        }
-        val editor = nativeEditor ?: run {
-            _topicSuggestionQuery.value = null
-            _topicSuggestions.value = emptyList()
+        val editor = nativeEditor
+        if (state.mode != EditorMode.NOTE || state.activeNoteId == null || editor == null) {
+            dismissTopicSuggestions()
             return
         }
         if (editor.selectionStart != editor.selectionEnd) {
-            _topicSuggestionQuery.value = null
-            _topicSuggestions.value = emptyList()
+            dismissTopicSuggestions()
             return
         }
+
         val cursor = editor.selectionStart
-        val text = editor.text?.toString().orEmpty()
-        if (cursor !in 0..text.length) return
-        val beforeCursor = text.substring(0, cursor)
-        val match = Regex("""(?:^|\s)#([^\s#]*)$""").find(beforeCursor)
-        if (match == null) {
-            _topicSuggestionQuery.value = null
-            _topicSuggestions.value = emptyList()
-            topicSuggestionJob?.cancel()
+        val length = editor.length()
+        if (cursor < 0 || cursor > length) {
+            dismissTopicSuggestions()
             return
         }
-        val query = match.groupValues[1]
+
+        var tokenStart = cursor
+        while (tokenStart > 0) {
+            val ch = editor.text?.get(tokenStart - 1) ?: break
+            if (ch.isWhitespace() || ch == '#') break
+            tokenStart--
+        }
+
+        if (tokenStart <= 0 || editor.text?.get(tokenStart - 1) != '#') {
+            dismissTopicSuggestions()
+            return
+        }
+
+        val query = editor.text
+            ?.subSequence(tokenStart, cursor)
+            ?.toString()
+            .orEmpty()
+
         _topicSuggestionQuery.value = query
         topicSuggestionJob?.cancel()
         topicSuggestionJob = viewModelScope.launch(Dispatchers.IO) {
