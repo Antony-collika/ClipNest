@@ -38,8 +38,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.layout.boundsInWindow
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -60,9 +58,6 @@ import com.clipnest.data.local.EditorTextSize
 import com.clipnest.data.local.ViewerTextSize
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.distinctUntilChanged
-import androidx.compose.runtime.snapshotFlow
-import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -104,7 +99,6 @@ fun EditorScreen(
     var previewHtml by remember { mutableStateOf("") }
     var tocHeadings by remember { mutableStateOf<List<MarkdownHeading>>(emptyList()) }
     var tocIndexing by remember { mutableStateOf(false) }
-    var editorVisible by remember { mutableStateOf(true) }
     var titleFocused by remember { mutableStateOf(false) }
     var titleFieldValue by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue()) }
     var nativeEditorView by remember { mutableStateOf<NativeEditorView?>(null) }
@@ -187,23 +181,7 @@ fun EditorScreen(
 
     LaunchedEffect(uiState.showMarkdownPreview) { viewModel.hideNativeKeyboard() }
 
-    // Visibility only controls the real "Editor left the pager viewport" case.
-    // Keep it out of AndroidView.update so transient Title -> Content layout changes
-    // cannot accidentally clear the IME.
-    LaunchedEffect(Unit) {
-        snapshotFlow { editorVisible }
-            .distinctUntilChanged()
-            .debounce(80L)
-            .collect { visible ->
-                if (!visible) viewModel.hideNativeKeyboard()
-            }
-    }
-
-    Box(modifier.fillMaxSize().imePadding().onGloballyPositioned { coordinates ->
-        val bounds = coordinates.boundsInWindow()
-        val windowWidth = context.resources.displayMetrics.widthPixels.toFloat()
-        editorVisible = bounds.right > 0f && bounds.left < windowWidth
-    }) {
+    Box(modifier.fillMaxSize().imePadding()) {
         Column(Modifier.fillMaxSize()) {
             EditorNoteBreadcrumbBar(
                     mode = uiState.mode,
