@@ -213,7 +213,7 @@ fun EditorScreen(
                         viewModel.returnToFreeEditor { onExit(returnKey) }
                     },
                     onSave = viewModel::saveCurrentNoteNow,
-                    onSaveToNote = { viewModel.createNoteAndEnterNoteMode(viewModel.currentDocumentText()) }
+                    onSaveToNote = { viewModel.createNoteAndEnterNoteMode(viewModel.currentDocumentText(), title = titleFieldValue.text) }
                 )
             EditorToolbox(
                 isMarkdownToolsExpanded = uiState.isMarkdownToolsExpanded,
