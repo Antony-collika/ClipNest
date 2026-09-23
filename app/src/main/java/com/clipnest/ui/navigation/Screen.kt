@@ -22,9 +22,16 @@ sealed class Screen(
         unselectedIcon = Icons.Outlined.Folder
     )
 
-    data object Note : Screen(
-        route = "note",
+    data object Editor : Screen(
+        route = "editor",
         title = "Editor",
+        selectedIcon = Icons.Filled.Description,
+        unselectedIcon = Icons.Outlined.Description
+    )
+
+    data object Note : Screen(
+        route = "note_tab",
+        title = "Note",
         selectedIcon = Icons.Filled.Description,
         unselectedIcon = Icons.Outlined.Description
     )
