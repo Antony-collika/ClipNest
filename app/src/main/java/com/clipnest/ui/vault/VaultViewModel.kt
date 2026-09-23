@@ -582,10 +582,10 @@ class VaultViewModel(
         }
     }
 
-    fun copySelectedCardsThenOpenEditor(context: Context, onComplete: () -> Unit) {
+    fun copySelectedCardsThenOpenEditor(context: Context, onComplete: (String) -> Unit) {
         val selected = _selectedIds.value
         if (selected.isEmpty()) {
-            onComplete()
+            onComplete("")
             return
         }
         val orderedSelectedIds = uiState.value.cards
@@ -593,16 +593,20 @@ class VaultViewModel(
             .map { it.id }
         viewModelScope.launch {
             val fullCards = repository.getCardsByIds(orderedSelectedIds)
-            if (fullCards.isNotEmpty()) {
-                val combinedText = TextNormalizer.formatSelectedCards(
+            val combinedText = if (fullCards.isNotEmpty()) {
+                TextNormalizer.formatSelectedCards(
                     fullCards.map { it.content },
                     includeHeaders = true
                 )
+            } else {
+                ""
+            }
+            if (combinedText.isNotEmpty()) {
                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 clipboard.setPrimaryClip(ClipData.newPlainText("Vault Cards", combinedText))
             }
             withContext(kotlinx.coroutines.Dispatchers.Main.immediate) {
-                onComplete()
+                onComplete(combinedText)
             }
         }
     }
