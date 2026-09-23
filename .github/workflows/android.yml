@@ -4,10 +4,10 @@ name: Android CI/CD
 on:
   push:
     branches:
-      - hybrid
+      - Note-database
   pull_request:
     branches:
-      - hybrid
+      - Note-database
   workflow_dispatch:
 
 jobs:
