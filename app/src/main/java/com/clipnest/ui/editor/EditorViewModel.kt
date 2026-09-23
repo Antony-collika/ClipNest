@@ -118,6 +118,7 @@ class EditorViewModel(
     private var pendingExternalOpen: PendingExternalOpen? = null
     private var pendingExternalExitAction: ExternalExitAction? = null
     private var pendingExternalReturnCallback: (() -> Unit)? = null
+    private var pendingNoteReturnCallback: (() -> Unit)? = null
     // The internal document's caret position and viewport anchor, captured right
     // before switching to an external document session, so "Return to editor" can
     // restore both instead of defaulting the caret to end-of-text. Kept as two
@@ -583,7 +584,8 @@ class EditorViewModel(
     private fun resetSearchState() { _isSearchOpen.value = false; _searchQuery.value = ""; _replaceQuery.value = ""; searchMatchStarts = emptyList(); _searchMatchCount.value = 0; _activeSearchMatch.value = 0 }
     fun onDocumentTextChanged() { editorLoaded = true; _uiState.value = _uiState.value.copy(documentRevision = _uiState.value.documentRevision + 1, isDirty = true); if (_searchQuery.value.isNotBlank()) scheduleSearchResults(_searchQuery.value, true); if (!hasExternalSession()) scheduleDebouncedAutoSave() }
 
-    fun returnToFreeEditor() {
+    fun returnToFreeEditor(onComplete: () -> Unit = {}) {
+        pendingNoteReturnCallback = onComplete
         val state = _uiState.value
         if (state.mode != EditorMode.NOTE || state.activeNoteId == null) return
         autoSaveJob?.cancel()
@@ -635,6 +637,8 @@ class EditorViewModel(
             }
             if (result.isFailure) return@launch
             withContext(Dispatchers.Main.immediate) {
+                val returnCallback = pendingNoteReturnCallback
+                pendingNoteReturnCallback = null
                 _uiState.value = _uiState.value.copy(
                     mode = EditorMode.PLAIN,
                     title = "",
@@ -645,6 +649,7 @@ class EditorViewModel(
                     documentName = internalDocumentName()
                 )
                 loadInternalDocumentIntoEditor()
+                returnCallback?.invoke()
             }
         }
     }
