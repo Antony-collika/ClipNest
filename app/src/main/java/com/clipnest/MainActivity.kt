@@ -368,8 +368,11 @@ fun MainAppContent(
                 },
                 isAskAiInProgress = askAiInProgress,
                 onOpenFile = ::openExternalFile,
-                onReturnToEditor = { editorViewModel.returnToInternalEditor(context.contentResolver) },
-                isExternalDocument = editorUiState.externalDocumentUri != null,
+                onReturnToEditor = {
+                    if (editorUiState.mode == com.clipnest.ui.editor.EditorMode.NOTE) editorViewModel.returnToFreeEditor()
+                    else editorViewModel.returnToInternalEditor(context.contentResolver)
+                },
+                isExternalDocument = editorUiState.externalDocumentUri != null || editorUiState.mode == com.clipnest.ui.editor.EditorMode.NOTE,
                 onOpenEditor = ::openEditorFromVault,
                 onToggleShowPinnedFirst = vaultViewModel::toggleShowPinnedFirst,
                 onPinSelected = vaultViewModel::togglePinSelected,
