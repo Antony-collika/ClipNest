@@ -92,6 +92,7 @@ import com.clipnest.data.ai.AiApi
 import com.clipnest.data.repository.VaultBackupCodec
 import com.clipnest.service.CaptureNotificationManager
 import com.clipnest.ui.editor.EditorScreen
+import com.clipnest.ui.note.NoteScreen
 import com.clipnest.ui.editor.EditorViewModel
 import com.clipnest.ui.editor.EditorViewModelFactory
 import com.clipnest.ui.localization.withAppLanguage
@@ -301,32 +302,45 @@ fun MainAppContent(
     val editorSearchMatchCount = editorViewModel.searchMatchCount.collectAsStateWithLifecycle().value
     val editorActiveSearchMatch = editorViewModel.activeSearchMatch.collectAsStateWithLifecycle().value
     val editorUiState by editorViewModel.uiState.collectAsStateWithLifecycle()
-    val pagerState = androidx.compose.foundation.pager.rememberPagerState(initialPage = 0, pageCount = { 2 })
+    val pagerState = androidx.compose.foundation.pager.rememberPagerState(initialPage = 0, pageCount = { 3 })
     val scope = rememberCoroutineScope()
     val isSettings = currentRoute == Screen.Settings.route
-    val isEditorTab = !isSettings && pagerState.currentPage == 1
-    val selectedTab = pagerState.currentPage.coerceIn(0, 1)
+    val isNoteTab = !isSettings && pagerState.currentPage == 0
+    val isVaultTab = !isSettings && pagerState.currentPage == 1
+    val isEditorTab = !isSettings && pagerState.currentPage == 2
+    val selectedTab = pagerState.currentPage.coerceIn(0, 2)
     val selectedCards = vaultState.cards.filter { vaultState.selectedIds.contains(it.id) }
     val visibleSelectedCount = selectedCards.size
     val allSelected = vaultState.cards.isNotEmpty() && visibleSelectedCount == vaultState.cards.size
     LaunchedEffect(incomingOpenRequest) {
         incomingOpenRequest?.let { request ->
             editorViewModel.openExternalDocument(request.uri, context.contentResolver, request.openContext, request.candidates)
-            pagerState.animateScrollToPage(1)
+            pagerState.animateScrollToPage(2)
             onIncomingOpenRequestHandled()
         }
     }
-    fun openExternalFile() { onRequestOpenFile { uri -> editorViewModel.openExternalDocument(uri, context.contentResolver); scope.launch { pagerState.animateScrollToPage(1) } } }
+    fun openExternalFile() { onRequestOpenFile { uri -> editorViewModel.openExternalDocument(uri, context.contentResolver); scope.launch { pagerState.animateScrollToPage(2) } } }
     fun openEditorFromVault() {
-        val navigate = { vaultViewModel.copySelectedCardsThenOpenEditor(context) { scope.launch { pagerState.animateScrollToPage(1) } } }
+        val navigate = { vaultViewModel.copySelectedCardsThenOpenEditor(context) { scope.launch { pagerState.animateScrollToPage(2) } } }
         if (editorUiState.externalDocumentUri != null) editorViewModel.returnToInternalEditor(context.contentResolver, onComplete = navigate) else navigate()
+    }
+
+    fun openNewNote(origin: com.clipnest.ui.editor.EditorNoteOrigin?) {
+        editorViewModel.createNoteAndEnterNoteMode(origin = origin)
+        scope.launch { pagerState.animateScrollToPage(2, animationSpec = tween(durationMillis = 180)) }
+    }
+
+    fun openExistingNote(noteId: Long, origin: com.clipnest.ui.editor.EditorNoteOrigin?) {
+        editorViewModel.openNoteInEditor(noteId, origin)
+        scope.launch { pagerState.animateScrollToPage(2, animationSpec = tween(durationMillis = 180)) }
     }
     Scaffold(
         topBar = {
             MainTopBar(
-                title = when { isSettings -> stringResource(com.clipnest.R.string.settings); selectedTab == 0 -> stringResource(com.clipnest.R.string.vault); else -> if (editorUiState.externalDocumentUri != null) editorUiState.documentName else stringResource(com.clipnest.R.string.editor) },
-                isVault = !isSettings && selectedTab == 0,
-                isEditor = !isSettings && selectedTab == 1,
+                title = when { isSettings -> stringResource(com.clipnest.R.string.settings); isNoteTab -> stringResource(com.clipnest.R.string.note_tab); isVaultTab -> stringResource(com.clipnest.R.string.vault); else -> if (editorUiState.externalDocumentUri != null) editorUiState.documentName else stringResource(com.clipnest.R.string.editor) },
+                isNote = isNoteTab,
+                isVault = isVaultTab,
+                isEditor = isEditorTab,
                 selectedCount = if (isSettings) 0 else vaultState.selectedIds.size,
                 allSelected = allSelected,
                 allSelectedPinned = !isSettings && selectedCards.isNotEmpty() && selectedCards.all { it.pinned },
@@ -388,20 +402,34 @@ fun MainAppContent(
             composable(Screen.Vault.route) {
                 androidx.compose.foundation.pager.HorizontalPager(state = pagerState, beyondViewportPageCount = 1, modifier = Modifier.fillMaxSize().testTag("main_content_pager")) { page ->
                     when (page) {
-                        0 -> VaultScreen(
+                        0 -> NoteScreen(
+                            noteDao = AppDatabase.getInstance(context).noteDao(),
+                            topicDao = AppDatabase.getInstance(context).topicDao(),
+                            onCreateNote = ::openNewNote,
+                            onOpenNote = ::openExistingNote,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        1 -> VaultScreen(
                             viewModel = vaultViewModel,
                             onOpenEditor = ::openEditorFromVault,
                             onShareText = onShareText,
                             onRequestExportFolder = { onRequestFolder { uri -> vaultViewModel.setExportFolder(uri, context.contentResolver) } },
                             modifier = Modifier.fillMaxSize()
                         )
-                        1 -> EditorScreen(
+                        2 -> EditorScreen(
                             viewModel = editorViewModel,
                             editorTextSize = editorTextSize,
                             viewerTextSize = viewerTextSize,
                             onRequestSaveFolder = { onRequestFolder { uri -> editorViewModel.setDefaultSaveFolder(uri, context.contentResolver) } },
                             onRequestOpenFile = ::openExternalFile,
                             onRequestExternalSaveAs = { name, mime -> onRequestExternalSaveAs(name, mime) { uri -> editorViewModel.completeExternalSaveAs(uri, context.contentResolver) } },
+                            onExit = { returnKey ->
+                                if (returnKey?.startsWith("topic:") == true) {
+                                    scope.launch { pagerState.animateScrollToPage(0, animationSpec = tween(durationMillis = 180)) }
+                                } else {
+                                    scope.launch { pagerState.animateScrollToPage(2, animationSpec = tween(durationMillis = 180)) }
+                                }
+                            },
                             modifier = Modifier.fillMaxSize()
                         )
                     }
