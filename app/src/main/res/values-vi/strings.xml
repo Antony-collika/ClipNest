@@ -255,4 +255,5 @@
     <string name="new_note">Note mới</string>
     <string name="filter_topic">Topic</string>
     <string name="create_topic">Tạo topic mới: #%1$s</string>
+    <string name="create_note_from_selection">Tạo Note từ lựa chọn</string>
 </resources>
