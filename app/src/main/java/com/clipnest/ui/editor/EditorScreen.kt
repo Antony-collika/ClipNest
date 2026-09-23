@@ -80,7 +80,7 @@ fun EditorScreen(
     onRequestSaveFolder: () -> Unit,
     onRequestOpenFile: () -> Unit,
     onRequestExternalSaveAs: (String, String) -> Unit,
-    onExit: () -> Unit = {},
+    onExit: (String?) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -193,7 +193,10 @@ fun EditorScreen(
                 EditorNoteBreadcrumbBar(
                     mode = uiState.mode,
                     origin = uiState.noteOrigin,
-                    onExit = viewModel::returnToFreeEditor,
+                    onExit = {
+                        val returnKey = uiState.noteOrigin?.returnKey
+                        viewModel.returnToFreeEditor { onExit(returnKey) }
+                    },
                     onSave = viewModel::saveCurrentNoteNow,
                     onSaveToNote = { viewModel.createNoteAndEnterNoteMode(viewModel.currentDocumentText()) }
                 )
