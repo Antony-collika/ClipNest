@@ -245,7 +245,6 @@ fun EditorScreen(
                     hintColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
                 )
                 EditorNoteTitleDivider()
-            }
             Box(
                 modifier = Modifier.fillMaxWidth().weight(1f)
             ) {
