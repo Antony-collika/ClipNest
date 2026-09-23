@@ -54,6 +54,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.PopupProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.clipnest.data.local.EditorTextSize
 import com.clipnest.data.local.ViewerTextSize
@@ -87,6 +88,8 @@ fun EditorScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val openWithDiagnostic by viewModel.openWithDiagnostic.collectAsStateWithLifecycle()
     val pendingEncryptedOpen by viewModel.pendingEncryptedOpen.collectAsStateWithLifecycle()
+    val topicSuggestionQuery by viewModel.topicSuggestionQuery.collectAsStateWithLifecycle()
+    val topicSuggestions by viewModel.topicSuggestions.collectAsStateWithLifecycle()
     val isDark = MaterialTheme.colorScheme.background.red < 0.5f
     val editorTextColor = MaterialTheme.colorScheme.onBackground.toArgb()
     val previewBackground = if (isDark) Color(0xFF2B2B2B) else Color(0xFFF6F6F6)
@@ -233,11 +236,38 @@ fun EditorScreen(
                 )
                 EditorNoteTitleDivider()
             }
-            AndroidView(
-                factory = { NativeEditorView(it).apply { setEditorTextSize(editorTextSize); setEditorTextColor(editorTextColor); nativeEditorView = this; viewModel.bindNativeEditor(this) } },
-                update = { it.setEditorTextSize(editorTextSize); it.setEditorTextColor(editorTextColor); nativeEditorView = it; if (uiState.showMarkdownPreview || !editorVisible) it.hideKeyboardAndClearFocus(); viewModel.bindNativeEditor(it) },
-                modifier = Modifier.fillMaxWidth().weight(1f).testTag("editor_text_input")
-            )
+            Box(
+                modifier = Modifier.fillMaxWidth().weight(1f)
+            ) {
+                AndroidView(
+                    factory = { NativeEditorView(it).apply { setEditorTextSize(editorTextSize); setEditorTextColor(editorTextColor); nativeEditorView = this; viewModel.bindNativeEditor(this) } },
+                    update = { it.setEditorTextSize(editorTextSize); it.setEditorTextColor(editorTextColor); nativeEditorView = it; if (uiState.showMarkdownPreview || !editorVisible) it.hideKeyboardAndClearFocus(); viewModel.bindNativeEditor(it) },
+                    modifier = Modifier.fillMaxSize().testTag("editor_text_input")
+                )
+                val query = topicSuggestionQuery
+                if (uiState.mode == EditorMode.NOTE && query != null) {
+                    val hasExactMatch = topicSuggestions.any { it.name.equals(query, ignoreCase = true) }
+                    DropdownMenu(
+                        expanded = true,
+                        onDismissRequest = viewModel::dismissTopicSuggestions,
+                        properties = PopupProperties(focusable = false),
+                        modifier = Modifier.fillMaxWidth(0.92f)
+                    ) {
+                        topicSuggestions.forEach { topic ->
+                            DropdownMenuItem(
+                                text = { Text("#" + topic.name) },
+                                onClick = { viewModel.selectExistingTopic(topic) }
+                            )
+                        }
+                        if (query.isNotBlank() && !hasExactMatch) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(com.clipnest.R.string.create_topic, query)) },
+                                onClick = viewModel::createTopicFromSuggestion
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 
