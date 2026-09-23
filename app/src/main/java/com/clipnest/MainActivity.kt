@@ -70,6 +70,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -304,6 +305,10 @@ fun MainAppContent(
     val editorUiState by editorViewModel.uiState.collectAsStateWithLifecycle()
     val pagerState = androidx.compose.foundation.pager.rememberPagerState(initialPage = 0, pageCount = { 3 })
     val scope = rememberCoroutineScope()
+    val keyboardController = LocalSoftwareKeyboardController.current
+    LaunchedEffect(pagerState.currentPage) {
+        if (pagerState.currentPage != 2) keyboardController?.hide()
+    }
     val isSettings = currentRoute == Screen.Settings.route
     val isNoteTab = !isSettings && pagerState.currentPage == 0
     val isVaultTab = !isSettings && pagerState.currentPage == 1
