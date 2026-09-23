@@ -346,8 +346,8 @@ fun MainAppContent(
                 allSelectedPinned = !isSettings && selectedCards.isNotEmpty() && selectedCards.all { it.pinned },
                 isSettings = isSettings,
                 showPinnedFirst = vaultState.userSettings.showPinnedFirst,
-                isSearchOpen = if (isEditorTab) editorSearchOpen else vaultState.isSearchOpen,
-                searchQuery = if (isEditorTab) editorSearchQuery else vaultState.searchQuery,
+                isSearchOpen = if (isEditorTab) editorSearchOpen else if (isVaultTab) vaultState.isSearchOpen else false,
+                searchQuery = if (isEditorTab) editorSearchQuery else if (isVaultTab) vaultState.searchQuery else "",
                 searchPlaceholder = if (isEditorTab) stringResource(com.clipnest.R.string.search_editor) else stringResource(com.clipnest.R.string.search_vault),
                 editorDocumentName = if (editorUiState.externalDocumentUri != null) editorUiState.documentName else stringResource(com.clipnest.R.string.editor),
                 editorSearchMatchCount = editorSearchMatchCount,
@@ -452,6 +452,7 @@ fun MainAppContent(
 @Composable
 private fun MainTopBar(
     title: String,
+    isNote: Boolean,
     isVault: Boolean,
     isEditor: Boolean,
     selectedCount: Int,
@@ -560,17 +561,18 @@ private fun MainTopBar(
                         }
                     }
                     isVault && selectedCount > 0 -> {
-                        MainTabSlot(selected = true, onClick = { onTabSelected(0) }, modifier = Modifier.fillMaxWidth().testTag("main_tab_vault")) {
+                        MainTabSlot(selected = true, onClick = { onTabSelected(1) }, modifier = Modifier.fillMaxWidth().testTag("main_tab_vault")) {
                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 8.dp)) {
                                 VaultSelectionCheckbox(checked = allSelected, onClick = onToggleSelectAll, modifier = Modifier.testTag("vault_select_all_checkbox"))
                                 Text(text = stringResource(com.clipnest.R.string.selected_count, selectedCount), style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold), maxLines = 1, modifier = Modifier.testTag("vault_selected_count_text"))
                             }
                         }
                     }
-                    isVault || isEditor -> {
+                    isNote || isVault || isEditor -> {
                         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            MainTabSlot(selected = isVault, onClick = { onTabSelected(0) }, modifier = Modifier.weight(1f).testTag("main_tab_vault")) { Text(stringResource(com.clipnest.R.string.vault), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)) }
-                            MainTabSlot(selected = isEditor, onClick = { onTabSelected(1) }, modifier = Modifier.weight(1f).testTag("main_tab_editor")) { Text(editorDocumentName, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold), maxLines = 1) }
+                            MainTabSlot(selected = isNote, onClick = { onTabSelected(0) }, modifier = Modifier.weight(1f).testTag("main_tab_note")) { Text(stringResource(com.clipnest.R.string.note_tab), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)) }
+                            MainTabSlot(selected = isVault, onClick = { onTabSelected(1) }, modifier = Modifier.weight(1f).testTag("main_tab_vault")) { Text(stringResource(com.clipnest.R.string.vault), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)) }
+                            MainTabSlot(selected = isEditor, onClick = { onTabSelected(2) }, modifier = Modifier.weight(1f).testTag("main_tab_editor")) { Text(editorDocumentName, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold), maxLines = 1) }
                         }
                     }
                     else -> Text(text = title, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), modifier = Modifier.padding(start = 16.dp).testTag("main_title"))
@@ -584,10 +586,12 @@ private fun MainTopBar(
                     IconButton(onClick = onDeleteSelected, modifier = Modifier.size(36.dp).testTag("vault_action_delete")) { Icon(Icons.Default.Delete, contentDescription = stringResource(com.clipnest.R.string.delete_selected), modifier = Modifier.size(22.dp)) }
                 }
                 if (!isSettings) {
-                    if (isSearchOpen) {
+                    if (!isNote) {
+                        if (isSearchOpen) {
                         IconButton(onClick = onSearchClose, modifier = Modifier.size(36.dp).testTag("main_close_search_button")) { Icon(Icons.Default.Close, contentDescription = stringResource(com.clipnest.R.string.close_search), modifier = Modifier.size(22.dp)) }
-                    } else {
-                        IconButton(onClick = onSearchOpen, modifier = Modifier.size(36.dp).testTag("main_search_button")) { Icon(Icons.Default.Search, contentDescription = stringResource(com.clipnest.R.string.search), modifier = Modifier.size(22.dp)) }
+                        } else {
+                            IconButton(onClick = onSearchOpen, modifier = Modifier.size(36.dp).testTag("main_search_button")) { Icon(Icons.Default.Search, contentDescription = stringResource(com.clipnest.R.string.search), modifier = Modifier.size(22.dp)) }
+                        }
                     }
                     Box {
                         IconButton(onClick = { overflowExpanded = true }, modifier = Modifier.size(36.dp).testTag("main_overflow_button")) { Icon(Icons.Default.MoreVert, contentDescription = stringResource(com.clipnest.R.string.more_options), modifier = Modifier.size(22.dp)) }
@@ -600,11 +604,13 @@ private fun MainTopBar(
                                     DropdownMenuItem(text = { Text(stringResource(com.clipnest.R.string.open_editor)) }, enabled = selectedCount > 0, onClick = { overflowExpanded = false; onOpenEditor() }, modifier = Modifier.testTag("main_menu_open_editor"))
                                     DropdownMenuItem(text = { Text(stringResource(com.clipnest.R.string.show_pinned_first)) }, trailingIcon = { if (showPinnedFirst) Icon(Icons.Default.Check, contentDescription = stringResource(com.clipnest.R.string.active)) }, onClick = { overflowExpanded = false; onToggleShowPinnedFirst() }, modifier = Modifier.testTag("main_menu_show_pinned_first"))
                                     DropdownMenuItem(text = { Text(stringResource(com.clipnest.R.string.settings)) }, onClick = { overflowExpanded = false; onOpenSettings() }, modifier = Modifier.testTag("main_menu_settings"))
-                                } else {
+                                } else if (isEditor) {
                                     DropdownMenuItem(text = { Text(stringResource(com.clipnest.R.string.open_file)) }, onClick = { overflowExpanded = false; onOpenFile() }, modifier = Modifier.testTag("editor_menu_open_file"))
                                     DropdownMenuItem(text = { Text(stringResource(com.clipnest.R.string.return_to_editor)) }, enabled = isExternalDocument, onClick = { overflowExpanded = false; onReturnToEditor() }, modifier = Modifier.testTag("editor_menu_return_to_editor"))
                                     DropdownMenuItem(text = { Text(stringResource(com.clipnest.R.string.save_file)) }, onClick = { overflowExpanded = false; onEditorSave() }, modifier = Modifier.testTag("editor_menu_save_file"))
                                     DropdownMenuItem(text = { Text(stringResource(com.clipnest.R.string.ask_ai)) }, onClick = { overflowExpanded = false; onAskAi() }, modifier = Modifier.testTag("editor_menu_ask_ai"))
+                                    DropdownMenuItem(text = { Text(stringResource(com.clipnest.R.string.settings)) }, onClick = { overflowExpanded = false; onOpenSettings() }, modifier = Modifier.testTag("main_menu_settings"))
+                                } else {
                                     DropdownMenuItem(text = { Text(stringResource(com.clipnest.R.string.settings)) }, onClick = { overflowExpanded = false; onOpenSettings() }, modifier = Modifier.testTag("main_menu_settings"))
                                 }
                             }
