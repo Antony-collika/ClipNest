@@ -689,7 +689,7 @@ class EditorViewModel(
         val text = editor.text?.toString().orEmpty()
         if (cursor !in 0..text.length) return
         val beforeCursor = text.substring(0, cursor)
-        val match = Regex("""(?:^|\\s)#([^\\s#]*)$""").find(beforeCursor)
+        val match = Regex("""(?:^|\s)#([^\s#]*)$""").find(beforeCursor)
         if (match == null) {
             _topicSuggestionQuery.value = null
             _topicSuggestions.value = emptyList()
