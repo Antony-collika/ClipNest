@@ -248,4 +248,10 @@
 <string name="back">Back</string>    <string name="empty_note_title">Empty note</string>
     <string name="empty_note_message">This note is empty. Do you want to save it?</string>
     <string name="discard_note">Discard</string>
+    <string name="note_tab">Note</string>
+    <string name="all_notes">All Notes</string>
+    <string name="untitled">Untitled</string>
+    <string name="no_notes">No notes yet</string>
+    <string name="new_note">New Note</string>
+    <string name="filter_topic">Topic</string>
 </resources>
