@@ -61,7 +61,7 @@ import com.clipnest.data.local.ViewerTextSize
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.snapshotFlow
+import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -215,7 +215,6 @@ fun EditorScreen(
                     onSave = viewModel::saveCurrentNoteNow,
                     onSaveToNote = { viewModel.createNoteAndEnterNoteMode(viewModel.currentDocumentText()) }
                 )
-            }
             EditorToolbox(
                 isMarkdownToolsExpanded = uiState.isMarkdownToolsExpanded,
                 isPreviewVisible = uiState.showMarkdownPreview,
