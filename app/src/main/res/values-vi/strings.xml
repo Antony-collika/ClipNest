@@ -248,4 +248,10 @@
 <string name="back">am bách</string>    <string name="empty_note_title">Note trống</string>
     <string name="empty_note_message">Note này đang trống. Bạn có muốn lưu không?</string>
     <string name="discard_note">Bỏ Note</string>
+    <string name="note_tab">Note</string>
+    <string name="all_notes">Tất cả Note</string>
+    <string name="untitled">Untitled</string>
+    <string name="no_notes">Chưa có Note</string>
+    <string name="new_note">Note mới</string>
+    <string name="filter_topic">Topic</string>
 </resources>
