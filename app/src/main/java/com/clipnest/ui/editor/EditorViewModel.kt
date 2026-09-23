@@ -523,7 +523,7 @@ class EditorViewModel(
         if (noteId != null) {
             if (state.isDirty) {
                 noteDao.updateContentAndBumpEditSession(
-                    noteId = noteId,
+                    id = noteId,
                     title = state.title,
                     content = text,
                     now = System.currentTimeMillis()
