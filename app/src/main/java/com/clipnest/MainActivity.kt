@@ -331,7 +331,7 @@ fun MainAppContent(
     }
 
     fun createNoteFromVault() {
-        val navigate = {
+        val navigate: () -> Unit = {
             editorViewModel.createNoteAndEnterNoteMode()
             scope.launch { pagerState.animateScrollToPage(2, animationSpec = tween(durationMillis = 180)) }
         }
