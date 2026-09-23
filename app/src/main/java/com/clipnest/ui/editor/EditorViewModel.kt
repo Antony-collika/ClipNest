@@ -74,7 +74,8 @@ data class EditorUiState(
     val mode: EditorMode = EditorMode.PLAIN,
     val title: String = "",
     val noteOrigin: EditorNoteOrigin? = null,
-    val activeNoteId: Long? = null
+    val activeNoteId: Long? = null,
+    val showEmptyNoteExitDialog: Boolean = false
 )
 
 sealed class EditorEvent {
@@ -581,6 +582,72 @@ class EditorViewModel(
 
     private fun resetSearchState() { _isSearchOpen.value = false; _searchQuery.value = ""; _replaceQuery.value = ""; searchMatchStarts = emptyList(); _searchMatchCount.value = 0; _activeSearchMatch.value = 0 }
     fun onDocumentTextChanged() { editorLoaded = true; _uiState.value = _uiState.value.copy(documentRevision = _uiState.value.documentRevision + 1, isDirty = true); if (_searchQuery.value.isNotBlank()) scheduleSearchResults(_searchQuery.value, true); if (!hasExternalSession()) scheduleDebouncedAutoSave() }
+
+    fun returnToFreeEditor() {
+        val state = _uiState.value
+        if (state.mode != EditorMode.NOTE || state.activeNoteId == null) return
+        autoSaveJob?.cancel()
+        val text = currentDocumentText()
+        if (state.title.isBlank() && text.isBlank()) {
+            _uiState.value = state.copy(showEmptyNoteExitDialog = true)
+            return
+        }
+        persistNoteAndReturnToFreeEditor(deleteNote = false)
+    }
+
+    fun cancelEmptyNoteExit() {
+        _uiState.value = _uiState.value.copy(showEmptyNoteExitDialog = false)
+    }
+
+    fun saveEmptyNoteAndExit() {
+        if (_uiState.value.activeNoteId == null) return
+        persistNoteAndReturnToFreeEditor(deleteNote = false)
+    }
+
+    fun discardEmptyNoteAndExit() {
+        if (_uiState.value.activeNoteId == null) return
+        persistNoteAndReturnToFreeEditor(deleteNote = true)
+    }
+
+    private fun persistNoteAndReturnToFreeEditor(deleteNote: Boolean) {
+        val state = _uiState.value
+        val noteId = state.activeNoteId ?: return
+        val text = currentDocumentText()
+        val title = state.title
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = runCatching {
+                val now = System.currentTimeMillis()
+                if (deleteNote) {
+                    noteDao.setDeleted(
+                        id = noteId,
+                        isDeleted = true,
+                        deletedAtMillis = now,
+                        updatedAtMillis = now
+                    )
+                } else {
+                    noteDao.updateContentAndBumpEditSession(
+                        id = noteId,
+                        title = title,
+                        content = text,
+                        now = now
+                    )
+                }
+            }
+            if (result.isFailure) return@launch
+            withContext(Dispatchers.Main.immediate) {
+                _uiState.value = _uiState.value.copy(
+                    mode = EditorMode.PLAIN,
+                    title = "",
+                    noteOrigin = null,
+                    activeNoteId = null,
+                    showEmptyNoteExitDialog = false,
+                    isDirty = false,
+                    documentName = internalDocumentName()
+                )
+                loadInternalDocumentIntoEditor()
+            }
+        }
+    }
 
     fun configureNoteMode(origin: EditorNoteOrigin?) {
         _uiState.value = _uiState.value.copy(mode = EditorMode.NOTE, noteOrigin = origin)
