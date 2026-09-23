@@ -186,7 +186,7 @@ class MainActivity : ComponentActivity() {
                 ClipNestTheme(themePreset = userSettings.themePreset) {
                     MainAppContent(
                         vaultViewModel = vaultViewModel,
-                        editorViewModelFactory = EditorViewModelFactory(fileManager, settingsDataStore, applicationContext, database.noteDao()),
+                        editorViewModelFactory = EditorViewModelFactory(fileManager, settingsDataStore, applicationContext, database.noteDao(), database.topicDao()),
                         settingsViewModelFactory = SettingsViewModelFactory(settingsDataStore, repository, fileManager, applicationContext),
                         editorTextSize = userSettings.editorTextSize,
                         viewerTextSize = userSettings.viewerTextSize,
