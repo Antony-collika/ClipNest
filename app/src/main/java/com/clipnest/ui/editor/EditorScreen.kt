@@ -60,6 +60,9 @@ import com.clipnest.data.local.EditorTextSize
 import com.clipnest.data.local.ViewerTextSize
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.snapshotFlow
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -184,16 +187,25 @@ fun EditorScreen(
 
     LaunchedEffect(uiState.showMarkdownPreview) { viewModel.hideNativeKeyboard() }
 
+    // Visibility only controls the real "Editor left the pager viewport" case.
+    // Keep it out of AndroidView.update so transient Title -> Content layout changes
+    // cannot accidentally clear the IME.
+    LaunchedEffect(Unit) {
+        snapshotFlow { editorVisible }
+            .distinctUntilChanged()
+            .debounce(80L)
+            .collect { visible ->
+                if (!visible) viewModel.hideNativeKeyboard()
+            }
+    }
+
     Box(modifier.fillMaxSize().imePadding().onGloballyPositioned { coordinates ->
         val bounds = coordinates.boundsInWindow()
         val windowWidth = context.resources.displayMetrics.widthPixels.toFloat()
-        val visible = bounds.right > 0f && bounds.left < windowWidth
-        if (visible != editorVisible) editorVisible = visible
-        if (!visible) viewModel.hideNativeKeyboard()
+        editorVisible = bounds.right > 0f && bounds.left < windowWidth
     }) {
         Column(Modifier.fillMaxSize()) {
-            if (uiState.mode == EditorMode.NOTE) {
-                EditorNoteBreadcrumbBar(
+            EditorNoteBreadcrumbBar(
                     mode = uiState.mode,
                     origin = uiState.noteOrigin,
                     onExit = {
@@ -225,8 +237,7 @@ fun EditorScreen(
                 onHorizontalRule = viewModel::insertMarkdownHorizontalRule,
                 onTogglePreview = viewModel::toggleMarkdownPreview
             )
-            if (uiState.mode == EditorMode.NOTE) {
-                EditorNoteTitleField(
+            EditorNoteTitleField(
                     value = titleFieldValue,
                     onValueChange = ::updateTitle,
                     onFocusChanged = { titleFocused = it },
@@ -241,7 +252,7 @@ fun EditorScreen(
             ) {
                 AndroidView(
                     factory = { NativeEditorView(it).apply { setEditorTextSize(editorTextSize); setEditorTextColor(editorTextColor); nativeEditorView = this; viewModel.bindNativeEditor(this) } },
-                    update = { it.setEditorTextSize(editorTextSize); it.setEditorTextColor(editorTextColor); nativeEditorView = it; if (uiState.showMarkdownPreview || !editorVisible) it.hideKeyboardAndClearFocus(); viewModel.bindNativeEditor(it) },
+                    update = { it.setEditorTextSize(editorTextSize); it.setEditorTextColor(editorTextColor); nativeEditorView = it; if (uiState.showMarkdownPreview) it.hideKeyboardAndClearFocus(); viewModel.bindNativeEditor(it) },
                     modifier = Modifier.fillMaxSize().testTag("editor_text_input")
                 )
                 val query = topicSuggestionQuery
