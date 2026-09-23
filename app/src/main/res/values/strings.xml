@@ -245,4 +245,7 @@
 <string name="note_title_placeholder">Title</string>
 <string name="edit_note">Edit note</string>
 <string name="done">Done</string>
-<string name="back">Back</string></resources>
+<string name="back">Back</string>    <string name="empty_note_title">Empty note</string>
+    <string name="empty_note_message">This note is empty. Do you want to save it?</string>
+    <string name="discard_note">Discard</string>
+</resources>
