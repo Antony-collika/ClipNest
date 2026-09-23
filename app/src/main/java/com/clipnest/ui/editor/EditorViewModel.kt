@@ -761,7 +761,8 @@ class EditorViewModel(
     fun createNoteAndEnterNoteMode(
         initialContent: String = "",
         origin: EditorNoteOrigin? = null,
-        title: String = ""
+        title: String = "",
+        topicId: Long? = null
     ) {
         viewModelScope.launch(Dispatchers.IO) {
             val now = System.currentTimeMillis()
@@ -773,6 +774,15 @@ class EditorViewModel(
                     updatedAtMillis = now
                 )
             )
+            if (topicId != null) {
+                topicDao.addNoteTopicCrossRef(
+                    NoteTopicCrossRef(
+                        noteId = noteId,
+                        topicId = topicId,
+                        role = NoteTopicRole.USER_TAG
+                    )
+                )
+            }
             withContext(Dispatchers.Main.immediate) {
                 configureNoteMode(origin)
                 val content = initialContent.replace("\r\n", "\n").replace('\r', '\n')
