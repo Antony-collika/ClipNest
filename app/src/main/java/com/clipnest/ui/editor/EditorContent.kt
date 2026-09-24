@@ -23,10 +23,14 @@ class EditorContent {
     private var fallbackText: String = ""
     private var fallbackSelection: TextRange = TextRange.Zero
     private var fallbackViewportAnchor: Int = 0
+    private var nativeSelection: TextRange = TextRange.Zero
+    private var nativeViewportAnchor: Int = 0
 
     val text: String get() = fallbackText
     val selection: TextRange get() = fallbackSelection
     val viewportAnchor: Int get() = fallbackViewportAnchor
+    val nativeSelectionRange: TextRange get() = nativeSelection
+    val nativeViewport: Int get() = nativeViewportAnchor
 
     /**
      * Sets text + caret only. Viewport anchor is coerced to the new text length
@@ -45,6 +49,11 @@ class EditorContent {
         fallbackText = text
         fallbackSelection = selection
         fallbackViewportAnchor = viewportAnchor.coerceIn(0, text.length)
+    }
+
+    fun setNativeState(selection: TextRange, viewportAnchor: Int) {
+        nativeSelection = selection
+        nativeViewportAnchor = viewportAnchor.coerceAtLeast(0)
     }
 
     fun setFallbackSelection(start: Int, end: Int = start) {
