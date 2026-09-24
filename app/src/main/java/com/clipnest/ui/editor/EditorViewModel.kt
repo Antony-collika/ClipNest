@@ -140,6 +140,7 @@ class EditorViewModel(
     private var savedInternalViewportAnchor: Int? = null
     private var autoSaveJob: Job? = null
     private var topicSuggestionJob: Job? = null
+    private var topicSuggestionQueryGeneration = 0L
     private var cursorSaveJob: Job? = null
     private var searchJob: Job? = null
     private var nativeEditor: NativeEditorView? = null
@@ -713,18 +714,25 @@ class EditorViewModel(
             .orEmpty()
 
         _topicSuggestionQuery.value = query
+        val generation = ++topicSuggestionQueryGeneration
         topicSuggestionJob?.cancel()
-        topicSuggestionJob = viewModelScope.launch(Dispatchers.IO) {
-            val suggestions = runCatching { topicDao.searchTopics(query).first() }.getOrDefault(emptyList())
-            withContext(Dispatchers.Main.immediate) {
-                if (_topicSuggestionQuery.value == query && _uiState.value.mode == EditorMode.NOTE) {
-                    _topicSuggestions.value = suggestions
-                }
+        topicSuggestionJob = viewModelScope.launch {
+            if (query.isNotEmpty()) delay(120)
+            val suggestions = withContext(Dispatchers.IO) {
+                runCatching { topicDao.searchTopics(query).first() }.getOrDefault(emptyList())
+            }
+            if (
+                generation == topicSuggestionQueryGeneration &&
+                _topicSuggestionQuery.value == query &&
+                _uiState.value.mode == EditorMode.NOTE
+            ) {
+                _topicSuggestions.value = suggestions
             }
         }
     }
 
     fun dismissTopicSuggestions() {
+        topicSuggestionQueryGeneration++
         _topicSuggestionQuery.value = null
         _topicSuggestions.value = emptyList()
         topicSuggestionJob?.cancel()
