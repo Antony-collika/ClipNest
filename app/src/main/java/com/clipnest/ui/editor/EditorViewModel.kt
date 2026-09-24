@@ -513,7 +513,7 @@ class EditorViewModel(
         }
         val uri = state.externalDocumentUri?.let(Uri::parse)
         if (uri == null) {
-            if (state.isDirty) { fileManager.writeEditor(text); fileManager.writeEditorTitle(state.title) }
+            if (state.isDirty) { fileManager.writeEditor(text); fileManager.writeEditorTitle(currentDocumentTitle()) }
         } else if (state.isDirty) {
             val passwordCopy = password?.copyOf()
             try {
