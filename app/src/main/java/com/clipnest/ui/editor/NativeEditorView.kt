@@ -8,6 +8,7 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.text.TextWatcher
 import android.util.AttributeSet
+import android.view.KeyEvent
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.VelocityTracker
@@ -154,10 +155,14 @@ class NativeEditorView @JvmOverloads constructor(
                 val before = pendingBefore ?: return
                 val editable = s ?: return
                 val insertedLength = editable.length - before.originalLength + before.removed.length
-                if (structuredDocument) updateTitleBoundaryForEdit(before.start, before.removed.length, insertedLength.coerceAtLeast(0), before.titleBoundary)
+                if (structuredDocument) {
+                    updateTitleBoundaryForEdit(before.start, before.removed.length, insertedLength.coerceAtLeast(0), before.titleBoundary)
+                    normalizeTitleLineBreaks()
+                    ensureStructuredSeparator()
+                    applyTitleSpans()
+                }
                 val operation = EditOperation(before.start, before.removed, insertedLength.coerceAtLeast(0), null, before.selectionStart, before.selectionEnd, selectionStart, selectionEnd, before.titleBoundary, titleBoundary)
                 if (transactionDepth == 0) {
-                    ensureStructuredSeparator()
                     recordUndo(operation.copy(afterTitleBoundary = titleBoundary))
                     textChangeListener?.invoke(this@NativeEditorView)
                 }
@@ -169,6 +174,11 @@ class NativeEditorView @JvmOverloads constructor(
                 invalidate()
             }
         })
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_ENTER && isCaretInTitle()) return true
+        return super.onKeyDown(keyCode, event)
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -334,6 +344,38 @@ class NativeEditorView @JvmOverloads constructor(
 
     /** True only while the user is actively dragging, fast-scrolling, or a fling from either is still animating. */
     private fun isUserDrivenScroll(): Boolean = draggingScroll || draggingFastScroll || !flingScroller.isFinished
+
+    override fun onTextContextMenuItem(id: Int): Boolean {
+        return when (id) {
+            android.R.id.copy -> {
+                copySelectionAsPlainText()
+                true
+            }
+            android.R.id.cut -> {
+                copySelectionAsPlainText()
+                replaceText(selectionStart, selectionEnd, "")
+                true
+            }
+            android.R.id.paste, android.R.id.pasteAsPlainText -> {
+                pastePlainText()
+                true
+            }
+            else -> super.onTextContextMenuItem(id)
+        }
+    }
+
+    private fun copySelectionAsPlainText() {
+        if (selectionStart == selectionEnd) return
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager ?: return
+        val selected = text?.subSequence(selectionStart, selectionEnd)?.toString().orEmpty()
+        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Editor selection", selected))
+    }
+
+    private fun pastePlainText() {
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager ?: return
+        val pasted = runCatching { clipboard.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString() }.getOrNull() ?: return
+        replaceText(selectionStart, selectionEnd, pasted.replace("\r\n", "\n").replace('\r', '\n'))
+    }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
@@ -641,7 +683,11 @@ class NativeEditorView @JvmOverloads constructor(
             if (shouldBatch) endBatchEdit()
         }
         if (transactionDepth == 0) {
-            ensureStructuredSeparator()
+            if (structuredDocument) {
+                normalizeTitleLineBreaks()
+                ensureStructuredSeparator()
+                applyTitleSpans()
+            }
             recordUndo(EditOperation(safeStart, removed, inserted.length, null, beforeStart, beforeEnd, selectionStart ?: safeStart + inserted.length, selectionEnd ?: selectionStart ?: safeStart + inserted.length, beforeBoundary, titleBoundary))
             redoStack.clear()
             textChangeListener?.invoke(this)
@@ -859,6 +905,26 @@ class NativeEditorView @JvmOverloads constructor(
         }.coerceIn(0, length())
     }
 
+    private fun normalizeTitleLineBreaks() {
+        if (!structuredDocument || titleBoundary <= 0) return
+        val editable = text ?: return
+        val titleEnd = titleBoundary.coerceAtMost(editable.length)
+        var index = titleEnd - 1
+        while (index >= 0) {
+            if (editable[index] == '\n' || editable[index] == '\r') {
+                internalMutation = true
+                try {
+                    editable.delete(index, index + 1)
+                    titleBoundary--
+                } finally {
+                    internalMutation = false
+                }
+            }
+            index--
+        }
+        titleBoundary = titleBoundary.coerceIn(0, editable.length)
+    }
+
     private fun ensureStructuredSeparator() {
         if (!structuredDocument) return
         if (titleBoundary >= length()) {
@@ -876,7 +942,7 @@ class NativeEditorView @JvmOverloads constructor(
         editable.getSpans(0, editable.length, TitleVisualSpan::class.java)
             .forEach { editable.removeSpan(it) }
         if (titleBoundary > 0) {
-            editable.setSpan(TitleVisualSpan(), 0, titleBoundary, android.text.Spanned.SPAN_INCLUSIVE_INCLUSIVE)
+            editable.setSpan(TitleVisualSpan(), 0, titleBoundary, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
     }
 
