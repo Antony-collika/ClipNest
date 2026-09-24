@@ -161,7 +161,8 @@ class NativeEditorView @JvmOverloads constructor(
                     ensureStructuredSeparator()
                     applyTitleSpans()
                 }
-                val operation = EditOperation(before.start, before.removed, insertedLength.coerceAtLeast(0), null, before.selectionStart, before.selectionEnd, selectionStart, selectionEnd, before.titleBoundary, titleBoundary)
+                val actualInsertedLength = editable.length - before.originalLength + before.removed.length
+                val operation = EditOperation(before.start, before.removed, actualInsertedLength.coerceAtLeast(0), null, before.selectionStart, before.selectionEnd, selectionStart, selectionEnd, before.titleBoundary, titleBoundary)
                 if (transactionDepth == 0) {
                     recordUndo(operation.copy(afterTitleBoundary = titleBoundary))
                     textChangeListener?.invoke(this@NativeEditorView)
