@@ -34,7 +34,9 @@ class NativeEditorView @JvmOverloads constructor(
         val beforeSelectionStart: Int,
         val beforeSelectionEnd: Int,
         val afterSelectionStart: Int,
-        val afterSelectionEnd: Int
+        val afterSelectionEnd: Int,
+        val beforeTitleBoundary: Int = 0,
+        val afterTitleBoundary: Int = 0
     )
 
     private data class PendingChange(
@@ -42,7 +44,8 @@ class NativeEditorView @JvmOverloads constructor(
         val removed: String,
         val originalLength: Int,
         val selectionStart: Int,
-        val selectionEnd: Int
+        val selectionEnd: Int,
+        val titleBoundary: Int
     )
 
     companion object {
@@ -56,6 +59,7 @@ class NativeEditorView @JvmOverloads constructor(
     private var transactionBeforeText: String? = null
     private var transactionBeforeSelectionStart = 0
     private var transactionBeforeSelectionEnd = 0
+    private var transactionBeforeTitleBoundary = 0
     private var textChangeListener: ((NativeEditorView) -> Unit)? = null
     private var selectionChangeListener: ((Int, Int) -> Unit)? = null
     private var viewportChangeListener: ((Int) -> Unit)? = null
@@ -86,6 +90,9 @@ class NativeEditorView @JvmOverloads constructor(
     private var staticCursorEnabled = false
     private var appliedEditorTextSize: EditorTextSize? = null
     private var appliedEditorTextColor: Int? = null
+    private var structuredDocument = false
+    private var titleBoundary = 0
+    private var sectionChangeListener: ((Boolean) -> Unit)? = null
 
     /**
      * "Follow mode": whether the viewport should keep tracking the caret.
@@ -131,7 +138,7 @@ class NativeEditorView @JvmOverloads constructor(
         addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
                 if (!internalMutation) {
-                    pendingBefore = PendingChange(start, s?.subSequence(start, start + count)?.toString().orEmpty(), s?.length ?: length(), selectionStart, selectionEnd)
+                    pendingBefore = PendingChange(start, s?.subSequence(start, start + count)?.toString().orEmpty(), s?.length ?: length(), selectionStart, selectionEnd, titleBoundary)
                 }
             }
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
@@ -140,9 +147,11 @@ class NativeEditorView @JvmOverloads constructor(
                 val before = pendingBefore ?: return
                 val editable = s ?: return
                 val insertedLength = editable.length - before.originalLength + before.removed.length
-                val operation = EditOperation(before.start, before.removed, insertedLength.coerceAtLeast(0), null, before.selectionStart, before.selectionEnd, selectionStart, selectionEnd)
+                if (structuredDocument) updateTitleBoundaryForEdit(before.start, before.removed.length, insertedLength.coerceAtLeast(0), before.titleBoundary)
+                val operation = EditOperation(before.start, before.removed, insertedLength.coerceAtLeast(0), null, before.selectionStart, before.selectionEnd, selectionStart, selectionEnd, before.titleBoundary, titleBoundary)
                 if (transactionDepth == 0) {
-                    recordUndo(operation)
+                    ensureStructuredSeparator()
+                    recordUndo(operation.copy(afterTitleBoundary = titleBoundary))
                     textChangeListener?.invoke(this@NativeEditorView)
                 }
                 pendingBefore = null
@@ -157,6 +166,7 @@ class NativeEditorView @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
+        if (structuredDocument) drawTitleDivider(canvas)
         // View.draw() translates the canvas by -scrollY before onDraw(). Restore viewport
         // coordinates for the custom fast-scroll thumb so it never drifts with the document.
         canvas.save()
@@ -566,6 +576,7 @@ class NativeEditorView @JvmOverloads constructor(
             transactionBeforeText = text?.toString().orEmpty()
             transactionBeforeSelectionStart = selectionStart
             transactionBeforeSelectionEnd = selectionEnd
+            transactionBeforeTitleBoundary = titleBoundary
             beginBatchEdit()
         }
         transactionDepth++
@@ -584,7 +595,7 @@ class NativeEditorView @JvmOverloads constructor(
             val suffix = commonSuffix(before, after, prefix)
             val removedEnd = before.length - suffix
             val insertedEnd = after.length - suffix
-            recordUndo(EditOperation(prefix, before.substring(prefix, removedEnd), insertedEnd - prefix, null, transactionBeforeSelectionStart, transactionBeforeSelectionEnd, selectionStart, selectionEnd))
+            recordUndo(EditOperation(prefix, before.substring(prefix, removedEnd), insertedEnd - prefix, null, transactionBeforeSelectionStart, transactionBeforeSelectionEnd, selectionStart, selectionEnd, transactionBeforeTitleBoundary, titleBoundary))
             textChangeListener?.invoke(this)
             // A transaction that actually changed text is a programmatic edit the user
             // asked for (e.g. a formatting toolbar button) — same intent as typing.
@@ -605,6 +616,7 @@ class NativeEditorView @JvmOverloads constructor(
         val safeEnd = end.coerceIn(safeStart, length())
         val beforeStart = this.selectionStart
         val beforeEnd = this.selectionEnd
+        val beforeBoundary = titleBoundary
         val removed = text?.subSequence(safeStart, safeEnd)?.toString().orEmpty()
         val inserted = replacement.toString()
         val shouldBatch = transactionDepth == 0
@@ -612,6 +624,7 @@ class NativeEditorView @JvmOverloads constructor(
         internalMutation = true
         try {
             text?.replace(safeStart, safeEnd, inserted)
+            if (structuredDocument) updateTitleBoundaryForEdit(safeStart, safeEnd - safeStart, inserted.length, beforeBoundary)
             val targetStart = (selectionStart ?: safeStart + inserted.length).coerceIn(0, length())
             val targetEnd = (selectionEnd ?: targetStart).coerceIn(targetStart, length())
             setSelection(targetStart, targetEnd)
@@ -620,7 +633,8 @@ class NativeEditorView @JvmOverloads constructor(
             if (shouldBatch) endBatchEdit()
         }
         if (transactionDepth == 0) {
-            recordUndo(EditOperation(safeStart, removed, inserted.length, null, beforeStart, beforeEnd, selectionStart ?: safeStart + inserted.length, selectionEnd ?: selectionStart ?: safeStart + inserted.length))
+            ensureStructuredSeparator()
+            recordUndo(EditOperation(safeStart, removed, inserted.length, null, beforeStart, beforeEnd, selectionStart ?: safeStart + inserted.length, selectionEnd ?: selectionStart ?: safeStart + inserted.length, beforeBoundary, titleBoundary))
             redoStack.clear()
             textChangeListener?.invoke(this)
             // Same reasoning as the transaction path above: a direct programmatic edit
@@ -641,6 +655,41 @@ class NativeEditorView @JvmOverloads constructor(
      * document behavior), which is what you want for brand-new documents or when there
      * is no prior scroll position to restore.
      */
+    fun setStructuredDocument(
+        title: String,
+        content: String,
+        selectionStart: Int? = null,
+        selectionEnd: Int? = selectionStart,
+        viewportAnchor: Int? = null
+    ) {
+        val doc = EditorNoteDocument(EditorNoteDocument.normalize(title), EditorNoteDocument.normalize(content))
+        structuredDocument = true
+        titleBoundary = doc.titleBoundary
+        hint = "Title"
+        val start = selectionStart ?: doc.editableText.length
+        val end = selectionEnd ?: start
+        setEditorText(doc.editableText, start, end, viewportAnchor)
+        applyTitleSpans()
+    }
+
+    fun setPlainEditorText(
+        value: CharSequence,
+        selectionStart: Int = value.length,
+        selectionEnd: Int = selectionStart,
+        viewportAnchor: Int? = null
+    ) {
+        structuredDocument = false
+        titleBoundary = 0
+        hint = null
+        setEditorText(value, selectionStart, selectionEnd, viewportAnchor)
+    }
+
+    fun titleText(): String = if (!structuredDocument) "" else EditorNoteDocument.fromEditable(text, titleBoundary).title
+    fun contentText(): String = if (!structuredDocument) text?.toString().orEmpty() else EditorNoteDocument.fromEditable(text, titleBoundary).content
+    fun titleBoundaryOffset(): Int = titleBoundary
+    fun isCaretInTitle(): Boolean = structuredDocument && selectionStart <= titleBoundary
+    fun setSectionChangeListener(listener: ((Boolean) -> Unit)?) { sectionChangeListener = listener }
+
     fun setEditorText(
         value: CharSequence,
         selectionStart: Int = value.length,
@@ -657,6 +706,10 @@ class NativeEditorView @JvmOverloads constructor(
             setSelection(safeStart, safeEnd)
             EditorDiagnosticLog.log("SET_TEXT", "setEditorText applied  safeSelection=$safeStart-$safeEnd")
             undoStack.clear(); redoStack.clear()
+            if (structuredDocument) {
+                ensureStructuredSeparator()
+                applyTitleSpans()
+            }
         } finally {
             internalMutation = false
             endBatchEdit()
@@ -708,6 +761,7 @@ class NativeEditorView @JvmOverloads constructor(
         beginBatchEdit()
         try {
             text?.replace(operation.start.coerceIn(0, length()), (operation.start + operation.insertedLength).coerceIn(operation.start, length()), operation.removed)
+            if (structuredDocument) titleBoundary = operation.beforeTitleBoundary.coerceIn(0, length())
             val safeStart = operation.beforeSelectionStart.coerceIn(0, length())
             setSelection(safeStart, operation.beforeSelectionEnd.coerceIn(safeStart, length()))
         } finally {
@@ -716,6 +770,7 @@ class NativeEditorView @JvmOverloads constructor(
         }
         redoStack.addLast(operation.copy(insertedContent = currentInserted))
         trimHistory()
+        if (structuredDocument) { ensureStructuredSeparator(); applyTitleSpans() }
         textChangeListener?.invoke(this)
         // undo() sets internalMutation itself, so afterTextChanged's own followCaret
         // reset above never runs for this path — set it here instead. The user asked
@@ -732,6 +787,7 @@ class NativeEditorView @JvmOverloads constructor(
         beginBatchEdit()
         try {
             text?.replace(operation.start.coerceIn(0, length()), (operation.start + operation.removed.length).coerceIn(operation.start, length()), inserted)
+            if (structuredDocument) titleBoundary = operation.afterTitleBoundary.coerceIn(0, length())
             val safeStart = operation.afterSelectionStart.coerceIn(0, length())
             setSelection(safeStart, operation.afterSelectionEnd.coerceIn(safeStart, length()))
         } finally {
@@ -740,6 +796,7 @@ class NativeEditorView @JvmOverloads constructor(
         }
         undoStack.addLast(operation.copy(insertedContent = null, insertedLength = inserted.length))
         trimHistory()
+        if (structuredDocument) { ensureStructuredSeparator(); applyTitleSpans() }
         textChangeListener?.invoke(this)
         // Same reasoning as undo(): this path sets internalMutation itself, so it
         // never reaches the text-changed listener's followCaret reset.
@@ -782,6 +839,49 @@ class NativeEditorView @JvmOverloads constructor(
         if (bothInsert) return previous.copy(insertedLength = previous.insertedLength + current.insertedLength, afterSelectionStart = current.afterSelectionStart, afterSelectionEnd = current.afterSelectionEnd)
         val currentBeforePrevious = current.start + current.removed.length == previous.start
         return previous.copy(start = if (currentBeforePrevious) current.start else previous.start, removed = if (currentBeforePrevious) current.removed + previous.removed else previous.removed + current.removed, beforeSelectionStart = current.beforeSelectionStart, beforeSelectionEnd = current.beforeSelectionEnd, afterSelectionStart = current.afterSelectionStart, afterSelectionEnd = current.afterSelectionEnd)
+    }
+
+    private fun updateTitleBoundaryForEdit(start: Int, removedLength: Int, insertedLength: Int, oldBoundary: Int) {
+        if (!structuredDocument) return
+        val removedEnd = start + removedLength
+        titleBoundary = when {
+            start < oldBoundary && removedEnd <= oldBoundary -> oldBoundary + insertedLength - removedLength
+            start <= oldBoundary && removedEnd >= oldBoundary -> start + insertedLength
+            else -> oldBoundary
+        }.coerceIn(0, length())
+    }
+
+    private fun ensureStructuredSeparator() {
+        if (!structuredDocument) return
+        if (titleBoundary >= length()) {
+            internalMutation = true
+            try { text?.insert(length(), "\n") } finally { internalMutation = false }
+        } else if (text?.getOrNull(titleBoundary) != '\n') {
+            internalMutation = true
+            try { text?.insert(titleBoundary, "\n") } finally { internalMutation = false }
+        }
+    }
+
+    private fun applyTitleSpans() {
+        if (!structuredDocument) return
+        val editable = text ?: return
+        editable.getSpans(0, editable.length, android.text.style.CharacterStyle::class.java)
+            .forEach { editable.removeSpan(it) }
+        if (titleBoundary > 0) {
+            editable.setSpan(android.text.style.StyleSpan(android.graphics.Typeface.BOLD), 0, titleBoundary, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            editable.setSpan(android.text.style.RelativeSizeSpan(1.12f), 0, titleBoundary, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+    }
+
+    private fun drawTitleDivider(canvas: Canvas) {
+        val lay = layout ?: return
+        val line = lay.getLineForOffset(titleBoundary.coerceIn(0, length()))
+        val y = lay.getLineBottom(line).toFloat() + dp(5).toFloat()
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = currentTextColor and 0x55FFFFFF
+            strokeWidth = dp(1).toFloat()
+        }
+        canvas.drawLine(paddingLeft.toFloat(), y, (width - paddingRight).toFloat(), y, paint)
     }
 
     private fun trimHistory() {
