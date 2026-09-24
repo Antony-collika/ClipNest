@@ -84,6 +84,8 @@ class NativeEditorView @JvmOverloads constructor(
     private val fastScrollPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val fastScrollRect = RectF()
     private var staticCursorEnabled = false
+    private var appliedEditorTextSize: EditorTextSize? = null
+    private var appliedEditorTextColor: Int? = null
 
     /**
      * "Follow mode": whether the viewport should keep tracking the caret.
@@ -431,6 +433,8 @@ class NativeEditorView @JvmOverloads constructor(
     }
 
     fun setEditorTextColor(color: Int) {
+        if (appliedEditorTextColor == color) return
+        appliedEditorTextColor = color
         setTextColor(color)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             textCursorDrawable = GradientDrawable().apply { setColor(color); setSize(dp(2), dp(24)) }
@@ -550,6 +554,8 @@ class NativeEditorView @JvmOverloads constructor(
     fun currentViewportAnchor(): Int = topOfViewportOffset()
 
     fun setEditorTextSize(size: EditorTextSize) {
+        if (appliedEditorTextSize == size) return
+        appliedEditorTextSize = size
         setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, size.sp.toFloat())
         setLineSpacing(0f, size.lineHeightSp.toFloat() / size.sp.toFloat())
         invalidate()
