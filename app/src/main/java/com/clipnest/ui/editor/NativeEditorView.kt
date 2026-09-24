@@ -172,12 +172,7 @@ class NativeEditorView @JvmOverloads constructor(
                         // the end of Content.
                         val contentStart = (titleBoundary + 1).coerceAtMost(length())
                         val contentEnd = length()
-                        internalMutation = true
-                        try {
-                            setSelection(contentEnd.coerceAtLeast(contentStart))
-                        } finally {
-                            internalMutation = false
-                        }
+                        setSelection(contentEnd.coerceAtLeast(contentStart))
                         followCaret = true
                         post { bringPointIntoView(selectionEnd) }
                     }
