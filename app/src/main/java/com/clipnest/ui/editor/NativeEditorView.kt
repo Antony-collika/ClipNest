@@ -283,6 +283,7 @@ class NativeEditorView @JvmOverloads constructor(
         // never overwrite "where the user was scrolled to".
         if (!internalMutation) {
             selectionChangeListener?.invoke(selStart, selEnd)
+            sectionChangeListener?.invoke(structuredDocument && selStart <= titleBoundary)
             // A real (non-programmatic) selection change is always something the user
             // did on purpose to the caret — most commonly tapping to place it — and
             // that's a clear signal they want the screen following it again, including
