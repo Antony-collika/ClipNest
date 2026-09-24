@@ -140,6 +140,7 @@ class EditorViewModel(
     private var savedInternalViewportAnchor: Int? = null
     private var autoSaveJob: Job? = null
     private var topicSuggestionJob: Job? = null
+    private var topicSuggestionUpdateJob: Job? = null
     private var topicSuggestionQueryGeneration = 0L
     private var cursorSaveJob: Job? = null
     private var searchJob: Job? = null
@@ -163,6 +164,7 @@ class EditorViewModel(
         nativeEditor = editor
         editor.setTextChangeListener { onDocumentTextChanged() }
         editor.setSelectionChangeListener { start, end ->
+            scheduleTopicSuggestionUpdate()
             val anchor = _uiState.value.content.viewportAnchor
             _uiState.value.content.setFallback(editor.contentText(), TextRange(start, end), anchor)
             _uiState.value.content.setNativeState(TextRange(start, end), editor.currentViewportAnchor())
@@ -590,7 +592,7 @@ class EditorViewModel(
             documentRevision = _uiState.value.documentRevision + 1,
             isDirty = true
         )
-        updateTopicSuggestions()
+        scheduleTopicSuggestionUpdate()
         if (_searchQuery.value.isNotBlank()) scheduleSearchResults(_searchQuery.value, true)
         if (!hasExternalSession()) scheduleDebouncedAutoSave()
     }
@@ -673,6 +675,17 @@ class EditorViewModel(
      * another '#' is reached, so its work is proportional to the current hashtag
      * token, not to the size of the document.
      */
+    private fun scheduleTopicSuggestionUpdate() {
+        topicSuggestionUpdateJob?.cancel()
+        topicSuggestionUpdateJob = viewModelScope.launch {
+            // TextWatcher and selection callbacks can arrive in different orders while
+            // Android is committing a typed character. Wait for both to settle so a
+            // transient intermediate cursor state cannot dismiss and recreate the popup.
+            delay(80)
+            updateTopicSuggestions()
+        }
+    }
+
     private fun updateTopicSuggestions() {
         val state = _uiState.value
         val editor = nativeEditor
@@ -736,6 +749,7 @@ class EditorViewModel(
         _topicSuggestionQuery.value = null
         _topicSuggestions.value = emptyList()
         topicSuggestionJob?.cancel()
+        topicSuggestionUpdateJob?.cancel()
     }
 
     fun selectExistingTopic(topic: Topic) {
