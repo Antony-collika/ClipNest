@@ -26,6 +26,13 @@ class NativeEditorView @JvmOverloads constructor(
     attrs: AttributeSet? = null,
     defStyleAttr: Int = androidx.appcompat.R.attr.editTextStyle
 ) : AppCompatEditText(context, attrs, defStyleAttr) {
+    private class TitleVisualSpan : android.text.style.CharacterStyle() {
+        override fun updateDrawState(tp: android.text.TextPaint) {
+            tp.isFakeBoldText = true
+            tp.textSize *= 1.12f
+        }
+    }
+
     private data class EditOperation(
         val start: Int,
         val removed: String,
@@ -866,11 +873,10 @@ class NativeEditorView @JvmOverloads constructor(
     private fun applyTitleSpans() {
         if (!structuredDocument) return
         val editable = text ?: return
-        editable.getSpans(0, editable.length, android.text.style.CharacterStyle::class.java)
+        editable.getSpans(0, editable.length, TitleVisualSpan::class.java)
             .forEach { editable.removeSpan(it) }
         if (titleBoundary > 0) {
-            editable.setSpan(android.text.style.StyleSpan(android.graphics.Typeface.BOLD), 0, titleBoundary, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-            editable.setSpan(android.text.style.RelativeSizeSpan(1.12f), 0, titleBoundary, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            editable.setSpan(TitleVisualSpan(), 0, titleBoundary, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
     }
 
