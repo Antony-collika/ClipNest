@@ -686,6 +686,10 @@ class EditorViewModel(
 
         val cursor = editor.selectionStart
         val length = editor.length()
+        if (cursor <= editor.titleBoundaryOffset()) {
+            dismissTopicSuggestions()
+            return
+        }
         if (cursor < 0 || cursor > length) {
             dismissTopicSuggestions()
             return
