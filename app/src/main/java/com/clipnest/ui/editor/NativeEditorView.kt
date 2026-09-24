@@ -159,7 +159,7 @@ class NativeEditorView @JvmOverloads constructor(
                 val insertedText = if (insertedEnd > before.start) editable.subSequence(before.start, insertedEnd).toString() else ""
                 val enterInTitle = structuredDocument &&
                     before.start <= before.titleBoundary &&
-                    insertedText.any { it == '\\n' || it == '\\r' }
+                    insertedText.any { it == '\n' || it == '\r' }
                 if (structuredDocument) {
                     updateTitleBoundaryForEdit(before.start, before.removed.length, insertedLength.coerceAtLeast(0), before.titleBoundary)
                     normalizeTitleLineBreaks()
