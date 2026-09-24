@@ -79,10 +79,16 @@ private const val PREVIEW_HUGE_DEBOUNCE_MS = 650L
 private const val MARKDOWN_PREVIEW_READY_TIMEOUT_MS = 5_000L
 
 private class CaretSuggestionPopupPositionProvider(
-    private val caretRectInParent: Rect,
+    initialCaretRectInParent: Rect,
     private val gapPx: Int,
     private val edgePx: Int
 ) : PopupPositionProvider {
+    private var caretRectInParent: Rect = Rect(initialCaretRectInParent)
+
+    fun updateCaretRect(rect: Rect) {
+        caretRectInParent = Rect(rect)
+    }
+
     override fun calculatePosition(
         anchorBounds: IntRect,
         windowSize: IntSize,
@@ -246,10 +252,14 @@ fun EditorScreen(
                     val density = LocalDensity.current
                     val gapPx = with(density) { 4.dp.roundToPx() }
                     val edgePx = with(density) { 8.dp.roundToPx() }
+                    val positionProvider = remember(gapPx, edgePx) {
+                        CaretSuggestionPopupPositionProvider(caretRect, gapPx, edgePx)
+                    }
+                    // Move the existing popup anchor as the caret moves. The provider
+                    // identity stays stable for the lifetime of the suggestion session.
+                    positionProvider.updateCaretRect(caretRect)
                     Popup(
-                        popupPositionProvider = remember(caretRect, gapPx, edgePx) {
-                            CaretSuggestionPopupPositionProvider(caretRect, gapPx, edgePx)
-                        },
+                        popupPositionProvider = positionProvider,
                         onDismissRequest = viewModel::dismissTopicSuggestions,
                         properties = PopupProperties(
                             focusable = false,
