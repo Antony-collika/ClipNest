@@ -178,7 +178,17 @@ class NativeEditorView @JvmOverloads constructor(
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_ENTER && isCaretInTitle()) return true
+        if (keyCode == KeyEvent.KEYCODE_ENTER && isCaretInTitle()) {
+            // Title is one logical line: Enter means "continue writing in Content".
+            // Move the caret to the end of Content without inserting a newline into Title.
+            requestFocus()
+            val contentStart = (titleBoundary + 1).coerceAtMost(length())
+            val contentEnd = length()
+            setSelection(contentEnd.coerceAtLeast(contentStart))
+            followCaret = true
+            post { bringPointIntoView(selectionEnd) }
+            return true
+        }
         return super.onKeyDown(keyCode, event)
     }
 
