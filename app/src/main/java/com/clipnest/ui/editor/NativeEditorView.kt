@@ -155,11 +155,32 @@ class NativeEditorView @JvmOverloads constructor(
                 val before = pendingBefore ?: return
                 val editable = s ?: return
                 val insertedLength = editable.length - before.originalLength + before.removed.length
+                val insertedEnd = (before.start + insertedLength.coerceAtLeast(0)).coerceAtMost(editable.length)
+                val insertedText = if (insertedEnd > before.start) editable.subSequence(before.start, insertedEnd).toString() else ""
+                val enterInTitle = structuredDocument &&
+                    before.start <= before.titleBoundary &&
+                    insertedText.any { it == '\\n' || it == '\\r' }
                 if (structuredDocument) {
                     updateTitleBoundaryForEdit(before.start, before.removed.length, insertedLength.coerceAtLeast(0), before.titleBoundary)
                     normalizeTitleLineBreaks()
                     ensureStructuredSeparator()
                     applyTitleSpans()
+                    if (enterInTitle) {
+                        // Some IMEs deliver Enter as commitText("\n") instead of KEYCODE_ENTER,
+                        // so onKeyDown alone is not sufficient. Treat that input exactly like
+                        // the hardware-key path: keep Title one logical line and continue at
+                        // the end of Content.
+                        val contentStart = (titleBoundary + 1).coerceAtMost(length())
+                        val contentEnd = length()
+                        internalMutation = true
+                        try {
+                            setSelection(contentEnd.coerceAtLeast(contentStart))
+                        } finally {
+                            internalMutation = false
+                        }
+                        followCaret = true
+                        post { bringPointIntoView(selectionEnd) }
+                    }
                 }
                 val actualInsertedLength = editable.length - before.originalLength + before.removed.length
                 val operation = EditOperation(before.start, before.removed, actualInsertedLength.coerceAtLeast(0), null, before.selectionStart, before.selectionEnd, selectionStart, selectionEnd, before.titleBoundary, titleBoundary)
