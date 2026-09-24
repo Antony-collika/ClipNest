@@ -78,6 +78,7 @@ private const val PREVIEW_HUGE_DEBOUNCE_MS = 650L
 private const val MARKDOWN_PREVIEW_READY_TIMEOUT_MS = 5_000L
 
 private class CaretSuggestionPopupPositionProvider(
+    private val caretRectInParent: Rect,
     private val gapPx: Int,
     private val edgePx: Int
 ) : PopupPositionProvider {
@@ -87,16 +88,18 @@ private class CaretSuggestionPopupPositionProvider(
         layoutDirection: LayoutDirection,
         popupContentSize: IntSize
     ): IntOffset {
-        val preferredX = anchorBounds.left
+        val caretLeft = anchorBounds.left + caretRectInParent.left
+        val caretTop = anchorBounds.top + caretRectInParent.top
+        val caretBottom = anchorBounds.top + caretRectInParent.bottom
         val maxX = (windowSize.width - popupContentSize.width - edgePx).coerceAtLeast(edgePx)
-        val x = preferredX.coerceIn(edgePx, maxX)
-        val spaceBelow = windowSize.height - anchorBounds.bottom - edgePx
-        val spaceAbove = anchorBounds.top - edgePx
+        val x = caretLeft.coerceIn(edgePx, maxX)
+        val spaceBelow = windowSize.height - caretBottom - edgePx
+        val spaceAbove = caretTop - edgePx
         val fitsBelow = spaceBelow >= popupContentSize.height + gapPx
         val y = if (fitsBelow || spaceBelow >= spaceAbove) {
-            anchorBounds.bottom + gapPx
+            caretBottom + gapPx
         } else {
-            anchorBounds.top - popupContentSize.height - gapPx
+            caretTop - popupContentSize.height - gapPx
         }
         val maxY = (windowSize.height - popupContentSize.height - edgePx).coerceAtLeast(edgePx)
         return IntOffset(x, y.coerceIn(edgePx, maxY))
@@ -243,14 +246,9 @@ fun EditorScreen(
                     val density = LocalDensity.current
                     val gapPx = with(density) { 4.dp.roundToPx() }
                     val edgePx = with(density) { 8.dp.roundToPx() }
-                    Box(
-                        Modifier
-                            .offset { IntOffset(caretRect.left, caretRect.top) }
-                            .size(1.dp)
-                    )
                     Popup(
-                        popupPositionProvider = remember(gapPx, edgePx) {
-                            CaretSuggestionPopupPositionProvider(gapPx, edgePx)
+                        popupPositionProvider = remember(caretRect, gapPx, edgePx) {
+                            CaretSuggestionPopupPositionProvider(caretRect, gapPx, edgePx)
                         },
                         onDismissRequest = viewModel::dismissTopicSuggestions,
                         properties = PopupProperties(
