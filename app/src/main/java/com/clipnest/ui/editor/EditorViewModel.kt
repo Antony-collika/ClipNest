@@ -225,10 +225,11 @@ class EditorViewModel(
             // caret — the two can legitimately be far apart if the user had scrolled
             // away from the caret before the process was killed.
             val savedCursor = fileManager.readEditorCursor()
+            val titlePrefix = if (title.isNotEmpty()) title.length + 1 else 0
             val restoreSelection = savedCursor
-                ?.let { (start, end, _) -> TextRange(start.coerceIn(0, text.length), end.coerceIn(0, text.length)) }
-                ?: TextRange(text.length)
-            val restoreViewportAnchor = savedCursor?.third?.coerceIn(0, text.length) ?: restoreSelection.start
+                ?.let { (start, end, _) -> TextRange((start + titlePrefix).coerceIn(0, text.length + titlePrefix), (end + titlePrefix).coerceIn(0, text.length + titlePrefix)) }
+                ?: TextRange(text.length + titlePrefix)
+            val restoreViewportAnchor = savedCursor?.third?.let { it + titlePrefix } ?: restoreSelection.start
             withContext(Dispatchers.Main.immediate) {
                 if (!editorLoaded && !_uiState.value.isDirty) {
                     _uiState.value.content.setFallback(text, restoreSelection, restoreViewportAnchor)
@@ -796,8 +797,10 @@ class EditorViewModel(
             withContext(Dispatchers.Main.immediate) {
                 configureNoteMode(origin)
                 val content = initialContent.replace("\r\n", "\n").replace('\r', '\n')
-                nativeEditor?.setEditorText(content, content.length, content.length, content.length)
-                _uiState.value.content.setFallback(content, TextRange(content.length), content.length)
+                val structuredLength = title.length + 1 + content.length
+                nativeEditor?.setStructuredDocument(title, content, structuredLength, structuredLength, structuredLength)
+                _uiState.value.content.setFallback(content, TextRange(structuredLength), structuredLength)
+                _uiState.value.content.setNativeState(TextRange(structuredLength), structuredLength)
                 _uiState.value = _uiState.value.copy(
                     mode = EditorMode.NOTE,
                     title = title,
@@ -818,8 +821,10 @@ class EditorViewModel(
             withContext(Dispatchers.Main.immediate) {
                 configureNoteMode(origin)
                 val content = note.content.replace("\r\n", "\n").replace('\r', '\n')
-                nativeEditor?.setEditorText(content, content.length, content.length, content.length)
-                _uiState.value.content.setFallback(content, TextRange(content.length), content.length)
+                val structuredLength = note.title.length + 1 + content.length
+                nativeEditor?.setStructuredDocument(note.title, content, structuredLength, structuredLength, structuredLength)
+                _uiState.value.content.setFallback(content, TextRange(structuredLength), structuredLength)
+                _uiState.value.content.setNativeState(TextRange(structuredLength), structuredLength)
                 _uiState.value = _uiState.value.copy(
                     mode = EditorMode.NOTE,
                     title = note.title,
