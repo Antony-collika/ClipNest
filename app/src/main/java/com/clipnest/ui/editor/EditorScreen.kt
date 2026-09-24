@@ -100,6 +100,7 @@ fun EditorScreen(
     var tocHeadings by remember { mutableStateOf<List<MarkdownHeading>>(emptyList()) }
     var tocIndexing by remember { mutableStateOf(false) }
     var nativeEditorView by remember { mutableStateOf<NativeEditorView?>(null) }
+    var caretInTitle by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.externalDocumentUri, uiState.documentName, uiState.externalDocumentFileCount) {
         if (uiState.externalDocumentUri != null) {
@@ -156,6 +157,7 @@ fun EditorScreen(
             EditorToolbox(
                 isMarkdownToolsExpanded = uiState.isMarkdownToolsExpanded,
                 isPreviewVisible = uiState.showMarkdownPreview,
+                caretInTitle = caretInTitle,
                 onPaste = { viewModel.pasteFromClipboard(context) },
                 onCopy = { viewModel.copySelectedText(context) },
                 onCut = { viewModel.cutSelectedText(context) },
@@ -177,8 +179,8 @@ fun EditorScreen(
                 modifier = Modifier.fillMaxWidth().weight(1f)
             ) {
                 AndroidView(
-                    factory = { NativeEditorView(it).apply { setEditorTextSize(editorTextSize); setEditorTextColor(editorTextColor); nativeEditorView = this; viewModel.bindNativeEditor(this) } },
-                    update = { it.setEditorTextSize(editorTextSize); it.setEditorTextColor(editorTextColor); nativeEditorView = it; if (uiState.showMarkdownPreview) it.hideKeyboardAndClearFocus(); viewModel.bindNativeEditor(it) },
+                    factory = { NativeEditorView(it).apply { setEditorTextSize(editorTextSize); setEditorTextColor(editorTextColor); nativeEditorView = this; viewModel.bindNativeEditor(this); caretInTitle = isCaretInTitle(); setSectionChangeListener { inTitle -> caretInTitle = inTitle } } },
+                    update = { it.setEditorTextSize(editorTextSize); it.setEditorTextColor(editorTextColor); nativeEditorView = it; if (uiState.showMarkdownPreview) it.hideKeyboardAndClearFocus(); viewModel.bindNativeEditor(it); caretInTitle = it.isCaretInTitle(); it.setSectionChangeListener { inTitle -> caretInTitle = inTitle } },
                     modifier = Modifier.fillMaxSize().testTag("editor_text_input")
                 )
                 val query = topicSuggestionQuery
@@ -241,6 +243,7 @@ fun EditorScreen(
 @Composable
 private fun EditorToolbox(
     isMarkdownToolsExpanded: Boolean,
+    caretInTitle: Boolean,
     isPreviewVisible: Boolean,
     onPaste: () -> Unit,
     onCopy: () -> Unit,
@@ -259,7 +262,7 @@ private fun EditorToolbox(
     onHorizontalRule: () -> Unit,
     onTogglePreview: () -> Unit
 ) {
-    val contentToolsEnabled = true
+    val contentToolsEnabled = !caretInTitle
     val disabledTint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
     Surface(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f), modifier = Modifier.fillMaxWidth().testTag("editor_toolbox")) {
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(1.dp), verticalAlignment = Alignment.CenterVertically) {
