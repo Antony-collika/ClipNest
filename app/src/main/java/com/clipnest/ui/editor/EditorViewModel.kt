@@ -421,7 +421,7 @@ class EditorViewModel(
                     }
                     resetSearchState()
                     val first = loadedDocuments.first().first
-                    nativeEditor?.setStructuredDocument(name, text, name.length + 1 + text.length, name.length + 1 + text.length, name.length + 1 + text.length)
+                    nativeEditor?.setStructuredDocument(name, text, 0, 0, 0)
                     _uiState.value.content.setFallback(text, TextRange(name.length + 1 + text.length))
                     editorDocumentGeneration++
                     clearCurrentDocumentPassword()
@@ -455,7 +455,7 @@ class EditorViewModel(
                     currentDocumentPassword = sessionPassword
                     _pendingEncryptedOpen.value = null
                     resetSearchState()
-                    nativeEditor?.setEditorText(text, text.length)
+                    nativeEditor?.setPlainEditorText(text, 0, 0, 0)
                     _uiState.value.content.setFallback(text, TextRange(text.length))
                     editorDocumentGeneration++
                     _uiState.value = _uiState.value.copy(documentRevision = _uiState.value.documentRevision + 1, isDirty = false, documentName = pending.displayName, externalDocumentUri = pending.uri.toString(), externalDocumentSaveAsOnly = false, externalDocumentFileCount = 1, externalDocumentEncrypted = true, showSaveNewFileDialog = false, lastSavedTimestamp = System.currentTimeMillis())
