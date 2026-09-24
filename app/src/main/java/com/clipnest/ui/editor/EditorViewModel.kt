@@ -857,7 +857,7 @@ class EditorViewModel(
             val saved = runCatching {
                 noteDao.updateContentAndBumpEditSession(
                     id = noteId,
-                    title = state.title,
+                    title = currentDocumentTitle(),
                     content = text,
                     now = System.currentTimeMillis()
                 )
