@@ -140,7 +140,6 @@ class EditorViewModel(
     private var savedInternalViewportAnchor: Int? = null
     private var autoSaveJob: Job? = null
     private var topicSuggestionJob: Job? = null
-    private var topicSuggestionUpdateJob: Job? = null
     private var topicSuggestionQueryGeneration = 0L
     private var cursorSaveJob: Job? = null
     private var searchJob: Job? = null
@@ -164,7 +163,9 @@ class EditorViewModel(
         nativeEditor = editor
         editor.setTextChangeListener { onDocumentTextChanged() }
         editor.setSelectionChangeListener { start, end ->
-            scheduleTopicSuggestionUpdate()
+            // Cursor movement is a suggestion-session update, not a new popup.
+            // The session stays alive while the caret remains inside the same #token.
+            updateTopicSuggestionSession()
             val anchor = _uiState.value.content.viewportAnchor
             _uiState.value.content.setFallback(editor.contentText(), TextRange(start, end), anchor)
             _uiState.value.content.setNativeState(TextRange(start, end), editor.currentViewportAnchor())
@@ -668,44 +669,34 @@ class EditorViewModel(
     }
 
     /**
-     * Detects only the hashtag token immediately before the caret.
+     * Persistent suggestion-session lifecycle, modelled after rich-text editor
+     * suggestion plugins:
      *
-     * This deliberately does not create a substring of the whole document or run
-     * a regex over it. The scan walks backwards from the caret until whitespace or
-     * another '#' is reached, so its work is proportional to the current hashtag
-     * token, not to the size of the document.
+     * - start: a #token becomes active -> open the session once
+     * - update: typing changes only query/items/anchor; the session remains active
+     * - exit: the trigger is no longer valid, selection leaves it, or the user
+     *   explicitly dismisses/selects an item.
+     *
+     * The important invariant is that an async database refresh can never close the
+     * session. Empty results are still a valid active state because the UI can show
+     * "create topic" for the current query.
      */
-    private fun scheduleTopicSuggestionUpdate() {
-        topicSuggestionUpdateJob?.cancel()
-        topicSuggestionUpdateJob = viewModelScope.launch {
-            // TextWatcher and selection callbacks can arrive in different orders while
-            // Android is committing a typed character. Wait for both to settle so a
-            // transient intermediate cursor state cannot dismiss and recreate the popup.
-            delay(80)
-            updateTopicSuggestions()
-        }
-    }
-
-    private fun updateTopicSuggestions() {
+    private fun updateTopicSuggestionSession() {
         val state = _uiState.value
         val editor = nativeEditor
         if (state.mode != EditorMode.NOTE || state.activeNoteId == null || editor == null) {
-            dismissTopicSuggestions()
+            exitTopicSuggestionSession()
             return
         }
         if (editor.selectionStart != editor.selectionEnd) {
-            dismissTopicSuggestions()
+            exitTopicSuggestionSession()
             return
         }
 
         val cursor = editor.selectionStart
         val length = editor.length()
-        if (cursor <= editor.titleBoundaryOffset()) {
-            dismissTopicSuggestions()
-            return
-        }
-        if (cursor < 0 || cursor > length) {
-            dismissTopicSuggestions()
+        if (cursor <= editor.titleBoundaryOffset() || cursor < 0 || cursor > length) {
+            exitTopicSuggestionSession()
             return
         }
 
@@ -717,7 +708,7 @@ class EditorViewModel(
         }
 
         if (tokenStart <= 0 || editor.text?.get(tokenStart - 1) != '#') {
-            dismissTopicSuggestions()
+            exitTopicSuggestionSession()
             return
         }
 
@@ -726,10 +717,15 @@ class EditorViewModel(
             ?.toString()
             .orEmpty()
 
+        // START/UPDATE: never clear the active query between keystrokes.
+        // Compose therefore keeps the same Popup instance mounted.
         _topicSuggestionQuery.value = query
+
         val generation = ++topicSuggestionQueryGeneration
         topicSuggestionJob?.cancel()
         topicSuggestionJob = viewModelScope.launch {
+            // Debounce only the expensive items lookup. The session itself is already
+            // active and stays visible while this request is pending.
             if (query.isNotEmpty()) delay(120)
             val suggestions = withContext(Dispatchers.IO) {
                 runCatching { topicDao.searchTopics(query).first() }.getOrDefault(emptyList())
@@ -739,17 +735,22 @@ class EditorViewModel(
                 _topicSuggestionQuery.value == query &&
                 _uiState.value.mode == EditorMode.NOTE
             ) {
+                // UPDATE ITEMS: replace list contents without touching session state.
                 _topicSuggestions.value = suggestions
             }
         }
     }
 
-    fun dismissTopicSuggestions() {
+    private fun exitTopicSuggestionSession() {
         topicSuggestionQueryGeneration++
         _topicSuggestionQuery.value = null
         _topicSuggestions.value = emptyList()
         topicSuggestionJob?.cancel()
-        topicSuggestionUpdateJob?.cancel()
+        topicSuggestionJob = null
+    }
+
+    fun dismissTopicSuggestions() {
+        exitTopicSuggestionSession()
     }
 
     fun selectExistingTopic(topic: Topic) {
