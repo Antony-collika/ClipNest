@@ -421,8 +421,8 @@ class EditorViewModel(
                     }
                     resetSearchState()
                     val first = loadedDocuments.first().first
-                    nativeEditor?.setPlainEditorText(text, text.length)
-                    _uiState.value.content.setFallback(text, TextRange(text.length))
+                    nativeEditor?.setStructuredDocument(name, text, name.length + 1 + text.length, name.length + 1 + text.length, name.length + 1 + text.length)
+                    _uiState.value.content.setFallback(text, TextRange(name.length + 1 + text.length))
                     editorDocumentGeneration++
                     clearCurrentDocumentPassword()
                     _uiState.value = _uiState.value.copy(documentRevision = _uiState.value.documentRevision + 1, isDirty = false, documentName = if (candidates.size > 1) appContext.withAppLanguage(settings.value.language).getString(com.clipnest.R.string.merged_document_name, loadedDocuments.size) else name, externalDocumentUri = first.uri.toString(), externalDocumentSaveAsOnly = candidates.size > 1, externalDocumentFileCount = loadedDocuments.size, externalDocumentEncrypted = false, showSaveNewFileDialog = false, lastSavedTimestamp = System.currentTimeMillis())
