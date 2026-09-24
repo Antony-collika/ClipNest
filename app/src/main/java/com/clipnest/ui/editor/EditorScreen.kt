@@ -99,53 +99,13 @@ fun EditorScreen(
     var previewHtml by remember { mutableStateOf("") }
     var tocHeadings by remember { mutableStateOf<List<MarkdownHeading>>(emptyList()) }
     var tocIndexing by remember { mutableStateOf(false) }
-    var titleFocused by remember { mutableStateOf(false) }
-    var titleFieldValue by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue()) }
     var nativeEditorView by remember { mutableStateOf<NativeEditorView?>(null) }
 
-    LaunchedEffect(uiState.title) {
-        if (uiState.title != titleFieldValue.text) titleFieldValue = TextFieldValue(uiState.title, TextRange(uiState.title.length))
-    }
-
     LaunchedEffect(uiState.externalDocumentUri, uiState.documentName, uiState.externalDocumentFileCount) {
-        if (uiState.externalDocumentUri != null && uiState.externalDocumentFileCount == 1) {
-            val fileName = uiState.documentName
-            val lastDot = fileName.lastIndexOf('.')
-            val title = if (lastDot > 0) fileName.substring(0, lastDot) else fileName
-            titleFieldValue = TextFieldValue(title, TextRange(title.length))
-        }
         if (uiState.externalDocumentUri != null) {
             withFrameNanos { }
-            nativeEditorView?.setSelection(0)
-            nativeEditorView?.scrollTo(0, 0)
+            nativeEditorView?.requestFocus()
         }
-    }
-
-    fun updateTitle(value: TextFieldValue) { titleFieldValue = value; viewModel.onTitleChange(value.text) }
-    fun titleClipboard(): ClipboardManager = context.getSystemService(ClipboardManager::class.java)
-    fun copyTitle() {
-        val selection = titleFieldValue.selection
-        if (selection.collapsed) return
-        titleClipboard().setPrimaryClip(ClipData.newPlainText("Title", titleFieldValue.text.substring(selection.min, selection.max)))
-    }
-    fun cutTitle() {
-        val selection = titleFieldValue.selection
-        if (selection.collapsed) return
-        titleClipboard().setPrimaryClip(ClipData.newPlainText("Title", titleFieldValue.text.substring(selection.min, selection.max)))
-        updateTitle(titleFieldValue.copy(text = titleFieldValue.text.removeRange(selection.min, selection.max), selection = TextRange(selection.min)))
-    }
-    fun pasteTitle() {
-        val clip = runCatching { titleClipboard().primaryClip?.getItemAt(0)?.coerceToText(context)?.toString() }.getOrNull() ?: return
-        val normalized = clip.replace("\r\n", "\n").replace('\r', '\n')
-        val selection = titleFieldValue.selection
-        val text = titleFieldValue.text.replaceRange(selection.min, selection.max, normalized)
-        updateTitle(titleFieldValue.copy(text = text, selection = TextRange(selection.min + normalized.length)))
-    }
-    fun selectAllTitle() { updateTitle(titleFieldValue.copy(selection = TextRange(0, titleFieldValue.text.length))) }
-    fun deleteTitle() {
-        val selection = titleFieldValue.selection
-        if (selection.collapsed) return
-        updateTitle(titleFieldValue.copy(text = titleFieldValue.text.removeRange(selection.min, selection.max), selection = TextRange(selection.min)))
     }
 
     LaunchedEffect(Unit) {
@@ -191,17 +151,16 @@ fun EditorScreen(
                         viewModel.returnToFreeEditor { onExit(returnKey) }
                     },
                     onSave = viewModel::saveCurrentNoteNow,
-                    onSaveToNote = { viewModel.createNoteAndEnterNoteMode(viewModel.currentDocumentText(), title = titleFieldValue.text) }
+                    onSaveToNote = { viewModel.createNoteAndEnterNoteMode(viewModel.currentDocumentText(), title = viewModel.currentDocumentTitle()) }
                 )
             EditorToolbox(
                 isMarkdownToolsExpanded = uiState.isMarkdownToolsExpanded,
                 isPreviewVisible = uiState.showMarkdownPreview,
-                titleFocused = titleFocused,
-                onPaste = if (titleFocused) ::pasteTitle else { { viewModel.pasteFromClipboard(context) } },
-                onCopy = if (titleFocused) ::copyTitle else { { viewModel.copySelectedText(context) } },
-                onCut = if (titleFocused) ::cutTitle else { { viewModel.cutSelectedText(context) } },
-                onSelectAll = if (titleFocused) ::selectAllTitle else viewModel::selectAll,
-                onDelete = if (titleFocused) ::deleteTitle else viewModel::deleteSelectedText,
+                onPaste = { viewModel.pasteFromClipboard(context) },
+                onCopy = { viewModel.copySelectedText(context) },
+                onCut = { viewModel.cutSelectedText(context) },
+                onSelectAll = viewModel::selectAll,
+                onDelete = viewModel::deleteSelectedText,
                 onUndo = viewModel::undo,
                 onRedo = viewModel::redo,
                 onHeading = viewModel::insertMarkdownHeading,
@@ -214,15 +173,6 @@ fun EditorScreen(
                 onHorizontalRule = viewModel::insertMarkdownHorizontalRule,
                 onTogglePreview = viewModel::toggleMarkdownPreview
             )
-            EditorNoteTitleField(
-                    value = titleFieldValue,
-                    onValueChange = ::updateTitle,
-                    onFocusChanged = { titleFocused = it },
-                    editorTextSize = editorTextSize,
-                    textColor = MaterialTheme.colorScheme.onSurface,
-                    hintColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
-                )
-                EditorNoteTitleDivider()
             Box(
                 modifier = Modifier.fillMaxWidth().weight(1f)
             ) {
@@ -282,7 +232,7 @@ fun EditorScreen(
     }
 
     if (uiState.showMarkdownPreview) MarkdownPreviewDialog(html = previewHtml, headings = tocHeadings, tocIndexing = tocIndexing, backgroundColor = previewBackground, contentColor = previewTextColor, onDismiss = viewModel::toggleMarkdownPreview)
-    if (uiState.showSaveNewFileDialog) SaveNewFileDialog(defaultFolderUri = uiState.defaultSaveFolderUri, initialFileName = titleFieldValue.text.ifBlank { uiState.documentName }, onChooseFolder = onRequestSaveFolder, onDismiss = viewModel::dismissSaveNewFileDialog, onConfirm = { fileName, format -> viewModel.confirmSaveToNewFile(fileName, format, context.contentResolver) })
+    if (uiState.showSaveNewFileDialog) SaveNewFileDialog(defaultFolderUri = uiState.defaultSaveFolderUri, initialFileName = uiState.title.ifBlank { uiState.documentName }, onChooseFolder = onRequestSaveFolder, onDismiss = viewModel::dismissSaveNewFileDialog, onConfirm = { fileName, format -> viewModel.confirmSaveToNewFile(fileName, format, context.contentResolver) })
     if (uiState.showExternalUnsavedChangesDialog) AlertDialog(onDismissRequest = viewModel::cancelExternalExit, title = { Text("Unsaved changes") }, text = { Text("This external file has unsaved changes. What would you like to do?") }, confirmButton = { Column(horizontalAlignment = Alignment.End) { Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { TextButton(onClick = { viewModel.chooseExternalSave(context.contentResolver) }) { Text("Save") }; TextButton(onClick = viewModel::chooseExternalSaveAs) { Text("Save as") }; TextButton(onClick = { viewModel.chooseExternalNoSave(context.contentResolver) }) { Text("Don't save") } }; TextButton(onClick = viewModel::cancelExternalExit) { Text("Cancel") } } }, dismissButton = {})
     openWithDiagnostic?.let { AlertDialog(onDismissRequest = viewModel::dismissOpenWithDiagnostic, title = { Text(stringResource(com.clipnest.R.string.open_with_fallback_title)) }, text = { Text(stringResource(com.clipnest.R.string.open_with_fallback_message)) }, confirmButton = { TextButton(onClick = viewModel::dismissOpenWithDiagnostic) { Text(stringResource(com.clipnest.R.string.close)) } }, dismissButton = { TextButton(onClick = { viewModel.dismissOpenWithDiagnostic(); onRequestOpenFile() }) { Text(stringResource(com.clipnest.R.string.open_with_fallback_open_file)) } }) }
     pendingEncryptedOpen?.let { pending -> DecryptOpenDialog(displayName = pending.displayName, isError = pending.error, onDismiss = viewModel::dismissPendingEncryptedOpen, onConfirm = { password -> viewModel.confirmDecryptAndOpen(password, context.contentResolver) }) }
@@ -292,7 +242,6 @@ fun EditorScreen(
 private fun EditorToolbox(
     isMarkdownToolsExpanded: Boolean,
     isPreviewVisible: Boolean,
-    titleFocused: Boolean,
     onPaste: () -> Unit,
     onCopy: () -> Unit,
     onCut: () -> Unit,
@@ -310,7 +259,7 @@ private fun EditorToolbox(
     onHorizontalRule: () -> Unit,
     onTogglePreview: () -> Unit
 ) {
-    val contentToolsEnabled = !titleFocused
+    val contentToolsEnabled = true
     val disabledTint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
     Surface(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f), modifier = Modifier.fillMaxWidth().testTag("editor_toolbox")) {
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(1.dp), verticalAlignment = Alignment.CenterVertically) {
