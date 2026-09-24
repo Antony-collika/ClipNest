@@ -876,7 +876,7 @@ class NativeEditorView @JvmOverloads constructor(
         editable.getSpans(0, editable.length, TitleVisualSpan::class.java)
             .forEach { editable.removeSpan(it) }
         if (titleBoundary > 0) {
-            editable.setSpan(TitleVisualSpan(), 0, titleBoundary, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            editable.setSpan(TitleVisualSpan(), 0, titleBoundary, android.text.Spanned.SPAN_INCLUSIVE_INCLUSIVE)
         }
     }
 
