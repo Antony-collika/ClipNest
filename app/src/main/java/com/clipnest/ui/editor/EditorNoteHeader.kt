@@ -22,23 +22,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.clipnest.data.local.EditorTextSize
-
-/**
- * Tính toán cỡ chữ Title thông minh dựa trên EditorTextSize.
- * Giữ tỷ lệ phân cấp thị giác ổn định ở mọi mức size.
- */
-fun getSmartTitleSize(editorTextSize: EditorTextSize): TextUnit {
-    val baseSp = editorTextSize.sp
-    return when (editorTextSize) {
-        EditorTextSize.VERY_SMALL,
-        EditorTextSize.SMALL -> (baseSp + 4).sp
-        EditorTextSize.DEFAULT -> (baseSp + 3).sp
-        EditorTextSize.LARGE -> (baseSp + 4).sp
-        EditorTextSize.VERY_LARGE,
-        EditorTextSize.HUGE -> (baseSp + 6).sp
-    }
-}
 
 /**
  * Breadcrumb row above the toolbar. Its actions are mode-specific:
