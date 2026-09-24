@@ -3,6 +3,7 @@ package com.clipnest.ui.editor
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.widget.Toast
+import android.graphics.Rect
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -50,8 +51,14 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.clipnest.data.local.EditorTextSize
@@ -69,6 +76,32 @@ private const val PREVIEW_HUGE_DEBOUNCE_MS = 650L
 // Lưới an toàn cho shimmer: nếu WebView không báo "đã load xong" trong
 // khoảng thời gian này, ta tự coi như xong để tránh shimmer bị kẹt mãi mãi.
 private const val MARKDOWN_PREVIEW_READY_TIMEOUT_MS = 5_000L
+
+private class CaretSuggestionPopupPositionProvider(
+    private val gapPx: Int,
+    private val edgePx: Int
+) : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize
+    ): IntOffset {
+        val preferredX = anchorBounds.left
+        val maxX = (windowSize.width - popupContentSize.width - edgePx).coerceAtLeast(edgePx)
+        val x = preferredX.coerceIn(edgePx, maxX)
+        val spaceBelow = windowSize.height - anchorBounds.bottom - edgePx
+        val spaceAbove = anchorBounds.top - edgePx
+        val fitsBelow = spaceBelow >= popupContentSize.height + gapPx
+        val y = if (fitsBelow || spaceBelow >= spaceAbove) {
+            anchorBounds.bottom + gapPx
+        } else {
+            anchorBounds.top - popupContentSize.height - gapPx
+        }
+        val maxY = (windowSize.height - popupContentSize.height - edgePx).coerceAtLeast(edgePx)
+        return IntOffset(x, y.coerceIn(edgePx, maxY))
+    }
+}
 private val PREVIEW_HEADER_HEIGHT = 48.dp
 
 @Composable
@@ -101,6 +134,7 @@ fun EditorScreen(
     var tocIndexing by remember { mutableStateOf(false) }
     var nativeEditorView by remember { mutableStateOf<NativeEditorView?>(null) }
     var caretInTitle by remember { mutableStateOf(false) }
+    var topicSuggestionCaretRect by remember { mutableStateOf<Rect?>(null) }
 
     LaunchedEffect(uiState.externalDocumentUri, uiState.documentName, uiState.externalDocumentFileCount) {
         if (uiState.externalDocumentUri != null) {
@@ -179,30 +213,73 @@ fun EditorScreen(
                 modifier = Modifier.fillMaxWidth().weight(1f)
             ) {
                 AndroidView(
-                    factory = { NativeEditorView(it).apply { setEditorTextSize(editorTextSize); setEditorTextColor(editorTextColor); nativeEditorView = this; viewModel.bindNativeEditor(this); caretInTitle = isCaretInTitle(); setSectionChangeListener { inTitle -> caretInTitle = inTitle } } },
-                    update = { it.setEditorTextSize(editorTextSize); it.setEditorTextColor(editorTextColor); nativeEditorView = it; if (uiState.showMarkdownPreview) it.hideKeyboardAndClearFocus(); viewModel.bindNativeEditor(it); caretInTitle = it.isCaretInTitle(); it.setSectionChangeListener { inTitle -> caretInTitle = inTitle } },
+                    factory = {
+                        NativeEditorView(it).apply {
+                            setEditorTextSize(editorTextSize)
+                            setEditorTextColor(editorTextColor)
+                            nativeEditorView = this
+                            viewModel.bindNativeEditor(this)
+                            caretInTitle = isCaretInTitle()
+                            setSectionChangeListener { inTitle -> caretInTitle = inTitle }
+                            setCaretRectChangeListener { rect -> topicSuggestionCaretRect = Rect(rect) }
+                        }
+                    },
+                    update = {
+                        it.setEditorTextSize(editorTextSize)
+                        it.setEditorTextColor(editorTextColor)
+                        nativeEditorView = it
+                        if (uiState.showMarkdownPreview) it.hideKeyboardAndClearFocus()
+                        viewModel.bindNativeEditor(it)
+                        caretInTitle = it.isCaretInTitle()
+                        it.setSectionChangeListener { inTitle -> caretInTitle = inTitle }
+                        it.setCaretRectChangeListener { rect -> topicSuggestionCaretRect = Rect(rect) }
+                    },
                     modifier = Modifier.fillMaxSize().testTag("editor_text_input")
                 )
                 val query = topicSuggestionQuery
-                if (uiState.mode == EditorMode.NOTE && query != null) {
+                val caretRect = topicSuggestionCaretRect
+                if (uiState.mode == EditorMode.NOTE && query != null && caretRect != null) {
                     val hasExactMatch = topicSuggestions.any { it.name.equals(query, ignoreCase = true) }
-                    DropdownMenu(
-                        expanded = true,
+                    val density = LocalDensity.current
+                    val gapPx = with(density) { 4.dp.roundToPx() }
+                    val edgePx = with(density) { 8.dp.roundToPx() }
+                    Box(
+                        Modifier
+                            .offset { IntOffset(caretRect.left, caretRect.top) }
+                            .size(1.dp)
+                    )
+                    Popup(
+                        popupPositionProvider = remember(gapPx, edgePx) {
+                            CaretSuggestionPopupPositionProvider(gapPx, edgePx)
+                        },
                         onDismissRequest = viewModel::dismissTopicSuggestions,
-                        properties = PopupProperties(focusable = false),
-                        modifier = Modifier.fillMaxWidth(0.92f)
+                        properties = PopupProperties(
+                            focusable = false,
+                            dismissOnClickOutside = true
+                        )
                     ) {
-                        topicSuggestions.forEach { topic ->
-                            DropdownMenuItem(
-                                text = { Text("#" + topic.name) },
-                                onClick = { viewModel.selectExistingTopic(topic) }
-                            )
-                        }
-                        if (query.isNotBlank() && !hasExactMatch) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(com.clipnest.R.string.create_topic, query)) },
-                                onClick = viewModel::createTopicFromSuggestion
-                            )
+                        Surface(
+                            modifier = Modifier
+                                .widthIn(min = 200.dp, max = 320.dp)
+                                .heightIn(max = 280.dp)
+                                .shadow(8.dp, RoundedCornerShape(10.dp)),
+                            shape = RoundedCornerShape(10.dp),
+                            tonalElevation = 3.dp
+                        ) {
+                            Column(Modifier.verticalScroll(rememberScrollState())) {
+                                topicSuggestions.forEach { topic ->
+                                    DropdownMenuItem(
+                                        text = { Text("#" + topic.name) },
+                                        onClick = { viewModel.selectExistingTopic(topic) }
+                                    )
+                                }
+                                if (query.isNotBlank() && !hasExactMatch) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(com.clipnest.R.string.create_topic, query)) },
+                                        onClick = viewModel::createTopicFromSuggestion
+                                    )
+                                }
+                            }
                         }
                     }
                 }
