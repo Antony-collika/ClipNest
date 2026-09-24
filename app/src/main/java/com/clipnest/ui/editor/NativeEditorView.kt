@@ -71,6 +71,7 @@ class NativeEditorView @JvmOverloads constructor(
     private var textChangeListener: ((NativeEditorView) -> Unit)? = null
     private var selectionChangeListener: ((Int, Int) -> Unit)? = null
     private var viewportChangeListener: ((Int) -> Unit)? = null
+    private var caretRectChangeListener: ((android.graphics.Rect) -> Unit)? = null
     private var pendingViewportAnchorRestore: Int? = null
     private val undoStack = ArrayDeque<EditOperation>()
     private val redoStack = ArrayDeque<EditOperation>()
@@ -247,6 +248,7 @@ class NativeEditorView @JvmOverloads constructor(
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         updateStableScrollBounds()
+        notifyCaretRectChanged()
     }
 
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
@@ -264,6 +266,7 @@ class NativeEditorView @JvmOverloads constructor(
             EditorDiagnosticLog.log("LIFECYCLE", "onLayout  scrollY changed as a side effect of layout itself: $scrollYBefore -> $scrollY  height=$height  maxScrollY=${maxScrollY()}  followCaret=$followCaret")
         }
         EditorDiagnosticLog.log("LIFECYCLE", "onLayout  changed=$changed  scrollY=$scrollY  selection=$selectionStart-$selectionEnd")
+        notifyCaretRectChanged()
     }
 
     override fun onFocusChanged(focused: Boolean, direction: Int, previouslyFocusedRect: android.graphics.Rect?) {
@@ -335,10 +338,12 @@ class NativeEditorView @JvmOverloads constructor(
             // is what keeps the IME from covering the line the user just tapped into.
             followCaret = true
         }
+        notifyCaretRectChanged()
     }
 
     override fun onScrollChanged(l: Int, t: Int, oldl: Int, oldt: Int) {
         super.onScrollChanged(l, t, oldl, oldt)
+        notifyCaretRectChanged()
         EditorDiagnosticLog.log("SCROLL", "onScrollChanged  oldScrollY=$oldt  newScrollY=$t  internalMutation=$internalMutation  userDriven=${isUserDrivenScroll()}  selection=$selectionStart-$selectionEnd")
         // Reports scroll so callers can keep an external "last known viewport" in sync,
         // the same way onSelectionChanged keeps the caret in sync. But unlike caret
@@ -636,6 +641,25 @@ class NativeEditorView @JvmOverloads constructor(
     fun setTextChangeListener(listener: ((NativeEditorView) -> Unit)?) { textChangeListener = listener }
     fun setSelectionChangeListener(listener: ((Int, Int) -> Unit)?) { selectionChangeListener = listener }
     fun setViewportChangeListener(listener: ((Int) -> Unit)?) { viewportChangeListener = listener }
+    fun setCaretRectChangeListener(listener: ((android.graphics.Rect) -> Unit)?) {
+        caretRectChangeListener = listener
+        if (listener != null) listener(caretRectInView())
+    }
+
+    /** Caret bounds in this view's local, viewport coordinates. */
+    fun caretRectInView(): android.graphics.Rect {
+        val lay = layout ?: return android.graphics.Rect(paddingLeft, paddingTop, paddingLeft + 1, paddingTop + lineHeight)
+        val offset = selectionEnd.coerceIn(0, length())
+        val line = lay.getLineForOffset(offset)
+        val x = (compoundPaddingLeft + lay.getPrimaryHorizontal(offset)).toInt().coerceIn(0, width.coerceAtLeast(1) - 1)
+        val top = (compoundPaddingTop + lay.getLineTop(line) - scrollY).coerceAtLeast(0)
+        val bottom = (compoundPaddingTop + lay.getLineBottom(line) - scrollY).coerceAtLeast(top + 1)
+        return android.graphics.Rect(x, top, x + 1, bottom)
+    }
+
+    private fun notifyCaretRectChanged() {
+        caretRectChangeListener?.invoke(caretRectInView())
+    }
 
     /** Current viewport anchor, for callers that want to read it without waiting for a callback. */
     fun currentViewportAnchor(): Int = topOfViewportOffset()
