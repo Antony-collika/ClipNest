@@ -673,7 +673,7 @@ class NativeEditorView @JvmOverloads constructor(
         val doc = EditorNoteDocument(EditorNoteDocument.normalize(title), EditorNoteDocument.normalize(content))
         structuredDocument = true
         titleBoundary = doc.titleBoundary
-        hint = "Title"
+        hint = context.getString(com.clipnest.R.string.note_title_placeholder)
         val start = selectionStart ?: doc.editableText.length
         val end = selectionEnd ?: start
         setEditorText(doc.editableText, start, end, viewportAnchor)
