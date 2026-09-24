@@ -235,7 +235,6 @@ fun EditorScreen(
                         viewModel.bindNativeEditor(it)
                         caretInTitle = it.isCaretInTitle()
                         it.setSectionChangeListener { inTitle -> caretInTitle = inTitle }
-                        it.setCaretRectChangeListener { rect -> topicSuggestionCaretRect = Rect(rect) }
                     },
                     modifier = Modifier.fillMaxSize().testTag("editor_text_input")
                 )
