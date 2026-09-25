@@ -147,6 +147,16 @@ class EditorViewModel(
     private var topicSuggestionJob: Job? = null
     private var topicSuggestionQueryGeneration = 0L
     private var lastTopicSuggestionSessionKey: String? = null
+    // Android's TextView fires afterTextChanged and onSelectionChanged as two
+    // independent callbacks for the same keystroke, and the caret position read
+    // from the view is not guaranteed to be settled the same way in both. Calling
+    // updateTopicSuggestionSession() straight from each listener let the same
+    // keystroke evaluate the session twice with a shifting cursor value, which
+    // could defeat the sessionKey dedupe below and made the popup flicker.
+    // Coalescing both triggers onto a single relaunched coroutine collapses same-
+    // frame calls into one evaluation, after both callbacks for the keystroke have
+    // already run and the caret is settled.
+    private var topicSuggestionUpdateJob: Job? = null
     private var cursorSaveJob: Job? = null
     private var searchJob: Job? = null
     private var nativeEditor: NativeEditorView? = null
@@ -168,13 +178,15 @@ class EditorViewModel(
         nativeEditor?.setSectionChangeListener(null)
         nativeEditor = editor
         editor.setTextChangeListener {
+            // onDocumentTextChanged() already schedules the topic-suggestion update
+            // itself; calling it again here would just cancel and relaunch the same
+            // coalesced job for no reason.
             onDocumentTextChanged()
-            updateTopicSuggestionSession()
         }
         editor.setSelectionChangeListener { start, end ->
             // Selection changes update the active session in place. A transient
             // non-collapsed selection during an IME commit must not close it.
-            updateTopicSuggestionSession()
+            scheduleTopicSuggestionUpdate()
             val anchor = _uiState.value.content.viewportAnchor
             _uiState.value.content.setFallback(editor.contentText(), TextRange(start, end), anchor)
             _uiState.value.content.setNativeState(TextRange(start, end), editor.currentViewportAnchor())
@@ -602,7 +614,7 @@ class EditorViewModel(
             documentRevision = _uiState.value.documentRevision + 1,
             isDirty = true
         )
-        updateTopicSuggestionSession()
+        scheduleTopicSuggestionUpdate()
         if (_searchQuery.value.isNotBlank()) scheduleSearchResults(_searchQuery.value, true)
         if (!hasExternalSession()) scheduleDebouncedAutoSave()
     }
@@ -674,6 +686,19 @@ class EditorViewModel(
                 loadInternalDocumentIntoEditor()
                 returnCallback?.invoke()
             }
+        }
+    }
+
+    // Call this instead of updateTopicSuggestionSession() directly from any
+    // NativeEditorView callback. See the comment on topicSuggestionUpdateJob for why:
+    // relaunching on every call cancels a same-frame duplicate trigger before it runs,
+    // so a keystroke that fires both the text-changed and selection-changed callbacks
+    // still results in exactly one evaluation, using the caret position after both
+    // callbacks for that keystroke have completed.
+    private fun scheduleTopicSuggestionUpdate() {
+        topicSuggestionUpdateJob?.cancel()
+        topicSuggestionUpdateJob = viewModelScope.launch(Dispatchers.Main.immediate) {
+            updateTopicSuggestionSession()
         }
     }
 
