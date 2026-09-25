@@ -43,6 +43,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.yield
 
 private data class PendingSave(val fileName: String, val format: ExportFormat)
 
@@ -140,6 +141,10 @@ class EditorViewModel(
     private var savedInternalViewportAnchor: Int? = null
     private var autoSaveJob: Job? = null
     private var topicSuggestionJob: Job? = null
+    // Text and selection callbacks can arrive as separate phases of one editor edit.
+    // Coalesce them to one main-thread update so a transient intermediate selection
+    // can never close and immediately reopen the same suggestion popup.
+    private var topicSuggestionUpdateJob: Job? = null
     private var topicSuggestionQueryGeneration = 0L
     // Selection/text callbacks can report the same editor state twice for one keystroke.
     // Keep the last processed session key so the second callback does not cancel/restart
@@ -168,8 +173,8 @@ class EditorViewModel(
         editor.setTextChangeListener { onDocumentTextChanged() }
         editor.setSelectionChangeListener { start, end ->
             // Cursor movement is a suggestion-session update, not a new popup.
-            // The session stays alive while the caret remains inside the same #token.
-            updateTopicSuggestionSession()
+            // Coalesce this with the text callback from the same edit.
+            requestTopicSuggestionSessionUpdate()
             val anchor = _uiState.value.content.viewportAnchor
             _uiState.value.content.setFallback(editor.contentText(), TextRange(start, end), anchor)
             _uiState.value.content.setNativeState(TextRange(start, end), editor.currentViewportAnchor())
@@ -597,7 +602,7 @@ class EditorViewModel(
             documentRevision = _uiState.value.documentRevision + 1,
             isDirty = true
         )
-        updateTopicSuggestionSession()
+        requestTopicSuggestionSessionUpdate()
         if (_searchQuery.value.isNotBlank()) scheduleSearchResults(_searchQuery.value, true)
         if (!hasExternalSession()) scheduleDebouncedAutoSave()
     }
@@ -669,6 +674,17 @@ class EditorViewModel(
                 loadInternalDocumentIntoEditor()
                 returnCallback?.invoke()
             }
+        }
+    }
+
+    private fun requestTopicSuggestionSessionUpdate() {
+        topicSuggestionUpdateJob?.cancel()
+        topicSuggestionUpdateJob = viewModelScope.launch(Dispatchers.Main.immediate) {
+            // Let TextWatcher/selection callbacks for the same Android edit settle first.
+            // The suggestion session is then evaluated exactly once against the final
+            // text + caret state.
+            yield()
+            updateTopicSuggestionSession()
         }
     }
 
@@ -757,6 +773,8 @@ class EditorViewModel(
     }
 
     private fun exitTopicSuggestionSession() {
+        topicSuggestionUpdateJob?.cancel()
+        topicSuggestionUpdateJob = null
         topicSuggestionQueryGeneration++
         lastTopicSuggestionSessionKey = null
         _topicSuggestionQuery.value = null
