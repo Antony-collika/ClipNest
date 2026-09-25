@@ -593,7 +593,7 @@ class EditorViewModel(
             documentRevision = _uiState.value.documentRevision + 1,
             isDirty = true
         )
-        scheduleTopicSuggestionUpdate()
+        updateTopicSuggestionSession()
         if (_searchQuery.value.isNotBlank()) scheduleSearchResults(_searchQuery.value, true)
         if (!hasExternalSession()) scheduleDebouncedAutoSave()
     }
