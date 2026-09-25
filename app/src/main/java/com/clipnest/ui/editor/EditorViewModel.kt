@@ -46,6 +46,8 @@ import kotlinx.coroutines.withContext
 
 private data class PendingSave(val fileName: String, val format: ExportFormat)
 
+data class TopicSuggestionSession(val noteId: Long, val tokenStart: Int, val query: String)
+
 enum class ExternalExitAction { RETURN_TO_EDITOR, OPEN_REPLACEMENT }
 
 private data class PendingExternalOpen(
@@ -139,15 +141,11 @@ class EditorViewModel(
     private var savedInternalSelection: TextRange? = null
     private var savedInternalViewportAnchor: Int? = null
     private var autoSaveJob: Job? = null
+    private var topicSuggestionSession: TopicSuggestionSession? = null
+    private val _topicSuggestionSession = MutableStateFlow<TopicSuggestionSession?>(null)
+    val topicSuggestionSession: StateFlow<TopicSuggestionSession?> = _topicSuggestionSession.asStateFlow()
     private var topicSuggestionJob: Job? = null
-    // Text and selection callbacks can arrive as separate phases of one editor edit.
-    // Coalesce them to one main-thread update so a transient intermediate selection
-    // can never close and immediately reopen the same suggestion popup.
-    private var topicSuggestionUpdateJob: Job? = null
     private var topicSuggestionQueryGeneration = 0L
-    // Selection/text callbacks can report the same editor state twice for one keystroke.
-    // Keep the last processed session key so the second callback does not cancel/restart
-    // the same async lookup.
     private var lastTopicSuggestionSessionKey: String? = null
     private var cursorSaveJob: Job? = null
     private var searchJob: Job? = null
@@ -169,11 +167,14 @@ class EditorViewModel(
         nativeEditor?.setViewportChangeListener(null)
         nativeEditor?.setSectionChangeListener(null)
         nativeEditor = editor
-        editor.setTextChangeListener { onDocumentTextChanged() }
+        editor.setTextChangeListener {
+            onDocumentTextChanged()
+            updateTopicSuggestionSession()
+        }
         editor.setSelectionChangeListener { start, end ->
-            // Cursor movement is a suggestion-session update, not a new popup.
-            // Coalesce this with the text callback from the same edit.
-            requestTopicSuggestionSessionUpdate()
+            // Selection changes update the active session in place. A transient
+            // non-collapsed selection during an IME commit must not close it.
+            updateTopicSuggestionSession()
             val anchor = _uiState.value.content.viewportAnchor
             _uiState.value.content.setFallback(editor.contentText(), TextRange(start, end), anchor)
             _uiState.value.content.setNativeState(TextRange(start, end), editor.currentViewportAnchor())
@@ -676,40 +677,18 @@ class EditorViewModel(
         }
     }
 
-    private fun requestTopicSuggestionSessionUpdate() {
-        topicSuggestionUpdateJob?.cancel()
-        topicSuggestionUpdateJob = viewModelScope.launch(Dispatchers.Main.immediate) {
-            // TextWatcher, selection and layout callbacks can arrive in different
-            // phases of one Android edit. A frame-sized delay lets the native editor
-            // publish the final text/caret state before we decide whether the session
-            // should be closed.
-            delay(16)
-            updateTopicSuggestionSession()
-        }
-    }
-
-    /**
-     * Persistent suggestion-session lifecycle, modelled after rich-text editor
-     * suggestion plugins:
-     *
-     * - start: a #token becomes active -> open the session once
-     * - update: typing changes only query/items/anchor; the session remains active
-     * - exit: the trigger is no longer valid, selection leaves it, or the user
-     *   explicitly dismisses/selects an item.
-     *
-     * The important invariant is that an async database refresh can never close the
-     * session. Empty results are still a valid active state because the UI can show
-     * "create topic" for the current query.
-     */
     private fun updateTopicSuggestionSession() {
         val state = _uiState.value
         val editor = nativeEditor
+        val active = topicSuggestionSession
+
         if (state.mode != EditorMode.NOTE || state.activeNoteId == null || editor == null) {
             exitTopicSuggestionSession()
             return
         }
+
         if (editor.selectionStart != editor.selectionEnd) {
-            exitTopicSuggestionSession()
+            if (active == null) exitTopicSuggestionSession()
             return
         }
 
@@ -736,35 +715,34 @@ class EditorViewModel(
             ?.subSequence(tokenStart, cursor)
             ?.toString()
             .orEmpty()
+        val noteId = state.activeNoteId
+        val sameSession = active?.noteId == noteId && active.tokenStart == tokenStart
+        val session = TopicSuggestionSession(noteId, tokenStart, query)
 
-        // Text and selection callbacks can both arrive for the same keystroke.
-        // They describe the exact same suggestion state, so do not restart the
-        // debounce/DB lookup a second time.
-        val sessionKey = "${state.activeNoteId}:$tokenStart:$cursor:$query"
+        topicSuggestionSession = session
+        _topicSuggestionSession.value = session
+        _topicSuggestionQuery.value = query
+
+        if (!sameSession) lastTopicSuggestionSessionKey = null
+
+        val sessionKey = "$noteId:$tokenStart:$cursor:$query"
         if (lastTopicSuggestionSessionKey == sessionKey) return
         lastTopicSuggestionSessionKey = sessionKey
-
-        // START/UPDATE: never clear the active query between keystrokes.
-        // Compose therefore keeps the same Popup instance mounted.
-        _topicSuggestionQuery.value = query
 
         val generation = ++topicSuggestionQueryGeneration
         topicSuggestionJob?.cancel()
         topicSuggestionJob = viewModelScope.launch {
-            // Debounce only the expensive items lookup. The session itself is already
-            // active and stays visible while this request is pending.
-            if (query.isNotEmpty()) delay(120)
             val suggestions = withContext(Dispatchers.IO) {
                 runCatching { topicDao.searchTopics(query).first() }.getOrDefault(emptyList())
             }
+            val current = topicSuggestionSession
             if (
                 generation == topicSuggestionQueryGeneration &&
-                _topicSuggestionQuery.value == query &&
+                current?.noteId == noteId &&
+                current.tokenStart == tokenStart &&
+                current.query == query &&
                 _uiState.value.mode == EditorMode.NOTE
             ) {
-                // UPDATE ITEMS: replace list contents without touching session state.
-                // StateFlow already conflates equal lists, but keeping this explicit
-                // makes the no-op intent clear and avoids unnecessary state writes.
                 if (_topicSuggestions.value != suggestions) {
                     _topicSuggestions.value = suggestions
                 }
@@ -773,10 +751,10 @@ class EditorViewModel(
     }
 
     private fun exitTopicSuggestionSession() {
-        topicSuggestionUpdateJob?.cancel()
-        topicSuggestionUpdateJob = null
         topicSuggestionQueryGeneration++
         lastTopicSuggestionSessionKey = null
+        topicSuggestionSession = null
+        _topicSuggestionSession.value = null
         _topicSuggestionQuery.value = null
         if (_topicSuggestions.value.isNotEmpty()) {
             _topicSuggestions.value = emptyList()
