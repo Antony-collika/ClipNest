@@ -141,7 +141,7 @@ class EditorViewModel(
     private var savedInternalSelection: TextRange? = null
     private var savedInternalViewportAnchor: Int? = null
     private var autoSaveJob: Job? = null
-    private var topicSuggestionSession: TopicSuggestionSession? = null
+    private var activeTopicSuggestionSession: TopicSuggestionSession? = null
     private val _topicSuggestionSession = MutableStateFlow<TopicSuggestionSession?>(null)
     val topicSuggestionSession: StateFlow<TopicSuggestionSession?> = _topicSuggestionSession.asStateFlow()
     private var topicSuggestionJob: Job? = null
@@ -602,7 +602,7 @@ class EditorViewModel(
             documentRevision = _uiState.value.documentRevision + 1,
             isDirty = true
         )
-        requestTopicSuggestionSessionUpdate()
+        updateTopicSuggestionSession()
         if (_searchQuery.value.isNotBlank()) scheduleSearchResults(_searchQuery.value, true)
         if (!hasExternalSession()) scheduleDebouncedAutoSave()
     }
@@ -680,7 +680,7 @@ class EditorViewModel(
     private fun updateTopicSuggestionSession() {
         val state = _uiState.value
         val editor = nativeEditor
-        val active = topicSuggestionSession
+        val active = activeTopicSuggestionSession
 
         if (state.mode != EditorMode.NOTE || state.activeNoteId == null || editor == null) {
             exitTopicSuggestionSession()
@@ -719,7 +719,7 @@ class EditorViewModel(
         val sameSession = active?.noteId == noteId && active.tokenStart == tokenStart
         val session = TopicSuggestionSession(noteId, tokenStart, query)
 
-        topicSuggestionSession = session
+        activeTopicSuggestionSession = session
         _topicSuggestionSession.value = session
         _topicSuggestionQuery.value = query
 
@@ -735,7 +735,7 @@ class EditorViewModel(
             val suggestions = withContext(Dispatchers.IO) {
                 runCatching { topicDao.searchTopics(query).first() }.getOrDefault(emptyList())
             }
-            val current = topicSuggestionSession
+            val current = activeTopicSuggestionSession
             if (
                 generation == topicSuggestionQueryGeneration &&
                 current?.noteId == noteId &&
@@ -753,7 +753,7 @@ class EditorViewModel(
     private fun exitTopicSuggestionSession() {
         topicSuggestionQueryGeneration++
         lastTopicSuggestionSessionKey = null
-        topicSuggestionSession = null
+        activeTopicSuggestionSession = null
         _topicSuggestionSession.value = null
         _topicSuggestionQuery.value = null
         if (_topicSuggestions.value.isNotEmpty()) {
