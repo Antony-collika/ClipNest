@@ -269,10 +269,16 @@ fun EditorScreen(
                     positionProvider.updateCaretRect(caretRect)
                     Popup(
                         popupPositionProvider = positionProvider,
-                        onDismissRequest = viewModel::dismissTopicSuggestions,
+                        onDismissRequest = {
+                            // DIAGNOSTIC: confirms whether Compose's click-outside
+                            // detection for this Popup is what was firing during
+                            // typing (not a real outside tap). Remove once confirmed.
+                            EditorDiagnosticLog.log("TOPIC_SUGGEST", "Popup onDismissRequest fired (click-outside or back)")
+                            viewModel.dismissTopicSuggestions()
+                        },
                         properties = PopupProperties(
                             focusable = false,
-                            dismissOnClickOutside = true
+                            dismissOnClickOutside = false
                         )
                     ) {
                         Surface(
