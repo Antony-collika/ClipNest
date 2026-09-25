@@ -129,7 +129,7 @@ fun EditorScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val openWithDiagnostic by viewModel.openWithDiagnostic.collectAsStateWithLifecycle()
     val pendingEncryptedOpen by viewModel.pendingEncryptedOpen.collectAsStateWithLifecycle()
-    val topicSuggestionQuery by viewModel.topicSuggestionQuery.collectAsStateWithLifecycle()
+    val topicSuggestionSession by viewModel.topicSuggestionSession.collectAsStateWithLifecycle()
     val topicSuggestions by viewModel.topicSuggestions.collectAsStateWithLifecycle()
     val isDark = MaterialTheme.colorScheme.background.red < 0.5f
     val editorTextColor = MaterialTheme.colorScheme.onBackground.toArgb()
@@ -253,9 +253,10 @@ fun EditorScreen(
                     },
                     modifier = Modifier.fillMaxSize().testTag("editor_text_input")
                 )
-                val query = topicSuggestionQuery
+                val session = topicSuggestionSession
                 val caretRect = topicSuggestionCaretRect
-                if (uiState.mode == EditorMode.NOTE && query != null && caretRect != null) {
+                if (uiState.mode == EditorMode.NOTE && session != null && caretRect != null) {
+                    val query = session.query
                     val hasExactMatch = topicSuggestions.any { it.name.equals(query, ignoreCase = true) }
                     val density = LocalDensity.current
                     val gapPx = with(density) { 4.dp.roundToPx() }
