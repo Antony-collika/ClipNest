@@ -43,7 +43,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.yield
 
 private data class PendingSave(val fileName: String, val format: ExportFormat)
 
@@ -680,10 +679,11 @@ class EditorViewModel(
     private fun requestTopicSuggestionSessionUpdate() {
         topicSuggestionUpdateJob?.cancel()
         topicSuggestionUpdateJob = viewModelScope.launch(Dispatchers.Main.immediate) {
-            // Let TextWatcher/selection callbacks for the same Android edit settle first.
-            // The suggestion session is then evaluated exactly once against the final
-            // text + caret state.
-            yield()
+            // TextWatcher, selection and layout callbacks can arrive in different
+            // phases of one Android edit. A frame-sized delay lets the native editor
+            // publish the final text/caret state before we decide whether the session
+            // should be closed.
+            delay(16)
             updateTopicSuggestionSession()
         }
     }
