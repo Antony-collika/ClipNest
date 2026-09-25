@@ -178,12 +178,14 @@ class EditorViewModel(
         nativeEditor?.setSectionChangeListener(null)
         nativeEditor = editor
         editor.setTextChangeListener {
+            EditorDiagnosticLog.log("TOPIC_SUGGEST", "trigger=TEXT_CHANGED  selection=${editor.selectionStart}-${editor.selectionEnd}")
             // onDocumentTextChanged() already schedules the topic-suggestion update
             // itself; calling it again here would just cancel and relaunch the same
             // coalesced job for no reason.
             onDocumentTextChanged()
         }
         editor.setSelectionChangeListener { start, end ->
+            EditorDiagnosticLog.log("TOPIC_SUGGEST", "trigger=SELECTION_CHANGED  selection=$start-$end")
             // Selection changes update the active session in place. A transient
             // non-collapsed selection during an IME commit must not close it.
             scheduleTopicSuggestionUpdate()
@@ -696,6 +698,7 @@ class EditorViewModel(
     // still results in exactly one evaluation, using the caret position after both
     // callbacks for that keystroke have completed.
     private fun scheduleTopicSuggestionUpdate() {
+        EditorDiagnosticLog.log("TOPIC_SUGGEST", "scheduleTopicSuggestionUpdate  called  hadPendingJob=${topicSuggestionUpdateJob?.isActive == true}")
         topicSuggestionUpdateJob?.cancel()
         topicSuggestionUpdateJob = viewModelScope.launch(Dispatchers.Main.immediate) {
             updateTopicSuggestionSession()
@@ -706,13 +709,16 @@ class EditorViewModel(
         val state = _uiState.value
         val editor = nativeEditor
         val active = activeTopicSuggestionSession
+        EditorDiagnosticLog.log("TOPIC_SUGGEST", "updateTopicSuggestionSession  ENTER  mode=${state.mode}  activeNoteId=${state.activeNoteId}  editorNull=${editor == null}  activeSession=$active  selection=${editor?.selectionStart}-${editor?.selectionEnd}  titleBoundary=${editor?.titleBoundaryOffset()}")
 
         if (state.mode != EditorMode.NOTE || state.activeNoteId == null || editor == null) {
+            EditorDiagnosticLog.log("TOPIC_SUGGEST", "EXIT  reason=mode/activeNoteId/editor  mode=${state.mode}  activeNoteId=${state.activeNoteId}  editorNull=${editor == null}")
             exitTopicSuggestionSession()
             return
         }
 
         if (editor.selectionStart != editor.selectionEnd) {
+            EditorDiagnosticLog.log("TOPIC_SUGGEST", "EARLY_RETURN  reason=non-collapsed selection  ${editor.selectionStart}-${editor.selectionEnd}  willExit=${active == null}")
             if (active == null) exitTopicSuggestionSession()
             return
         }
@@ -720,6 +726,7 @@ class EditorViewModel(
         val cursor = editor.selectionStart
         val length = editor.length()
         if (cursor <= editor.titleBoundaryOffset() || cursor < 0 || cursor > length) {
+            EditorDiagnosticLog.log("TOPIC_SUGGEST", "EXIT  reason=cursor out of range  cursor=$cursor  titleBoundary=${editor.titleBoundaryOffset()}  length=$length")
             exitTopicSuggestionSession()
             return
         }
@@ -732,6 +739,7 @@ class EditorViewModel(
         }
 
         if (tokenStart <= 0 || editor.text?.get(tokenStart - 1) != '#') {
+            EditorDiagnosticLog.log("TOPIC_SUGGEST", "EXIT  reason=no # before token  tokenStart=$tokenStart  charBefore=${editor.text?.getOrNull(tokenStart - 1)}")
             exitTopicSuggestionSession()
             return
         }
@@ -743,6 +751,7 @@ class EditorViewModel(
         val noteId = state.activeNoteId
         val sameSession = active?.noteId == noteId && active.tokenStart == tokenStart
         val session = TopicSuggestionSession(noteId, tokenStart, query)
+        EditorDiagnosticLog.log("TOPIC_SUGGEST", "SESSION_SET  noteId=$noteId  tokenStart=$tokenStart  cursor=$cursor  query=\"$query\"  sameSession=$sameSession")
 
         activeTopicSuggestionSession = session
         _topicSuggestionSession.value = session
@@ -751,7 +760,10 @@ class EditorViewModel(
         if (!sameSession) lastTopicSuggestionSessionKey = null
 
         val sessionKey = "$noteId:$tokenStart:$cursor:$query"
-        if (lastTopicSuggestionSessionKey == sessionKey) return
+        if (lastTopicSuggestionSessionKey == sessionKey) {
+            EditorDiagnosticLog.log("TOPIC_SUGGEST", "DEDUPE_SKIP  sessionKey=$sessionKey unchanged, not relaunching search")
+            return
+        }
         lastTopicSuggestionSessionKey = sessionKey
 
         val generation = ++topicSuggestionQueryGeneration
@@ -771,11 +783,14 @@ class EditorViewModel(
                 if (_topicSuggestions.value != suggestions) {
                     _topicSuggestions.value = suggestions
                 }
+            } else {
+                EditorDiagnosticLog.log("TOPIC_SUGGEST", "SEARCH_RESULT_DROPPED  staleGeneration=${generation != topicSuggestionQueryGeneration}  currentSessionMismatch=${current?.noteId != noteId || current.tokenStart != tokenStart || current.query != query}  modeChanged=${_uiState.value.mode != EditorMode.NOTE}")
             }
         }
     }
 
     private fun exitTopicSuggestionSession() {
+        EditorDiagnosticLog.log("TOPIC_SUGGEST", "exitTopicSuggestionSession  clearing session (was ${activeTopicSuggestionSession})")
         topicSuggestionQueryGeneration++
         lastTopicSuggestionSessionKey = null
         activeTopicSuggestionSession = null
