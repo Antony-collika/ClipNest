@@ -141,6 +141,10 @@ class EditorViewModel(
     private var autoSaveJob: Job? = null
     private var topicSuggestionJob: Job? = null
     private var topicSuggestionQueryGeneration = 0L
+    // Selection/text callbacks can report the same editor state twice for one keystroke.
+    // Keep the last processed session key so the second callback does not cancel/restart
+    // the same async lookup.
+    private var lastTopicSuggestionSessionKey: String? = null
     private var cursorSaveJob: Job? = null
     private var searchJob: Job? = null
     private var nativeEditor: NativeEditorView? = null
@@ -717,6 +721,13 @@ class EditorViewModel(
             ?.toString()
             .orEmpty()
 
+        // Text and selection callbacks can both arrive for the same keystroke.
+        // They describe the exact same suggestion state, so do not restart the
+        // debounce/DB lookup a second time.
+        val sessionKey = "${state.activeNoteId}:$tokenStart:$cursor:$query"
+        if (lastTopicSuggestionSessionKey == sessionKey) return
+        lastTopicSuggestionSessionKey = sessionKey
+
         // START/UPDATE: never clear the active query between keystrokes.
         // Compose therefore keeps the same Popup instance mounted.
         _topicSuggestionQuery.value = query
@@ -736,15 +747,22 @@ class EditorViewModel(
                 _uiState.value.mode == EditorMode.NOTE
             ) {
                 // UPDATE ITEMS: replace list contents without touching session state.
-                _topicSuggestions.value = suggestions
+                // StateFlow already conflates equal lists, but keeping this explicit
+                // makes the no-op intent clear and avoids unnecessary state writes.
+                if (_topicSuggestions.value != suggestions) {
+                    _topicSuggestions.value = suggestions
+                }
             }
         }
     }
 
     private fun exitTopicSuggestionSession() {
         topicSuggestionQueryGeneration++
+        lastTopicSuggestionSessionKey = null
         _topicSuggestionQuery.value = null
-        _topicSuggestions.value = emptyList()
+        if (_topicSuggestions.value.isNotEmpty()) {
+            _topicSuggestions.value = emptyList()
+        }
         topicSuggestionJob?.cancel()
         topicSuggestionJob = null
     }
