@@ -255,24 +255,17 @@ fun EditorScreen(
                 )
                 val query = topicSuggestionQuery
                 val caretRect = topicSuggestionCaretRect
-                // Once a session has an anchor, retain it through transient null
-                // layout callbacks. The Popup itself must not be mounted/unmounted
-                // on every character because the native editor is relaying layout.
-                val stableCaretRect = remember { mutableStateOf<Rect?>(null) }
-                if (caretRect != null) stableCaretRect.value = caretRect
-                if (query == null) stableCaretRect.value = null
-                val popupCaretRect = stableCaretRect.value
-                if (uiState.mode == EditorMode.NOTE && query != null && popupCaretRect != null) {
+                if (uiState.mode == EditorMode.NOTE && query != null && caretRect != null) {
                     val hasExactMatch = topicSuggestions.any { it.name.equals(query, ignoreCase = true) }
                     val density = LocalDensity.current
                     val gapPx = with(density) { 4.dp.roundToPx() }
                     val edgePx = with(density) { 8.dp.roundToPx() }
                     val positionProvider = remember(gapPx, edgePx) {
-                        CaretSuggestionPopupPositionProvider(popupCaretRect, gapPx, edgePx)
+                        CaretSuggestionPopupPositionProvider(caretRect, gapPx, edgePx)
                     }
                     // Move the existing popup anchor as the caret moves. The provider
                     // identity stays stable for the lifetime of the suggestion session.
-                    positionProvider.updateCaretRect(popupCaretRect)
+                    positionProvider.updateCaretRect(caretRect)
                     Popup(
                         popupPositionProvider = positionProvider,
                         onDismissRequest = viewModel::dismissTopicSuggestions,
