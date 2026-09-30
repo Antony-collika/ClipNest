@@ -324,6 +324,7 @@ fun MainAppContent(
     val visibleSelectedCount = selectedCards.size
     val allVaultSelected = vaultState.cards.isNotEmpty() && visibleSelectedCount == vaultState.cards.size
     var noteSelectedIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    var noteSelectedTopicId by remember { mutableStateOf<Long?>(null) }
     var noteVisibleIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var noteSearchOpen by remember { mutableStateOf(false) }
     var noteSearchQuery by remember { mutableStateOf("") }
@@ -367,10 +368,19 @@ fun MainAppContent(
     }
 
     fun toggleSelectedNotesPin() {
-        val now = System.currentTimeMillis()
+        val topicId = noteSelectedTopicId ?: return
         scope.launch {
-            val shouldPin = noteSelectedIds.any { id -> noteDao.getNoteById(id)?.isPinned == false }
-            noteSelectedIds.forEach { id -> noteDao.setPinned(id, shouldPin, now) }
+            val role = com.clipnest.data.model.NoteTopicRole.USER_TAG
+            val anyUnpinned = noteSelectedIds.any { id ->
+                !noteDao.isTopicPinned(id, topicId, role)
+            }
+            noteDao.setTopicPinnedForNotes(
+                noteIds = noteSelectedIds.toList(),
+                topicId = topicId,
+                role = role,
+                isPinned = anyUnpinned
+            )
+            noteSelectedIds = emptySet()
         }
     }
 
@@ -491,6 +501,8 @@ fun MainAppContent(
                             onOpenNote = ::openExistingNote,
                             selectedNoteIds = noteSelectedIds,
                             onSelectionChanged = { noteSelectedIds = it },
+                            onSelectedTopicIdChanged = { noteSelectedTopicId = it },
+                            onTogglePinSelected = ::toggleSelectedNotesPin,
                             onVisibleNoteIdsChanged = { visible ->
                                 noteVisibleIds = visible
                                 noteSelectedIds = noteSelectedIds.intersect(visible)
