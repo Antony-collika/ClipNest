@@ -5,7 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.clipnest.data.model.Note
-import com.clipnest.ui.note.NoteCardProjection
+import com.clipnest.data.model.NoteCardProjection
 import kotlinx.coroutines.flow.Flow
 
 @Dao
