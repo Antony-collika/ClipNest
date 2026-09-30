@@ -102,7 +102,7 @@ fun NoteScreen(
     val pinnedNoteIds by remember(selectedTopicId) {
         selectedTopicId?.let {
             noteDao.observePinnedNoteIdsForTopic(it, NoteTopicRole.USER_TAG)
-        } ?: flowOf(emptyList())
+        } ?: noteDao.observePinnedNoteIds()
     }.collectAsState(initial = emptyList())
 
     LaunchedEffect(selectedTopicId) {
