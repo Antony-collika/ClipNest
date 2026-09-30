@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import com.clipnest.data.model.NoteTopicCrossRef
 import com.clipnest.data.model.Topic
 import kotlinx.coroutines.flow.Flow
@@ -69,6 +70,36 @@ interface TopicDao {
 
     @Query("SELECT * FROM topics WHERE origin = :origin ORDER BY name COLLATE NOCASE ASC")
     fun observeAllTopics(origin: String): Flow<List<Topic>>
+
+    @Query("SELECT * FROM topics WHERE origin = :origin AND parentId IS NULL ORDER BY name COLLATE NOCASE ASC")
+    fun observeRootTopics(origin: String): Flow<List<Topic>>
+
+    @Query("SELECT * FROM topics WHERE origin = :origin AND parentId = :parentId ORDER BY name COLLATE NOCASE ASC")
+    fun observeChildren(parentId: Long, origin: String): Flow<List<Topic>>
+
+    @Transaction
+    @Query("SELECT * FROM topics WHERE origin = :origin AND parentId IS NULL ORDER BY name COLLATE NOCASE ASC")
+    fun observeTopicTree(origin: String): Flow<List<com.clipnest.data.model.TopicTreeNode>>
+
+    @Query(
+        """
+        SELECT
+            t.*,
+            CASE WHEN EXISTS(
+                SELECT 1 FROM topics child
+                WHERE child.parentId = t.id
+            ) THEN 1 ELSE 0 END AS isParent,
+            CASE WHEN t.parentId IS NOT NULL THEN 1 ELSE 0 END AS isChild,
+            CASE WHEN t.parentId IS NULL AND NOT EXISTS(
+                SELECT 1 FROM topics child
+                WHERE child.parentId = t.id
+            ) THEN 1 ELSE 0 END AS isFree
+        FROM topics t
+        WHERE t.origin = :origin
+        ORDER BY t.parentId IS NOT NULL, t.name COLLATE NOCASE ASC
+        """
+    )
+    fun observeTopicHierarchy(origin: String): Flow<List<com.clipnest.data.model.TopicHierarchyState>>
 
     @Query("SELECT * FROM topics ORDER BY name COLLATE NOCASE ASC")
     fun observeAllTopics(): Flow<List<Topic>>
