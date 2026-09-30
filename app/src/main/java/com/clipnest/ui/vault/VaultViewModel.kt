@@ -510,18 +510,19 @@ class VaultViewModel(
         }
 
         viewModelScope.launch {
-            val cards = repository.getCardsByIds(targetIds)
-            val formatted = when (format) {
-                ExportFormat.MARKDOWN -> ExportFormatter.formatMarkdown(cards, localizedExportLabels())
-                ExportFormat.PLAIN_TEXT -> ExportFormatter.formatPlainText(cards, localizedExportLabels())
-            }
             val folderUri = userSettings.value.defaultSaveFolderUri
             if (folderUri.isNullOrBlank()) {
                 pendingExport = PendingExport(fileName.trim(), format)
                 _showExportDialog.value = false
                 _eventFlow.emit(VaultEvent.RequestExportFolder)
             } else {
-                saveExportToFolder(contentResolver, android.net.Uri.parse(folderUri), fileName.trim(), format, formatted)
+                saveExportToFolderStreaming(
+                    contentResolver,
+                    android.net.Uri.parse(folderUri),
+                    fileName.trim(),
+                    format,
+                    targetIds
+                )
             }
         }
     }
@@ -543,13 +544,51 @@ class VaultViewModel(
             } else {
                 uiState.value.cards.map { it.id }
             }
-            val cards = repository.getCardsByIds(targetIds)
-            val formatted = when (request.format) {
-                ExportFormat.MARKDOWN -> ExportFormatter.formatMarkdown(cards, localizedExportLabels())
-                ExportFormat.PLAIN_TEXT -> ExportFormatter.formatPlainText(cards, localizedExportLabels())
-            }
-            saveExportToFolder(contentResolver, uri, request.fileName, request.format, formatted)
+            saveExportToFolderStreaming(
+                contentResolver,
+                uri,
+                request.fileName,
+                request.format,
+                targetIds
+            )
         }
+    }
+
+    private suspend fun saveExportToFolderStreaming(
+        contentResolver: android.content.ContentResolver,
+        folderUri: android.net.Uri,
+        fileName: String,
+        format: ExportFormat,
+        targetIds: List<Long>
+    ) {
+        val saved = runCatching {
+            var offset = 0
+            fileManager.saveNewFileToTreeStreaming(
+                contentResolver,
+                folderUri,
+                fileName,
+                format
+            ) { writer ->
+                repository.forEachCardsByIds(targetIds) { cards ->
+                    when (format) {
+                        ExportFormat.MARKDOWN -> ExportFormatter.writeMarkdown(
+                            cards, localizedExportLabels(), writer, offset, targetIds.size
+                        )
+                        ExportFormat.PLAIN_TEXT -> ExportFormatter.writePlainText(
+                            cards, localizedExportLabels(), writer, offset, targetIds.size
+                        )
+                    }
+                    offset += cards.size
+                }
+            }
+        }.getOrNull()
+        _eventFlow.emit(
+            VaultEvent.ShowToast(
+                localizedContext().getString(
+                    if (saved == null) com.clipnest.R.string.could_not_save_file else com.clipnest.R.string.saved_to_vault
+                )
+            )
+        )
     }
 
     private fun saveExportToFolder(
