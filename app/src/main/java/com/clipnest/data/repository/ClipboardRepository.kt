@@ -30,6 +30,7 @@ interface ClipboardRepository {
     suspend fun mergeBackupCards(cards: List<VaultBackupCard>): VaultBackupResult
     suspend fun getCardById(id: Long): ClipboardCard?
     suspend fun getCardsByIds(ids: List<Long>): List<ClipboardCard>
+    suspend fun forEachCardsByIds(ids: List<Long>, action: suspend (List<ClipboardCard>) -> Unit)
     suspend fun saveCard(
         content: String,
         sourceApp: String? = null,
@@ -136,9 +137,27 @@ class ClipboardRepositoryImpl(
     }
 
     override suspend fun getCardsByIds(ids: List<Long>): List<ClipboardCard> {
-        val cards = dao.getCardsByIds(ids)
-        val map = cards.associateBy { it.id }
-        return ids.mapNotNull { map[it] }
+        if (ids.isEmpty()) return emptyList()
+        val result = ArrayList<ClipboardCard>(ids.size)
+        for (batch in ids.chunked(CONTENT_BATCH_SIZE)) {
+            val cards = dao.getCardsByIds(batch)
+            val map = cards.associateBy { it.id }
+            batch.forEach { id -> map[id]?.let(result::add) }
+        }
+        return result
+    }
+
+    override suspend fun forEachCardsByIds(
+        ids: List<Long>,
+        action: suspend (List<ClipboardCard>) -> Unit
+    ) {
+        if (ids.isEmpty()) return
+        for (batch in ids.chunked(CONTENT_BATCH_SIZE)) {
+            val cards = dao.getCardsByIds(batch)
+            val map = cards.associateBy { it.id }
+            val ordered = batch.mapNotNull { map[it] }
+            if (ordered.isNotEmpty()) action(ordered)
+        }
     }
 
     override suspend fun saveCard(
