@@ -40,8 +40,20 @@ interface NoteDao {
     @Query("UPDATE notes SET isArchived = :isArchived, updatedAtMillis = :updatedAtMillis WHERE id = :id")
     suspend fun setArchived(id: Long, isArchived: Boolean, updatedAtMillis: Long)
 
-    @Query("UPDATE notes SET isPinned = :isPinned, updatedAtMillis = :updatedAtMillis WHERE id = :id")
-    suspend fun setPinned(id: Long, isPinned: Boolean, updatedAtMillis: Long)
+    @Query("UPDATE note_topic_cross_ref SET isPinned = :isPinned WHERE noteId = :noteId AND topicId = :topicId AND role = :role")
+    suspend fun setTopicPinned(noteId: Long, topicId: Long, role: com.clipnest.data.model.NoteTopicRole, isPinned: Boolean)
+
+    @Query("SELECT EXISTS(SELECT 1 FROM note_topic_cross_ref WHERE noteId = :noteId AND topicId = :topicId AND role = :role AND isPinned = 1)")
+    suspend fun isTopicPinned(noteId: Long, topicId: Long, role: com.clipnest.data.model.NoteTopicRole): Boolean
+
+    @Query("SELECT EXISTS(SELECT 1 FROM note_topic_cross_ref WHERE noteId = :noteId AND topicId = :topicId AND role = :role)")
+    suspend fun hasTopicRelation(noteId: Long, topicId: Long, role: com.clipnest.data.model.NoteTopicRole): Boolean
+
+    @Query("SELECT r.noteId FROM note_topic_cross_ref r WHERE r.topicId = :topicId AND r.role = :role AND r.isPinned = 1")
+    fun observePinnedNoteIdsForTopic(topicId: Long, role: com.clipnest.data.model.NoteTopicRole): Flow<List<Long>>
+
+    @Query("UPDATE note_topic_cross_ref SET isPinned = :isPinned WHERE topicId = :topicId AND role = :role AND noteId IN (:noteIds)")
+    suspend fun setTopicPinnedForNotes(noteIds: List<Long>, topicId: Long, role: com.clipnest.data.model.NoteTopicRole, isPinned: Boolean)
 
     @Query("SELECT * FROM notes WHERE isDeleted = 1 ORDER BY deletedAtMillis DESC")
     fun observeDeletedNotes(): Flow<List<Note>>
