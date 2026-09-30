@@ -4,16 +4,23 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import androidx.room.migration.Migration
-import androidx.sqlite.db.SupportSQLiteDatabase
 import com.clipnest.data.model.ClipboardCard
+import com.clipnest.data.model.ClipboardCardFts
 import com.clipnest.data.model.Note
+import com.clipnest.data.model.NoteFts
 import com.clipnest.data.model.NoteTopicCrossRef
 import com.clipnest.data.model.Topic
 
 @Database(
-    entities = [ClipboardCard::class, Note::class, Topic::class, NoteTopicCrossRef::class],
-    version = 6,
+    entities = [
+        ClipboardCard::class,
+        ClipboardCardFts::class,
+        Note::class,
+        NoteFts::class,
+        Topic::class,
+        NoteTopicCrossRef::class
+    ],
+    version = 7,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -22,125 +29,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun topicDao(): TopicDao
 
     companion object {
-        private val MIGRATION_1_2 = object : Migration(1, 2) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("""
-                    CREATE TABLE IF NOT EXISTS `notes` (
-                        `id` INTEGER NOT NULL,
-                        `title` TEXT NOT NULL,
-                        `content` TEXT NOT NULL,
-                        `isPinned` INTEGER NOT NULL,
-                        `isArchived` INTEGER NOT NULL,
-                        `isDeleted` INTEGER NOT NULL,
-                        `deletedAtMillis` INTEGER,
-                        `editSessionCount` INTEGER NOT NULL,
-                        `lastAuthoredAtMillis` INTEGER,
-                        `createdAtMillis` INTEGER NOT NULL,
-                        `updatedAtMillis` INTEGER NOT NULL,
-                        PRIMARY KEY(`id`)
-                    )
-                    """.trimIndent())
-                database.execSQL("""
-                    CREATE TABLE IF NOT EXISTS `topics` (
-                        `id` INTEGER NOT NULL,
-                        `name` TEXT NOT NULL,
-                        `parentId` INTEGER,
-                        `origin` TEXT NOT NULL,
-                        `level` TEXT NOT NULL,
-                        `icon` TEXT,
-                        `isPinned` INTEGER NOT NULL,
-                        `createdAtMillis` INTEGER NOT NULL,
-                        PRIMARY KEY(`id`),
-                        FOREIGN KEY(`parentId`) REFERENCES `topics`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL
-                    )
-                    """.trimIndent())
-                database.execSQL("CREATE INDEX IF NOT EXISTS `index_topics_parentId` ON `topics` (`parentId`)")
-                database.execSQL("""
-                    CREATE TABLE IF NOT EXISTS `note_topic_cross_ref` (
-                        `noteId` INTEGER NOT NULL,
-                        `topicId` INTEGER NOT NULL,
-                        `role` TEXT NOT NULL,
-                        `rank` INTEGER,
-                        PRIMARY KEY(`noteId`, `topicId`, `role`),
-                        FOREIGN KEY(`noteId`) REFERENCES `notes`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE,
-                        FOREIGN KEY(`topicId`) REFERENCES `topics`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
-                    )
-                    """.trimIndent())
-                database.execSQL("CREATE INDEX IF NOT EXISTS `index_note_topic_cross_ref_noteId` ON `note_topic_cross_ref` (`noteId`)")
-                database.execSQL("CREATE INDEX IF NOT EXISTS `index_note_topic_cross_ref_topicId` ON `note_topic_cross_ref` (`topicId`)")
-            }
-        }
-
-        private val MIGRATION_2_3 = object : Migration(2, 3) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("CREATE INDEX IF NOT EXISTS `index_topics_origin_name` ON `topics` (`origin`, `name`)")
-                database.execSQL("CREATE INDEX IF NOT EXISTS `index_topics_origin_parentId` ON `topics` (`origin`, `parentId`)")
-            }
-        }
-
-        private val MIGRATION_3_4 = object : Migration(3, 4) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE `note_topic_cross_ref` RENAME TO `note_topic_cross_ref_old`")
-                database.execSQL("""
-                    CREATE TABLE IF NOT EXISTS `topics_new` (
-                        `id` INTEGER NOT NULL,
-                        `name` TEXT NOT NULL,
-                        `parentId` INTEGER,
-                        `origin` TEXT NOT NULL,
-                        `icon` TEXT,
-                        `isPinned` INTEGER NOT NULL,
-                        `createdAtMillis` INTEGER NOT NULL,
-                        PRIMARY KEY(`id`),
-                        FOREIGN KEY(`parentId`) REFERENCES `topics_new`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL
-                    )
-                """.trimIndent())
-                database.execSQL("""
-                    INSERT INTO `topics_new`
-                    (`id`, `name`, `parentId`, `origin`, `icon`, `isPinned`, `createdAtMillis`)
-                    SELECT `id`, `name`, `parentId`, `origin`, `icon`, `isPinned`, `createdAtMillis`
-                    FROM `topics`
-                """.trimIndent())
-                database.execSQL("""
-                    CREATE TABLE IF NOT EXISTS `note_topic_cross_ref_new` (
-                        `noteId` INTEGER NOT NULL,
-                        `topicId` INTEGER NOT NULL,
-                        `role` TEXT NOT NULL,
-                        `rank` INTEGER,
-                        PRIMARY KEY(`noteId`, `topicId`, `role`),
-                        FOREIGN KEY(`noteId`) REFERENCES `notes`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE,
-                        FOREIGN KEY(`topicId`) REFERENCES `topics_new`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
-                    )
-                """.trimIndent())
-                database.execSQL("""
-                    INSERT INTO `note_topic_cross_ref_new`
-                    (`noteId`, `topicId`, `role`, `rank`)
-                    SELECT `noteId`, `topicId`, `role`, `rank`
-                    FROM `note_topic_cross_ref_old`
-                """.trimIndent())
-                database.execSQL("DROP TABLE `note_topic_cross_ref_old`")
-                database.execSQL("DROP TABLE `topics`")
-                database.execSQL("ALTER TABLE `topics_new` RENAME TO `topics`")
-                database.execSQL("ALTER TABLE `note_topic_cross_ref_new` RENAME TO `note_topic_cross_ref`")
-                database.execSQL("CREATE INDEX IF NOT EXISTS `index_topics_parentId` ON `topics` (`parentId`)")
-                database.execSQL("CREATE INDEX IF NOT EXISTS `index_topics_origin_name` ON `topics` (`origin`, `name`)")
-                database.execSQL("CREATE INDEX IF NOT EXISTS `index_topics_origin_parentId` ON `topics` (`origin`, `parentId`)")
-                database.execSQL("CREATE INDEX IF NOT EXISTS `index_note_topic_cross_ref_noteId` ON `note_topic_cross_ref` (`noteId`)")
-                database.execSQL("CREATE INDEX IF NOT EXISTS `index_note_topic_cross_ref_topicId` ON `note_topic_cross_ref` (`topicId`)")
-            }
-        }
-
-        private val MIGRATION_4_5 = object : Migration(4, 5) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE `note_topic_cross_ref` ADD COLUMN `isPinned` INTEGER NOT NULL DEFAULT 0")
-            }
-        }
-        private val MIGRATION_5_6 = object : Migration(5, 6) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE `notes` ADD COLUMN `preview` TEXT NOT NULL DEFAULT ''")
-                database.execSQL("UPDATE `notes` SET `preview` = SUBSTR(`content`, 1, 320)")
-            }
-        }
-
         @Volatile
         private var INSTANCE: AppDatabase? = null
         @Volatile
@@ -149,15 +37,15 @@ abstract class AppDatabase : RoomDatabase() {
         fun getInstance(context: Context): AppDatabase {
             APPLICATION_CONTEXT = context.applicationContext
             return INSTANCE ?: synchronized(this) {
-                val instance = Room.databaseBuilder(
+                INSTANCE ?: Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "clipboard_vault.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                    // ClipNest is pre-release; resetting the local database is acceptable.
+                    .fallbackToDestructiveMigration()
                     .build()
-                INSTANCE = instance
-                instance
+                    .also { INSTANCE = it }
             }
         }
 
