@@ -152,7 +152,7 @@ object ExportFormatter {
                 writer.write(card.content)
                 writer.write("\n```\n\n")
             }
-            writer.write("---\n")
+            writer.write(if (num == totalCount) "---\n" else "---\n\n")
         }
     }
 
@@ -180,7 +180,7 @@ object ExportFormatter {
             }
             writer.write("----------------------------------------\n")
             writer.write(card.content)
-            writer.write("\n")
+            writer.write(if (num == totalCount) "\n" else "\n\n")
         }
     }
 
