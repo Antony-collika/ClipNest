@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.SkipQueryVerification
 import com.clipnest.data.model.Note
 import com.clipnest.data.model.NoteCardProjection
 import kotlinx.coroutines.flow.Flow
@@ -17,6 +18,7 @@ interface NoteDao {
     @Query("SELECT * FROM notes WHERE id = :id LIMIT 1")
     suspend fun getNoteById(id: Long): Note?
 
+    @SkipQueryVerification
     @Query("""
         SELECT n.id, n.title, n.preview AS preview, n.updatedAtMillis,
                COALESCE(GROUP_CONCAT(t.name, ', '), '') AS topicLabels
@@ -36,11 +38,11 @@ interface NoteDao {
         LEFT JOIN note_topic_cross_ref r ON r.noteId = n.id AND r.role = 'USER_TAG'
         LEFT JOIN topics t ON t.id = r.topicId
         WHERE n.isDeleted = 0 AND n.isArchived = 0
-          AND (n.title LIKE '%' || :query || '%' OR n.content LIKE '%' || :query || '%')
+          AND n.id IN (SELECT rowid FROM notes_fts WHERE notes_fts MATCH :ftsQuery)
         GROUP BY n.id
         ORDER BY n.updatedAtMillis DESC
     """)
-    fun searchActiveNoteCards(query: String): Flow<List<NoteCardProjection>>
+    fun searchActiveNoteCards(ftsQuery: String): Flow<List<NoteCardProjection>>
 
     @Query("SELECT n.* FROM notes n INNER JOIN note_topic_cross_ref r ON r.noteId = n.id INNER JOIN topics t ON t.id = r.topicId WHERE r.topicId = :topicId AND t.origin = :origin AND n.isDeleted = 0 AND n.isArchived = 0 ORDER BY n.updatedAtMillis DESC")
     fun observeActiveNotesByTopic(topicId: Long, origin: String): Flow<List<Note>>
@@ -94,10 +96,10 @@ interface NoteDao {
         WHERE selectedTopic.origin = :origin
           AND (selectedTopic.id = :topicId OR selectedTopic.parentId = :topicId)
           AND n.isDeleted = 0 AND n.isArchived = 0
-          AND (n.title LIKE '%' || :query || '%' OR n.content LIKE '%' || :query || '%')
+          AND n.id IN (SELECT rowid FROM notes_fts WHERE notes_fts MATCH :ftsQuery)
         ORDER BY n.updatedAtMillis DESC
     """)
-    fun searchActiveNoteCardsByTopicTree(topicId: Long, origin: String, query: String): Flow<List<NoteCardProjection>>
+    fun searchActiveNoteCardsByTopicTree(topicId: Long, origin: String, ftsQuery: String): Flow<List<NoteCardProjection>>
 
     @Query("SELECT * FROM topics WHERE origin = :origin ORDER BY name COLLATE NOCASE ASC")
     fun observeTopicsForOrigin(origin: String): Flow<List<com.clipnest.data.model.Topic>>
