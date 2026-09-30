@@ -58,7 +58,7 @@ object FtsSearchQuery {
                 val phrase = query.substring(start, index)
                 if (index < query.length) index++
 
-                normalizePhrase(phrase)?.let { result += Element.Operand(""$it"") }
+                normalizePhrase(phrase)?.let { result += Element.Operand("\"$it\"") }
                 continue
             }
 
@@ -69,7 +69,7 @@ object FtsSearchQuery {
             when (raw) {
                 "OR" -> result += Element.Or
                 "NOT" -> result += Element.Not
-                else -> normalizeUnquoted(raw).forEach { result += Element.Operand(""$it"*") }
+                else -> normalizeUnquoted(raw).forEach { result += Element.Operand("\"$it\"*") }
             }
         }
 
