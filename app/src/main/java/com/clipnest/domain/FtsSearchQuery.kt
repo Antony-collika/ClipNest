@@ -3,9 +3,16 @@ package com.clipnest.domain
 /**
  * Converts user search text into a safe FTS4 MATCH expression.
  *
- * Unquoted terms are prefix-matched and combined with AND.
- * Quoted text is treated as a phrase.
+ * Unquoted terms are prefix-matched ("hel" finds "hello") and combined with AND.
+ * Quoted text is treated as a phrase; its last word is prefix-matched.
  * Uppercase OR and NOT are supported as FTS operators.
+ *
+ * IMPORTANT: in FTS4 the prefix star must be INSIDE the quotes ("hel*").
+ * Writing it outside the quotes ("hel"*) makes FTS4 ignore the star and
+ * only match the exact whole word.
+ *
+ * The AND between terms is implicit (a space), because an explicit AND is
+ * only understood by FTS4 builds with the "enhanced query syntax" enabled.
  */
 object FtsSearchQuery {
 
@@ -19,7 +26,7 @@ object FtsSearchQuery {
         for (element in elements) {
             when (element) {
                 is Element.Operand -> {
-                    if (!expectOperand && output.isNotEmpty()) output.append(" AND ")
+                    if (!expectOperand && output.isNotEmpty()) output.append(" ")
                     output.append(element.value)
                     expectOperand = false
                 }
@@ -56,7 +63,8 @@ object FtsSearchQuery {
                 val phrase = query.substring(start, index)
                 if (index < query.length) index++
 
-                normalizePhrase(phrase)?.let { result += Element.Operand("\"$it\"") }
+                // Phrase: all words in order, the last word may be unfinished.
+                normalizePhrase(phrase)?.let { result += Element.Operand("\"$it*\"") }
                 continue
             }
 
@@ -67,7 +75,8 @@ object FtsSearchQuery {
             when (raw) {
                 "OR" -> result += Element.Or
                 "NOT" -> result += Element.Not
-                else -> normalizeUnquoted(raw).forEach { result += Element.Operand("\"$it\"*") }
+                // Star goes inside the quotes so half-typed words are found.
+                else -> normalizeUnquoted(raw).forEach { result += Element.Operand("\"$it*\"") }
             }
         }
 

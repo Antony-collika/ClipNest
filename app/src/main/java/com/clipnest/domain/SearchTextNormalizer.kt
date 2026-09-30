@@ -7,5 +7,7 @@ object SearchTextNormalizer {
         Normalizer.normalize(value.trim(), Normalizer.Form.NFD)
             .replace("\\p{M}+".toRegex(), "")
             .lowercase()
+            // "đ" is a separate letter, not "d" + accent, so NFD cannot strip it.
+            .replace('đ', 'd')
             .trim()
 }
