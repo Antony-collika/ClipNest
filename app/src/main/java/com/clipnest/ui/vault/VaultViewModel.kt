@@ -599,27 +599,6 @@ class VaultViewModel(
         )
     }
 
-    private fun saveExportToFolder(
-        contentResolver: android.content.ContentResolver,
-        folderUri: android.net.Uri,
-        fileName: String,
-        format: ExportFormat,
-        content: String
-    ) {
-        viewModelScope.launch {
-            val saved = runCatching {
-                fileManager.saveNewFileToTree(contentResolver, folderUri, fileName, format, content)
-            }.getOrNull()
-            _eventFlow.emit(
-                VaultEvent.ShowToast(
-                    localizedContext().getString(
-                        if (saved == null) com.clipnest.R.string.could_not_save_file else com.clipnest.R.string.saved_to_vault
-                    )
-                )
-            )
-        }
-    }
-
     fun copySelectedCardsThenOpenEditor(context: Context, onComplete: (String) -> Unit) {
         val selected = _selectedIds.value
         if (selected.isEmpty()) {
