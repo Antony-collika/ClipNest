@@ -8,7 +8,6 @@ import androidx.room.FtsOptions
     tokenizer = FtsOptions.TOKENIZER_UNICODE61,
     tokenizerArgs = ["remove_diacritics=2"],
     contentEntity = Note::class,
-    prefix = [2, 3, 4, 5, 6]
 )
 @Entity(tableName = "notes_fts")
 data class NoteFts(
