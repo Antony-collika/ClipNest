@@ -413,7 +413,8 @@ fun MainAppContent(
                     else -> vaultState.selectedIds.size
                 },
                 allSelected = if (isNoteTab) allNoteSelected else allVaultSelected,
-                allSelectedPinned = !isSettings && selectedCards.isNotEmpty() && selectedCards.all { it.pinned },
+                allSelectedPinned = if (isNote) false else !isSettings && selectedCards.isNotEmpty() && selectedCards.all { it.pinned },
+                noteCanPin = noteSelectedTopicId != null,
                 isSettings = isSettings,
                 showPinnedFirst = vaultState.userSettings.showPinnedFirst,
                 isSearchOpen = if (isEditorTab) editorSearchOpen else if (isVaultTab) vaultState.isSearchOpen else if (isNoteTab) noteSearchOpen else false,
@@ -573,6 +574,7 @@ private fun MainTopBar(
     selectedCount: Int,
     allSelected: Boolean,
     allSelectedPinned: Boolean,
+    noteCanPin: Boolean,
     isSettings: Boolean,
     showPinnedFirst: Boolean,
     isSearchOpen: Boolean,
@@ -716,7 +718,7 @@ private fun MainTopBar(
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(0.dp)) {
                 if (isAskAiInProgress) CircularProgressIndicator(modifier = Modifier.size(22.dp).testTag("ask_ai_loading_indicator"), strokeWidth = 2.dp)
                 if ((isVault || isNote) && selectedCount > 0 && !isSearchOpen) {
-                    IconButton(onClick = onPinSelected, modifier = Modifier.size(36.dp).testTag(if (isNote) "note_action_pin_direct" else "vault_action_pin_direct")) {
+                    IconButton(onClick = onPinSelected, enabled = !isNote || noteCanPin, modifier = Modifier.size(36.dp).testTag(if (isNote) "note_action_pin_direct" else "vault_action_pin_direct")) {
                         Icon(
                             if (isNote) Icons.Default.PushPin else if (allSelectedPinned) Icons.Outlined.PushPin else Icons.Default.PushPin,
                             contentDescription = stringResource(if (!isNote && allSelectedPinned) com.clipnest.R.string.unpin_selected else com.clipnest.R.string.pin_selected),
