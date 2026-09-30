@@ -86,6 +86,8 @@ fun NoteScreen(
     selectedNoteIds: Set<Long>,
     onSelectionChanged: (Set<Long>) -> Unit,
     onVisibleNoteIdsChanged: (Set<Long>) -> Unit,
+    onSelectedTopicIdChanged: (Long?) -> Unit,
+    onTogglePinSelected: (Long?) -> Unit,
     isSearchOpen: Boolean,
     searchQuery: String,
     modifier: Modifier = Modifier
@@ -113,6 +115,11 @@ fun NoteScreen(
     }
 
     val selectedTopic = topics.firstOrNull { it.id == selectedTopicId }
+    val pinnedNoteIds by remember(selectedTopicId) {
+        selectedTopicId?.let { topicDao.observePinnedNoteIdsForTopic(it, com.clipnest.data.model.NoteTopicRole.USER_TAG) }
+            ?: kotlinx.coroutines.flow.flowOf(emptyList())
+    }.collectAsState(initial = emptyList())
+    LaunchedEffect(selectedTopicId) { onSelectedTopicIdChanged(selectedTopicId) }
     val origin = selectedTopic?.let {
         EditorNoteOrigin(label = it.name, returnKey = "topic:" + it.id)
     }
@@ -198,7 +205,8 @@ fun NoteScreen(
                                 previewAnchorY = anchorY
                                 previewNoteId = note.id
                             },
-                            onEdit = { onOpenNote(note.id, originForTopic(selectedTopic)) }
+                            onEdit = { onOpenNote(note.id, originForTopic(selectedTopic)) },
+                            isPinned = pinnedNoteIds.contains(note.id)
                         )
                     }
                 }
@@ -238,7 +246,8 @@ private fun NoteListItem(
     isSelected: Boolean,
     onToggleSelect: () -> Unit,
     onLongPress: (Float) -> Unit,
-    onEdit: () -> Unit
+    onEdit: () -> Unit,
+    isPinned: Boolean
 ) {
     val topics by topicDao.observeTopicsForNote(note.id).collectAsState(initial = emptyList())
     val labels = topics.joinToString(", ") { it.name }
