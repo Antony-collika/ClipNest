@@ -20,15 +20,8 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.clipnest.R
+import com.clipnest.data.model.NoteCardProjection
 import com.clipnest.domain.RelativeTimeFormatter
-
-internal data class NoteCardProjection(
-    val id: Long,
-    val title: String,
-    val content: String,
-    val updatedAtMillis: Long,
-    val topicLabels: String
-)
 
 internal data class NoteRecyclerColors(
     val surface: Int,
