@@ -20,7 +20,7 @@ interface NoteDao {
         """
         SELECT * FROM notes
         WHERE isDeleted = 0 AND isArchived = 0
-        ORDER BY isPinned DESC, updatedAtMillis DESC
+        ORDER BY updatedAtMillis DESC
         """
     )
     fun observeActiveNotes(): Flow<List<Note>>
@@ -32,7 +32,7 @@ interface NoteDao {
         WHERE r.topicId = :topicId
           AND n.isDeleted = 0
           AND n.isArchived = 0
-        ORDER BY n.isPinned DESC, n.updatedAtMillis DESC
+        ORDER BY n.updatedAtMillis DESC
         """
     )
     fun observeActiveNotesByTopic(topicId: Long): Flow<List<Note>>
