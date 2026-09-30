@@ -81,25 +81,20 @@ fun NoteScreen(
     var topicMenuExpanded by remember { mutableStateOf(false) }
     var previewNoteId by rememberSaveable { mutableStateOf<Long?>(null) }
     var previewAnchorY by remember { mutableStateOf(0f) }
+    var previewContent by remember { mutableStateOf<String?>(null) }
 
     val topics by topicDao.observeAllTopics().collectAsState(initial = emptyList())
-    val noteCardsFlow = remember(selectedTopicId) {
-        selectedTopicId?.let { noteDao.observeActiveNoteCardsByTopic(it) }
-            ?: noteDao.observeActiveNoteCards()
-    }
-    val noteCards by noteCardsFlow.collectAsState(initial = emptyList())
-
-    val filteredNotes = remember(noteCards, searchQuery) {
-        if (searchQuery.isBlank()) {
-            noteCards
-        } else {
-            val query = searchQuery.trim()
-            noteCards.filter { note ->
-                note.title.contains(query, ignoreCase = true) ||
-                    note.content.contains(query, ignoreCase = true)
-            }
+    val normalizedSearchQuery = searchQuery.trim()
+    val noteCardsFlow = remember(selectedTopicId, normalizedSearchQuery) {
+        val topic = topics.firstOrNull { it.id == selectedTopicId }
+        when {
+            topic == null && normalizedSearchQuery.isBlank() -> noteDao.observeActiveNoteCards()
+            topic == null -> noteDao.searchActiveNoteCards(normalizedSearchQuery)
+            normalizedSearchQuery.isBlank() -> noteDao.observeActiveNoteCardsByTopicTree(topic.id, topic.origin)
+            else -> noteDao.searchActiveNoteCardsByTopicTree(topic.id, topic.origin, normalizedSearchQuery)
         }
     }
+    val noteCards by noteCardsFlow.collectAsState(initial = emptyList())
 
     val selectedTopic = topics.firstOrNull { it.id == selectedTopicId }
     val pinnedNoteIds by remember(selectedTopicId) {
@@ -112,20 +107,24 @@ fun NoteScreen(
         onSelectedTopicIdChanged(selectedTopicId)
     }
 
-    LaunchedEffect(filteredNotes.map(NoteCardProjection::id)) {
-        val visibleIds = filteredNotes.map(NoteCardProjection::id).toSet()
+    LaunchedEffect(previewNoteId) {
+        previewContent = previewNoteId?.let { noteDao.getNoteById(it)?.content }
+    }
+
+    LaunchedEffect(noteCards.map(NoteCardProjection::id)) {
+        val visibleIds = noteCards.map(NoteCardProjection::id).toSet()
         onVisibleNoteIdsChanged(visibleIds)
         val pruned = selectedNoteIds.intersect(visibleIds)
         if (pruned != selectedNoteIds) {
             onSelectionChanged(pruned)
         }
-        if (previewNoteId != null && filteredNotes.none { it.id == previewNoteId }) {
+        if (previewNoteId != null && noteCards.none { it.id == previewNoteId }) {
             previewNoteId = null
         }
     }
 
     val origin = originForTopic(selectedTopic)
-    val previewNote = filteredNotes.firstOrNull { it.id == previewNoteId }
+    val previewNote = noteCards.firstOrNull { it.id == previewNoteId }
 
     Box(modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
@@ -166,7 +165,7 @@ fun NoteScreen(
                 )
             }
 
-            if (filteredNotes.isEmpty()) {
+            if (noteCards.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
                         text = if (searchQuery.isBlank()) {
@@ -190,7 +189,7 @@ fun NoteScreen(
                     factory = { context -> NoteRecyclerView(context) },
                     update = { recyclerView ->
                         recyclerView.render(
-                            notes = filteredNotes,
+                            notes = noteCards,
                             selectedIds = selectedNoteIds,
                             pinnedIds = pinnedNoteIds.toSet(),
                             colors = colors,
@@ -233,6 +232,7 @@ fun NoteScreen(
     if (previewNote != null) {
         NotePreviewPopup(
             note = previewNote,
+            content = previewContent ?: previewNote.preview,
             anchorY = previewAnchorY,
             onDismiss = { previewNoteId = null },
             onEdit = {
@@ -249,6 +249,7 @@ private fun originForTopic(topic: Topic?): EditorNoteOrigin? =
 @Composable
 private fun NotePreviewPopup(
     note: NoteCardProjection,
+    content: String,
     anchorY: Float,
     onDismiss: () -> Unit,
     onEdit: () -> Unit
@@ -365,7 +366,7 @@ private fun NotePreviewPopup(
                             )
                         }
                         Text(
-                            text = note.content.ifBlank {
+                            text = content.ifBlank {
                                 androidx.compose.ui.res.stringResource(R.string.untitled)
                             },
                             style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 19.sp),
