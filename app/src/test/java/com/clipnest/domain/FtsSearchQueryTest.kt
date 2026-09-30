@@ -7,14 +7,14 @@ class FtsSearchQueryTest {
 
     @Test
     fun vietnameseDiacriticsAreNormalizedAndPrefixMatched() {
-        assertEquals(""nguyen"*", FtsSearchQuery.fromUserQuery("Nguyễn"))
-        assertEquals(""nguy"*", FtsSearchQuery.fromUserQuery("nguy"))
+        assertEquals("\"nguyen\"*", FtsSearchQuery.fromUserQuery("Nguyễn"))
+        assertEquals("\"nguy\"*", FtsSearchQuery.fromUserQuery("nguy"))
     }
 
     @Test
     fun multipleKeywordsUseAndSemantics() {
         assertEquals(
-            ""nguyen"* AND "van"*",
+            "\"nguyen\"* AND \"van\"*",
             FtsSearchQuery.fromUserQuery("Nguyễn văn")
         )
     }
@@ -22,7 +22,7 @@ class FtsSearchQueryTest {
     @Test
     fun punctuationBecomesSeparators() {
         assertEquals(
-            ""clip"* AND "nest"*",
+            "\"clip\"* AND \"nest\"*",
             FtsSearchQuery.fromUserQuery("clip-nest")
         )
     }
@@ -30,19 +30,19 @@ class FtsSearchQueryTest {
     @Test
     fun phraseSearchIsPreserved() {
         assertEquals(
-            ""android database"",
-            FtsSearchQuery.fromUserQuery(""Android database"")
+            "\"android database\"",
+            FtsSearchQuery.fromUserQuery("\"Android database\"")
         )
     }
 
     @Test
     fun orAndNotAreSupported() {
         assertEquals(
-            ""android"* OR "kotlin"*",
+            "\"android\"* OR \"kotlin\"*",
             FtsSearchQuery.fromUserQuery("android OR kotlin")
         )
         assertEquals(
-            ""android"* NOT "ios"*",
+            "\"android\"* NOT \"ios\"*",
             FtsSearchQuery.fromUserQuery("android NOT ios")
         )
     }
@@ -50,7 +50,7 @@ class FtsSearchQueryTest {
     @Test
     fun lowercaseOperatorWordsRemainSearchTerms() {
         assertEquals(
-            ""or"* AND "not"*",
+            "\"or\"* AND \"not\"*",
             FtsSearchQuery.fromUserQuery("or not")
         )
     }
