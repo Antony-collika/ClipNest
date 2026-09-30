@@ -321,6 +321,7 @@ fun MainAppContent(
     var noteVisibleIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var noteSearchOpen by remember { mutableStateOf(false) }
     var noteSearchQuery by remember { mutableStateOf("") }
+    var noteDeleteConfirm by remember { mutableStateOf(false) }
     val noteDao = remember { AppDatabase.getInstance(context).noteDao() }
     val allNoteSelected = noteVisibleIds.isNotEmpty() && noteSelectedIds.containsAll(noteVisibleIds)
     LaunchedEffect(incomingOpenRequest) {
@@ -520,6 +521,17 @@ fun MainAppContent(
         }
     }
 }
+
+    if (noteDeleteConfirm) {
+        com.clipnest.ui.vault.DeleteConfirmDialog(
+            count = noteSelectedIds.size,
+            onDismiss = { noteDeleteConfirm = false },
+            onConfirm = {
+                noteDeleteConfirm = false
+                deleteSelectedNotes()
+            }
+        )
+    }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
