@@ -116,4 +116,72 @@ object ExportFormatter {
 
         return sb.toString().trimEnd() + "\n"
     }
+    fun writeMarkdown(
+        cards: List<ClipboardCard>,
+        labels: ExportLabels,
+        writer: Writer,
+        startIndex: Int,
+        totalCount: Int
+    ) {
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
+        if (startIndex == 0) {
+            writer.write("# " + labels.title + "\n\n")
+            writer.write(String.format(Locale.getDefault(), labels.exportedOn, dateFormat.format(Date()), totalCount))
+            writer.write("\n\n---\n\n")
+        }
+        cards.forEachIndexed { offset, card ->
+            val num = startIndex + offset + 1
+            val timestamp = dateFormat.format(Date(card.createdAtMillis))
+            val badge = if (card.pinned) " [" + labels.pinned + "]" else ""
+            val typeStr = when (card.contentType) {
+                ContentType.URL -> " (" + labels.urlType + ")"
+                ContentType.COMBINED -> " (" + labels.combinedType + ")"
+                ContentType.TEXT -> ""
+            }
+            writer.write("### " + num + ". " + labels.item + badge + typeStr + "\n")
+            writer.write("*" + labels.captured + ": " + timestamp + "*")
+            val sourceLabel = labels.sourceLabel(card.sourceApp)
+            if (!sourceLabel.isNullOrBlank()) {
+                writer.write(" • *" + labels.source + ": " + sourceLabel + "*")
+            }
+            writer.write("\n\n")
+            if (card.contentType == ContentType.URL) {
+                writer.write("<" + card.content.trim() + ">\n\n")
+            } else {
+                writer.write("```\n")
+                writer.write(card.content)
+                writer.write("\n```\n\n")
+            }
+            writer.write("---\n")
+        }
+    }
+
+    fun writePlainText(
+        cards: List<ClipboardCard>,
+        labels: ExportLabels,
+        writer: Writer,
+        startIndex: Int,
+        totalCount: Int
+    ) {
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
+        if (startIndex == 0) {
+            writer.write(labels.title.uppercase(Locale.getDefault()) + "\n")
+            writer.write(String.format(Locale.getDefault(), labels.date, dateFormat.format(Date()), totalCount))
+            writer.write("\n========================================\n\n")
+        }
+        cards.forEachIndexed { offset, card ->
+            val num = startIndex + offset + 1
+            val timestamp = dateFormat.format(Date(card.createdAtMillis))
+            val pinnedStr = if (card.pinned) " [" + labels.pinned.uppercase(Locale.getDefault()) + "]" else ""
+            writer.write("[" + num + "] " + labels.captured + ": " + timestamp + pinnedStr + "\n")
+            val sourceLabel = labels.sourceLabel(card.sourceApp)
+            if (!sourceLabel.isNullOrBlank()) {
+                writer.write(labels.source + ": " + sourceLabel + "\n")
+            }
+            writer.write("----------------------------------------\n")
+            writer.write(card.content)
+            writer.write("\n")
+        }
+    }
+
 }
