@@ -27,7 +27,6 @@ import com.clipnest.data.model.Note
 import com.clipnest.data.model.NoteTopicCrossRef
 import com.clipnest.data.model.NoteTopicRole
 import com.clipnest.data.model.Topic
-import com.clipnest.data.model.TopicLevel
 import com.clipnest.data.local.SettingsDataStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -830,7 +829,6 @@ class EditorViewModel(
                         val id = topicDao.insertTopic(
                             Topic(
                                 name = name,
-                                level = TopicLevel.PARENT,
                                 createdAtMillis = System.currentTimeMillis()
                             )
                         )
