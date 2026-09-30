@@ -6,7 +6,6 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.clipnest.data.model.NoteTopicCrossRef
 import com.clipnest.data.model.Topic
-import com.clipnest.data.model.TopicLevel
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -16,21 +15,15 @@ interface TopicDao {
     suspend fun insertTopicInternal(topic: Topic): Long
 
     suspend fun insertTopic(topic: Topic): Long {
-        if (topic.parentId == null) {
-            require(topic.level == TopicLevel.PARENT) {
-                "A root topic must have level PARENT"
-            }
-        } else {
-            require(topic.level == TopicLevel.CHILD) {
-                "A topic with a parent must have level CHILD"
-            }
-            val parent = getTopicById(topic.parentId)
+        val parentId = topic.parentId
+        if (parentId != null) {
+            val parent = getTopicById(parentId)
                 ?: throw IllegalArgumentException("Parent topic does not exist")
             require(parent.origin == topic.origin) {
                 "Parent and child topics must have the same origin"
             }
-            require(parent.parentId == null && parent.level == TopicLevel.PARENT) {
-                "A child topic cannot have a parent"
+            require(parent.parentId == null) {
+                "A child topic cannot itself be a parent"
             }
         }
         return insertTopicInternal(topic)
