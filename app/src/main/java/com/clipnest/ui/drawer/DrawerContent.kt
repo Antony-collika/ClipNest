@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.HorizontalDivider
@@ -45,7 +46,8 @@ import com.clipnest.data.local.TopicDao
 fun ClipNestDrawer(
     topicDao: TopicDao,
     onClose: () -> Unit,
-    onTopicClick: (Topic) -> Unit = {}
+    onTopicClick: (Topic) -> Unit = {},
+    onTrashClick: () -> Unit = {}
 ) {
     val topicTree by topicDao.observeTopicTree(TopicOrigins.USER)
         .collectAsStateWithLifecycle(initialValue = emptyList())
@@ -90,6 +92,13 @@ fun ClipNestDrawer(
                 item {
                     Spacer(modifier = Modifier.height(8.dp))
                     HorizontalDivider()
+                }
+                item {
+                    Row(modifier = Modifier.fillMaxWidth().clickable(onClick = onTrashClick).padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.drawer_trash))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(text = stringResource(R.string.drawer_trash), style = MaterialTheme.typography.bodyLarge)
+                    }
                 }
                 item {
                     DrawerSectionHeader(
