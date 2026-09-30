@@ -7,6 +7,7 @@ import androidx.room.Query
 import androidx.room.SkipQueryVerification
 import com.clipnest.data.model.Note
 import com.clipnest.data.model.NoteCardProjection
+import com.clipnest.data.model.NoteEditorProjection
 import com.clipnest.domain.SearchTextNormalizer
 import kotlinx.coroutines.flow.Flow
 
@@ -16,8 +17,11 @@ interface NoteDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertNote(note: Note): Long
 
-    @Query("SELECT * FROM notes WHERE id = :id LIMIT 1")
-    suspend fun getNoteById(id: Long): Note?
+    @Query("SELECT id, title FROM notes WHERE id = :id LIMIT 1")
+    suspend fun getNoteEditorProjection(id: Long): NoteEditorProjection?
+
+    @Query("SELECT substr(content, :start, :length) FROM notes WHERE id = :id LIMIT 1")
+    suspend fun getNoteContentChunk(id: Long, start: Int, length: Int): String?
 
     @Query("""
         SELECT n.id, n.title, n.preview AS preview, n.updatedAtMillis,
