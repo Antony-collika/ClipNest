@@ -13,7 +13,7 @@ import com.clipnest.data.model.Topic
 
 @Database(
     entities = [ClipboardCard::class, Note::class, Topic::class, NoteTopicCrossRef::class],
-    version = 5,
+    version = 6,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -134,6 +134,13 @@ abstract class AppDatabase : RoomDatabase() {
                 database.execSQL("ALTER TABLE `note_topic_cross_ref` ADD COLUMN `isPinned` INTEGER NOT NULL DEFAULT 0")
             }
         }
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE `notes` ADD COLUMN `preview` TEXT NOT NULL DEFAULT ''")
+                database.execSQL("UPDATE `notes` SET `preview` = SUBSTR(`content`, 1, 320)")
+            }
+        }
+
         @Volatile
         private var INSTANCE: AppDatabase? = null
         @Volatile
@@ -147,7 +154,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "clipboard_vault.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                     .build()
                 INSTANCE = instance
                 instance
