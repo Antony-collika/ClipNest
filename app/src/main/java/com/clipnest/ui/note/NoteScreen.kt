@@ -73,6 +73,7 @@ import com.clipnest.R
 import com.clipnest.data.local.NoteDao
 import com.clipnest.data.local.TopicDao
 import com.clipnest.data.model.Note
+import com.clipnest.domain.RelativeTimeFormatter
 import com.clipnest.data.model.Topic
 import com.clipnest.ui.editor.EditorNoteOrigin
 
@@ -416,7 +417,7 @@ private fun NotePreviewPopup(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = note.updatedAtMillis.toString(),
+                            text = RelativeTimeFormatter.format(note.updatedAtMillis, stringResource(R.string.today), stringResource(R.string.yesterday)),
                             style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
                             modifier = Modifier.weight(1f)
                         )
