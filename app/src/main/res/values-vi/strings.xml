@@ -256,4 +256,6 @@
     <string name="filter_topic">Topic</string>
     <string name="create_topic">Tạo topic mới: #%1$s</string>
     <string name="create_note_from_selection">Tạo Note từ lựa chọn</string>
+    <string name="search_notes">Tìm trong ghi chú...</string>
+    <string name="no_search_results">Không tìm thấy ghi chú phù hợp</string>
 </resources>
