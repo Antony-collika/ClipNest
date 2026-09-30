@@ -30,6 +30,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -87,7 +89,6 @@ fun NoteScreen(
     onSelectionChanged: (Set<Long>) -> Unit,
     onVisibleNoteIdsChanged: (Set<Long>) -> Unit,
     onSelectedTopicIdChanged: (Long?) -> Unit,
-    onTogglePinSelected: (Long?) -> Unit,
     isSearchOpen: Boolean,
     searchQuery: String,
     modifier: Modifier = Modifier
@@ -302,6 +303,14 @@ private fun NoteListItem(
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+            if (isPinned) {
+                Icon(
+                    imageVector = Icons.Default.PushPin,
+                    contentDescription = stringResource(R.string.pinned),
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
                 )
             }
             IconButton(onClick = onEdit, modifier = Modifier.size(48.dp)) {
