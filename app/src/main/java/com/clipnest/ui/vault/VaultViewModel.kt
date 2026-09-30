@@ -293,16 +293,11 @@ class VaultViewModel(
             .map { it.id }
 
         viewModelScope.launch {
-            val fullCards = repository.getCardsByIds(orderedSelectedIds)
-            if (fullCards.isEmpty()) {
+            val shareText = buildSelectedCardsText(orderedSelectedIds)
+            if (shareText.isEmpty()) {
                 emitToast(com.clipnest.R.string.clipboard_empty)
                 return@launch
             }
-
-            val shareText = TextNormalizer.formatSelectedCards(
-                fullCards.map { it.content },
-                includeHeaders = true
-            )
             _eventFlow.emit(
                 VaultEvent.ShareText(
                     text = shareText,
@@ -322,16 +317,12 @@ class VaultViewModel(
             .map { it.id }
 
         viewModelScope.launch {
-            val fullCards = repository.getCardsByIds(orderedSelectedIds)
-            if (fullCards.isNotEmpty()) {
-                val combinedText = TextNormalizer.formatSelectedCards(
-                    fullCards.map { it.content },
-                    includeHeaders = true
-                )
+            val combinedText = buildSelectedCardsText(orderedSelectedIds)
+            if (combinedText.isNotEmpty()) {
                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 val clip = ClipData.newPlainText("Vault Cards", combinedText)
                 clipboard.setPrimaryClip(clip)
-                emitPluralToast(com.clipnest.R.plurals.copied_items, fullCards.size)
+                emitPluralToast(com.clipnest.R.plurals.copied_items, orderedSelectedIds.size)
             }
         }
     }
@@ -592,15 +583,7 @@ class VaultViewModel(
             .filter { selected.contains(it.id) }
             .map { it.id }
         viewModelScope.launch {
-            val fullCards = repository.getCardsByIds(orderedSelectedIds)
-            val combinedText = if (fullCards.isNotEmpty()) {
-                TextNormalizer.formatSelectedCards(
-                    fullCards.map { it.content },
-                    includeHeaders = true
-                )
-            } else {
-                ""
-            }
+            val combinedText = buildSelectedCardsText(orderedSelectedIds)
             if (combinedText.isNotEmpty()) {
                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 clipboard.setPrimaryClip(ClipData.newPlainText("Vault Cards", combinedText))
@@ -621,6 +604,26 @@ class VaultViewModel(
         viewModelScope.launch {
             _eventFlow.emit(VaultEvent.NavigateToSettings)
         }
+    }
+
+    private suspend fun buildSelectedCardsText(ids: List<Long>): String {
+        if (ids.isEmpty()) return ""
+        val total = ids.size
+        val output = StringBuilder()
+        var index = 0
+        repository.forEachCardsByIds(ids) { cards ->
+            cards.forEach { card ->
+                val content = TextNormalizer.formatSelectedCards(listOf(card.content))
+                if (content.isBlank()) return@forEach
+                if (output.isNotEmpty()) output.append("\n\n---\n\n")
+                index++
+                if (total > 1) {
+                    output.append("## Clipboard #").append(index).append("\n\n")
+                }
+                output.append(content)
+            }
+        }
+        return output.toString()
     }
 
     private fun localizedContext(): Context = appContext.withAppLanguage(userSettings.value.language)
