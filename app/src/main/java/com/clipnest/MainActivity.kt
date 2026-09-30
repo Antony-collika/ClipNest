@@ -502,7 +502,6 @@ fun MainAppContent(
                             selectedNoteIds = noteSelectedIds,
                             onSelectionChanged = { noteSelectedIds = it },
                             onSelectedTopicIdChanged = { noteSelectedTopicId = it },
-                            onTogglePinSelected = ::toggleSelectedNotesPin,
                             onVisibleNoteIdsChanged = { visible ->
                                 noteVisibleIds = visible
                                 noteSelectedIds = noteSelectedIds.intersect(visible)
