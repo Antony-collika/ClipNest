@@ -60,6 +60,7 @@ import com.clipnest.data.model.NoteCardProjection
 import com.clipnest.data.model.NoteTopicRole
 import com.clipnest.data.model.Topic
 import com.clipnest.domain.RelativeTimeFormatter
+import com.clipnest.domain.FtsSearchQuery
 import com.clipnest.ui.editor.EditorNoteOrigin
 import kotlinx.coroutines.flow.flowOf
 
@@ -85,13 +86,14 @@ fun NoteScreen(
 
     val topics by topicDao.observeAllTopics().collectAsState(initial = emptyList())
     val normalizedSearchQuery = searchQuery.trim()
-    val noteCardsFlow = remember(selectedTopicId, normalizedSearchQuery) {
+    val ftsSearchQuery = remember(normalizedSearchQuery) { FtsSearchQuery.fromUserQuery(normalizedSearchQuery) }
+    val noteCardsFlow = remember(selectedTopicId, normalizedSearchQuery, ftsSearchQuery) {
         val topic = topics.firstOrNull { it.id == selectedTopicId }
         when {
             topic == null && normalizedSearchQuery.isBlank() -> noteDao.observeActiveNoteCards()
-            topic == null -> noteDao.searchActiveNoteCards(normalizedSearchQuery)
+            topic == null -> if (ftsSearchQuery.isBlank()) flowOf(emptyList()) else noteDao.searchActiveNoteCards(ftsSearchQuery)
             normalizedSearchQuery.isBlank() -> noteDao.observeActiveNoteCardsByTopicTree(topic.id, topic.origin)
-            else -> noteDao.searchActiveNoteCardsByTopicTree(topic.id, topic.origin, normalizedSearchQuery)
+            else -> if (ftsSearchQuery.isBlank()) flowOf(emptyList()) else noteDao.searchActiveNoteCardsByTopicTree(topic.id, topic.origin, ftsSearchQuery)
         }
     }
     val noteCards by noteCardsFlow.collectAsState(initial = emptyList())
