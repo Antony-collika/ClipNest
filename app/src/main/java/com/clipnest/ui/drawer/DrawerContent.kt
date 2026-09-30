@@ -94,13 +94,6 @@ fun ClipNestDrawer(
                     HorizontalDivider()
                 }
                 item {
-                    Row(modifier = Modifier.fillMaxWidth().clickable(onClick = onTrashClick).padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.drawer_trash))
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(text = stringResource(R.string.drawer_trash), style = MaterialTheme.typography.bodyLarge)
-                    }
-                }
-                item {
                     DrawerSectionHeader(
                         title = stringResource(R.string.drawer_my_topics),
                         trailing = {
@@ -134,6 +127,15 @@ fun ClipNestDrawer(
                                 onTopicClick = onTopicClick
                             )
                         }
+                    }
+                }
+                item {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    HorizontalDivider()
+                    Row(modifier = Modifier.fillMaxWidth().clickable(onClick = onTrashClick).padding(horizontal = 20.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.drawer_trash))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(text = stringResource(R.string.drawer_trash), style = MaterialTheme.typography.bodyLarge)
                     }
                 }
             }
