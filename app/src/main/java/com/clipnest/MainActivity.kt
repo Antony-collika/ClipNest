@@ -421,7 +421,7 @@ fun MainAppContent(
                 },
                 allSelected = if (isNoteTab) allNoteSelected else allVaultSelected,
                 allSelectedPinned = if (isNoteTab) false else !isSettings && selectedCards.isNotEmpty() && selectedCards.all { it.pinned },
-                noteCanPin = noteSelectedTopicId != null,
+                noteCanPin = noteSelectedIds.isNotEmpty(),
                 isSettings = isSettings,
                 showPinnedFirst = vaultState.userSettings.showPinnedFirst,
                 isSearchOpen = if (isEditorTab) editorSearchOpen else if (isVaultTab) vaultState.isSearchOpen else if (isNoteTab) noteSearchOpen else false,
