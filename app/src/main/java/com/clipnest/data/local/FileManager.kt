@@ -5,6 +5,8 @@ import android.net.Uri
 import android.provider.DocumentsContract
 import com.clipnest.data.repository.EncryptedDocumentCodec
 import java.io.File
+import java.io.OutputStreamWriter
+import java.io.StringWriter
 import java.nio.charset.StandardCharsets
 
 enum class ExportFormat(val extension: String, val displayName: String, val mimeType: String) {
@@ -145,6 +147,53 @@ class FileManager(private val context: android.content.Context) {
                 stream.write(bytes)
                 stream.flush()
             } ?: return null
+            return documentUri
+        } finally {
+            format.encryptionPassword = null
+        }
+    }
+
+    suspend fun saveNewFileToTreeStreaming(
+        contentResolver: ContentResolver,
+        treeUri: Uri,
+        baseName: String,
+        format: ExportFormat,
+        writerBlock: suspend (java.io.Writer) -> Unit
+    ): Uri? {
+        try {
+            val parentDocumentUri = if (DocumentsContract.isTreeUri(treeUri)) {
+                val treeDocumentId = DocumentsContract.getTreeDocumentId(treeUri)
+                DocumentsContract.buildDocumentUriUsingTree(treeUri, treeDocumentId)
+            } else {
+                treeUri
+            }
+            val encrypted = format.isEncrypted
+            val mimeType = if (encrypted) "application/octet-stream" else format.mimeType
+            val finalName = buildFileName(baseName, format)
+            val documentUri = DocumentsContract.createDocument(
+                contentResolver,
+                parentDocumentUri,
+                mimeType,
+                finalName
+            ) ?: return null
+
+            if (encrypted) {
+                val buffer = StringWriter()
+                writerBlock(buffer)
+                val password = requireNotNull(format.encryptionPassword)
+                val output = EncryptedDocumentCodec.encode(buffer.toString(), password)
+                contentResolver.openOutputStream(documentUri, "wt")?.use { stream ->
+                    stream.write(output.toByteArray(StandardCharsets.UTF_8))
+                    stream.flush()
+                } ?: return null
+            } else {
+                contentResolver.openOutputStream(documentUri, "wt")?.use { stream ->
+                    OutputStreamWriter(stream, StandardCharsets.UTF_8).use { writer ->
+                        writerBlock(writer)
+                        writer.flush()
+                    }
+                } ?: return null
+            }
             return documentUri
         } finally {
             format.encryptionPassword = null
