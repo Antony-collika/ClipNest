@@ -545,7 +545,7 @@ fun MainAppContent(
                 }
             }
             composable(Screen.Trash.route) {
-                TrashScreen(noteDao = noteDao, modifier = Modifier.fillMaxSize())
+                TrashScreen(noteDao = noteDao, onBack = { navController.navigate(Screen.Vault.route) { launchSingleTop = true } }, modifier = Modifier.fillMaxSize())
             }
             composable(Screen.Settings.route) {
                 val settingsViewModel: SettingsViewModel = viewModel(factory = settingsViewModelFactory)
