@@ -742,8 +742,8 @@ private fun MainTopBar(
                 if ((isVault || isNote) && selectedCount > 0 && !isSearchOpen && !isTrash) {
                     IconButton(onClick = onPinSelected, enabled = !isNote || noteCanPin, modifier = Modifier.size(36.dp).testTag(if (isNote) "note_action_pin_direct" else "vault_action_pin_direct")) {
                         Icon(
-                            if (isNote) Icons.Default.PushPin else if (allSelectedPinned) Icons.Outlined.PushPin else Icons.Default.PushPin,
-                            contentDescription = stringResource(if (!isNote && allSelectedPinned) com.clipnest.R.string.unpin_selected else com.clipnest.R.string.pin_selected),
+                            if (allSelectedPinned) Icons.Outlined.PushPin else Icons.Default.PushPin,
+                            contentDescription = stringResource(if (allSelectedPinned) com.clipnest.R.string.unpin_selected else com.clipnest.R.string.pin_selected),
                             modifier = Modifier.size(22.dp)
                         )
                     }
