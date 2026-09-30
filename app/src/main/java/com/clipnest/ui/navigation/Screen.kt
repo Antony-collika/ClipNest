@@ -3,6 +3,7 @@ package com.clipnest.ui.navigation
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Folder
@@ -34,6 +35,13 @@ sealed class Screen(
         title = "Note",
         selectedIcon = Icons.Filled.Description,
         unselectedIcon = Icons.Outlined.Description
+    )
+
+    data object Trash : Screen(
+        route = "trash",
+        title = "Trash",
+        selectedIcon = Icons.Filled.Delete,
+        unselectedIcon = Icons.Filled.Delete
     )
 
     data object Settings : Screen(
