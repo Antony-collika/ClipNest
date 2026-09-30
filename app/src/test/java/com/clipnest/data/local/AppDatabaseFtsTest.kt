@@ -1,7 +1,8 @@
 package com.clipnest.data.local
 
 import androidx.room.Room
-import android.app.Application
+import org.robolectric.RuntimeEnvironment
+import org.robolectric.RobolectricTestRunner
 import com.clipnest.data.model.ClipboardCard
 import com.clipnest.data.model.ContentType
 import com.clipnest.data.model.Note
@@ -12,7 +13,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.junit.runner.RunWith
 
+@RunWith(RobolectricTestRunner::class)
 class AppDatabaseFtsTest {
 
     private lateinit var database: AppDatabase
@@ -20,7 +23,7 @@ class AppDatabaseFtsTest {
     @Before
     fun setUp() {
         database = Room.inMemoryDatabaseBuilder(
-            Application(),
+            RuntimeEnvironment.getApplication(),
             AppDatabase::class.java
         ).build()
     }
