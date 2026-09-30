@@ -42,7 +42,7 @@ class AppDatabaseFtsTest {
         )
 
         val results = database.noteDao()
-            .searchActiveNoteCards(""nguyen van"")
+            .searchActiveNoteCards("\"nguyen van\"")
             .first()
 
         assertTrue(results.any { it.id == noteId })
@@ -65,7 +65,7 @@ class AppDatabaseFtsTest {
         )
 
         val results = database.clipboardDao()
-            .searchCardProjections(""kotlin android"")
+            .searchCardProjections("\"kotlin android\"")
             .first()
 
         assertEquals(1, results.size)
