@@ -24,6 +24,7 @@ import com.clipnest.data.local.FileManager
 import com.clipnest.data.local.NoteDao
 import com.clipnest.data.local.TopicDao
 import com.clipnest.data.model.Note
+import com.clipnest.data.model.NoteEditorProjection
 import com.clipnest.data.model.NoteTopicCrossRef
 import com.clipnest.data.model.NoteTopicRole
 import com.clipnest.data.model.Topic
@@ -896,10 +897,10 @@ class EditorViewModel(
 
     fun openNoteInEditor(noteId: Long, origin: EditorNoteOrigin? = null) {
         viewModelScope.launch(Dispatchers.IO) {
-            val note = noteDao.getNoteById(noteId) ?: return@launch
+            val note = noteDao.getNoteEditorProjection(noteId) ?: return@launch
+            val content = loadNoteContentInChunks(note.id).replace("\r\n", "\n").replace('\r', '\n')
             withContext(Dispatchers.Main.immediate) {
                 configureNoteMode(origin)
-                val content = note.content.replace("\r\n", "\n").replace('\r', '\n')
                 val structuredLength = note.title.length + 1 + content.length
                 nativeEditor?.setStructuredDocument(note.title, content, structuredLength, structuredLength, structuredLength)
                 _uiState.value.content.setFallback(content, TextRange(structuredLength), structuredLength)
@@ -916,6 +917,20 @@ class EditorViewModel(
                 editorDocumentGeneration++
             }
         }
+    }
+
+    private suspend fun loadNoteContentInChunks(noteId: Long): String {
+        val chunkSize = 262_144
+        var start = 1
+        val builder = StringBuilder()
+        while (true) {
+            val chunk = noteDao.getNoteContentChunk(noteId, start, chunkSize).orEmpty()
+            if (chunk.isEmpty()) break
+            builder.append(chunk)
+            if (chunk.length < chunkSize) break
+            start += chunk.length
+        }
+        return builder.toString()
     }
 
     fun saveCurrentNoteNow() {
