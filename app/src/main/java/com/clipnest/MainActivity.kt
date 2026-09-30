@@ -104,6 +104,7 @@ import com.clipnest.ui.editor.EditorViewModelFactory
 import com.clipnest.ui.localization.withAppLanguage
 import com.clipnest.ui.navigation.Screen
 import com.clipnest.ui.settings.SettingsScreen
+import com.clipnest.ui.trash.TrashScreen
 import com.clipnest.ui.settings.SettingsViewModel
 import com.clipnest.ui.settings.SettingsViewModelFactory
 import com.clipnest.ui.theme.ClipNestTheme
@@ -316,6 +317,7 @@ fun MainAppContent(
         if (pagerState.currentPage != 2) keyboardController?.hide()
     }
     val isSettings = currentRoute == Screen.Settings.route
+    val isTrash = currentRoute == Screen.Trash.route
     val isNoteTab = !isSettings && pagerState.currentPage == 0
     val isVaultTab = !isSettings && pagerState.currentPage == 1
     val isEditorTab = !isSettings && pagerState.currentPage == 2
@@ -396,19 +398,24 @@ fun MainAppContent(
         drawerContent = {
             ClipNestDrawer(
                 topicDao = AppDatabase.getInstance(context).topicDao(),
-                onClose = { scope.launch { drawerState.close() } }
+                onClose = { scope.launch { drawerState.close() } },
+                onTrashClick = {
+                    scope.launch { drawerState.close() }
+                    navController.navigate(Screen.Trash.route) { launchSingleTop = true }
+                }
             )
         }
     ) {
     Scaffold(
         topBar = {
             MainTopBar(
-                title = when { isSettings -> stringResource(com.clipnest.R.string.settings); isNoteTab -> stringResource(com.clipnest.R.string.note_tab); isVaultTab -> stringResource(com.clipnest.R.string.vault); else -> if (editorUiState.externalDocumentUri != null) editorUiState.documentName else stringResource(com.clipnest.R.string.editor) },
+                title = when { isSettings -> stringResource(com.clipnest.R.string.settings); isTrash -> stringResource(com.clipnest.R.string.drawer_trash); isNoteTab -> stringResource(com.clipnest.R.string.note_tab); isVaultTab -> stringResource(com.clipnest.R.string.vault); else -> if (editorUiState.externalDocumentUri != null) editorUiState.documentName else stringResource(com.clipnest.R.string.editor) },
                 isNote = isNoteTab,
+                isTrash = isTrash,
                 isVault = isVaultTab,
                 isEditor = isEditorTab,
                 selectedCount = when {
-                    isSettings -> 0
+                    isSettings || isTrash -> 0
                     isNoteTab -> noteSelectedIds.size
                     else -> vaultState.selectedIds.size
                 },
@@ -537,6 +544,9 @@ fun MainAppContent(
                     }
                 }
             }
+            composable(Screen.Trash.route) {
+                TrashScreen(noteDao = noteDao, modifier = Modifier.fillMaxSize())
+            }
             composable(Screen.Settings.route) {
                 val settingsViewModel: SettingsViewModel = viewModel(factory = settingsViewModelFactory)
                 SettingsScreen(
@@ -571,6 +581,7 @@ private fun MainTopBar(
     isNote: Boolean,
     isVault: Boolean,
     isEditor: Boolean,
+    isTrash: Boolean,
     selectedCount: Int,
     allSelected: Boolean,
     allSelectedPinned: Boolean,
@@ -717,7 +728,7 @@ private fun MainTopBar(
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(0.dp)) {
                 if (isAskAiInProgress) CircularProgressIndicator(modifier = Modifier.size(22.dp).testTag("ask_ai_loading_indicator"), strokeWidth = 2.dp)
-                if ((isVault || isNote) && selectedCount > 0 && !isSearchOpen) {
+                if ((isVault || isNote) && selectedCount > 0 && !isSearchOpen && !isTrash) {
                     IconButton(onClick = onPinSelected, enabled = !isNote || noteCanPin, modifier = Modifier.size(36.dp).testTag(if (isNote) "note_action_pin_direct" else "vault_action_pin_direct")) {
                         Icon(
                             if (isNote) Icons.Default.PushPin else if (allSelectedPinned) Icons.Outlined.PushPin else Icons.Default.PushPin,
