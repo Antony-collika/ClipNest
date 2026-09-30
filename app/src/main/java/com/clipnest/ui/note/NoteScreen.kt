@@ -276,7 +276,7 @@ private fun NoteListItem(
             ) {
                 Icon(
                     imageVector = Icons.Default.Edit,
-                    contentDescription = androidx.compose.ui.res.stringResource(R.string.edit)
+                    contentDescription = androidx.compose.ui.res.stringResource(R.string.edit_note)
                 )
             }
         }
@@ -348,7 +348,7 @@ private fun NotePreviewDialog(
                         onClick = onEdit,
                         modifier = Modifier.align(Alignment.End)
                     ) {
-                        Text(androidx.compose.ui.res.stringResource(R.string.edit))
+                        Text(androidx.compose.ui.res.stringResource(R.string.edit_note))
                     }
                 }
             }
