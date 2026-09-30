@@ -33,7 +33,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.clipnest.R
 import com.clipnest.data.local.NoteDao
-import com.clipnest.data.model.Note
+import com.clipnest.data.model.NoteCardProjection
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -108,7 +108,7 @@ fun TrashScreen(noteDao: NoteDao, onBack: () -> Unit, modifier: Modifier = Modif
 }
 
 @Composable
-private fun TrashNoteRow(note: Note, selected: Boolean, onToggle: () -> Unit, onRestore: () -> Unit, onDeleteForever: () -> Unit) {
+private fun TrashNoteRow(note: NoteCardProjection, selected: Boolean, onToggle: () -> Unit, onRestore: () -> Unit, onDeleteForever: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
