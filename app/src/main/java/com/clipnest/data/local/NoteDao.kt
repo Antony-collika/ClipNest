@@ -45,8 +45,19 @@ interface NoteDao {
     """)
     fun searchActiveNoteCards(ftsQuery: String): Flow<List<NoteCardProjection>>
 
-    @Query("SELECT n.* FROM notes n INNER JOIN note_topic_cross_ref r ON r.noteId = n.id INNER JOIN topics t ON t.id = r.topicId WHERE r.topicId = :topicId AND t.origin = :origin AND n.isDeleted = 0 AND n.isArchived = 0 ORDER BY n.updatedAtMillis DESC")
-    fun observeActiveNotesByTopic(topicId: Long, origin: String): Flow<List<Note>>
+    @Query("""
+        SELECT n.id, n.title, n.preview AS preview, n.updatedAtMillis,
+               COALESCE(GROUP_CONCAT(t.name, ', '), '') AS topicLabels
+        FROM notes n
+        INNER JOIN note_topic_cross_ref r ON r.noteId = n.id AND r.topicId = :topicId
+        INNER JOIN topics selectedTopic ON selectedTopic.id = r.topicId AND selectedTopic.origin = :origin
+        LEFT JOIN note_topic_cross_ref tagRef ON tagRef.noteId = n.id AND tagRef.role = 'USER_TAG'
+        LEFT JOIN topics t ON t.id = tagRef.topicId
+        WHERE n.isDeleted = 0 AND n.isArchived = 0
+        GROUP BY n.id
+        ORDER BY n.updatedAtMillis DESC
+    """)
+    fun observeActiveNotesByTopic(topicId: Long, origin: String): Flow<List<NoteCardProjection>>
 
     @Query("""
         SELECT n.id, n.title, n.preview AS preview, n.updatedAtMillis,
@@ -150,10 +161,10 @@ interface NoteDao {
     suspend fun setTopicPinnedForNotes(noteIds: List<Long>, topicId: Long, role: com.clipnest.data.model.NoteTopicRole, isPinned: Boolean)
 
     @Query("SELECT * FROM notes WHERE isDeleted = 1 ORDER BY deletedAtMillis DESC")
-    fun observeDeletedNotes(): Flow<List<Note>>
+    fun observeDeletedNotes(): Flow<List<NoteCardProjection>>
 
     @Query("SELECT * FROM notes WHERE isArchived = 1 AND isDeleted = 0 ORDER BY updatedAtMillis DESC")
-    fun observeArchivedNotes(): Flow<List<Note>>
+    fun observeArchivedNotes(): Flow<List<NoteCardProjection>>
 
     @Query("DELETE FROM notes WHERE id = :id")
     suspend fun deleteNotePermanently(id: Long)
