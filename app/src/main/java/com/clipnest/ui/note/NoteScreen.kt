@@ -56,6 +56,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.clipnest.R
 import com.clipnest.data.local.NoteDao
 import com.clipnest.data.local.TopicDao
+import com.clipnest.data.model.NoteCardProjection
 import com.clipnest.data.model.NoteTopicRole
 import com.clipnest.data.model.Topic
 import com.clipnest.domain.RelativeTimeFormatter
