@@ -46,7 +46,7 @@ interface NoteDao {
     fun observeActiveNotesByTopic(topicId: Long, origin: String): Flow<List<Note>>
 
     @Query("""
-        SELECT n.id, n.title, n.content, n.updatedAtMillis,
+        SELECT n.id, n.title, SUBSTR(n.content, 1, 320) AS preview, n.updatedAtMillis,
                COALESCE(GROUP_CONCAT(t.name, ', '), '') AS topicLabels
         FROM notes n
         INNER JOIN note_topic_cross_ref selectedRef
