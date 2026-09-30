@@ -569,6 +569,14 @@ class VaultViewModel(
                 fileName,
                 format
             ) { writer ->
+                if (targetIds.isEmpty()) {
+                    writer.write(
+                        when (format) {
+                            ExportFormat.MARKDOWN -> ExportFormatter.formatMarkdown(emptyList(), localizedExportLabels())
+                            ExportFormat.PLAIN_TEXT -> ExportFormatter.formatPlainText(emptyList(), localizedExportLabels())
+                        }
+                    )
+                }
                 repository.forEachCardsByIds(targetIds) { cards ->
                     when (format) {
                         ExportFormat.MARKDOWN -> ExportFormatter.writeMarkdown(
