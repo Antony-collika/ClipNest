@@ -18,6 +18,8 @@ import android.widget.CheckBox
 import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.clipnest.R
 import com.clipnest.data.model.NoteCardProjection
@@ -88,8 +90,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
         }
     }
 
-    private inner class NoteAdapter(private val context: Context) : Adapter<NoteViewHolder>() {
-        private val notes = mutableListOf<NoteCardProjection>()
+    private inner class NoteAdapter(private val context: Context) : ListAdapter<NoteCardProjection, NoteViewHolder>(DIFF_CALLBACK) {
         private var selectedIds: Set<Long> = emptySet()
         private var pinnedIds: Set<Long> = emptySet()
         private var colors = currentColors
@@ -98,16 +99,14 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             setHasStableIds(true)
         }
 
-        override fun getItemId(position: Int): Long = notes[position].id
+        override fun getItemId(position: Int): Long = getItem(position).id
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): NoteViewHolder {
             return NoteViewHolder(NoteRowView(context))
         }
 
-        override fun getItemCount(): Int = notes.size
-
         override fun onBindViewHolder(holder: NoteViewHolder, position: Int) {
-            val note = notes[position]
+            val note = getItem(position)
             holder.bind(
                 note = note,
                 selected = selectedIds.contains(note.id),
@@ -117,18 +116,15 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             )
         }
 
-        fun isSameData(value: List<NoteCardProjection>): Boolean = notes == value
+        fun isSameData(value: List<NoteCardProjection>): Boolean = currentList == value
 
         fun replace(value: List<NoteCardProjection>) {
-            notes.clear()
-            notes.addAll(value)
-            notifyDataSetChanged()
+            submitList(value)
         }
 
         fun replaceDataWithoutChangingOrder(value: List<NoteCardProjection>) {
-            if (notes.map { it.id } != value.map { it.id }) return
-            notes.indices.forEach { index -> notes[index] = value[index] }
-            notifyItemRangeChanged(0, notes.size, PAYLOAD_STATE)
+            if (currentList.map { it.id } != value.map { it.id }) return
+            submitList(value)
         }
 
         fun setVisualState(
@@ -142,12 +138,26 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             this.selectedIds = selectedIds
             this.pinnedIds = pinnedIds
             this.colors = colors
-            if (changed && notes.isNotEmpty()) {
-                notifyItemRangeChanged(0, notes.size, PAYLOAD_STATE)
+            if (changed && currentList.isNotEmpty()) {
+                notifyItemRangeChanged(0, currentList.size, PAYLOAD_STATE)
             }
         }
 
-        fun ids(): List<Long> = notes.map { it.id }
+        fun ids(): List<Long> = currentList.map { it.id }
+    }
+
+    private object NoteDiffCallback : DiffUtil.ItemCallback<NoteCardProjection>() {
+        override fun areItemsTheSame(oldItem: NoteCardProjection, newItem: NoteCardProjection): Boolean =
+            oldItem.id == newItem.id
+
+        override fun areContentsTheSame(oldItem: NoteCardProjection, newItem: NoteCardProjection): Boolean =
+            oldItem == newItem
+    }
+
+    private companion object {
+        val DIFF_CALLBACK = NoteDiffCallback
+        const val PAYLOAD_STATE = "note_state"
+        const val LONG_PRESS_DELAY_MS = 280L
     }
 
     private inner class NoteViewHolder(itemView: NoteRowView) : ViewHolder(itemView) {
@@ -337,7 +347,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             labels.visibility = if (note.topicLabels.isBlank()) GONE else VISIBLE
             labels.setTextColor(colors.primary)
 
-            preview.text = note.content.ifBlank { context.getString(R.string.untitled) }
+            preview.text = note.preview.ifBlank { context.getString(R.string.untitled) }
             preview.setTextColor(colors.onSurfaceVariant)
 
             timestamp.text = RelativeTimeFormatter.format(
@@ -410,8 +420,4 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density + 0.5f).toInt()
 
-    private companion object {
-        const val PAYLOAD_STATE = "note_state"
-        const val LONG_PRESS_DELAY_MS = 280L
-    }
 }
