@@ -31,5 +31,6 @@ data class NoteTopicCrossRef(
     val noteId: Long,
     val topicId: Long,
     val role: NoteTopicRole = NoteTopicRole.USER_TAG,
-    val rank: Int? = null
+    val rank: Int? = null,
+    val isPinned: Boolean = false
 )
