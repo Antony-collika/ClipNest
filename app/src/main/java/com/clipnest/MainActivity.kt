@@ -737,7 +737,6 @@ private fun MainTopBar(
             }
         }
     }
-}
 
 @Composable
 private fun MainTabSlot(selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
