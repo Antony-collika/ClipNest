@@ -8,6 +8,7 @@ data class Note(
     @PrimaryKey(autoGenerate = true) val id: Long = 0L,
     val title: String = "",
     val content: String = "",
+    val preview: String = content.take(320),
     val isPinned: Boolean = false,
     val isArchived: Boolean = false,
     val isDeleted: Boolean = false,
