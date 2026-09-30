@@ -13,7 +13,7 @@ import com.clipnest.data.model.Topic
 
 @Database(
     entities = [ClipboardCard::class, Note::class, Topic::class, NoteTopicCrossRef::class],
-    version = 2,
+    version = 3,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -24,8 +24,7 @@ abstract class AppDatabase : RoomDatabase() {
     companion object {
         private val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL(
-                    """
+                database.execSQL("""
                     CREATE TABLE IF NOT EXISTS `notes` (
                         `id` INTEGER NOT NULL,
                         `title` TEXT NOT NULL,
@@ -40,10 +39,8 @@ abstract class AppDatabase : RoomDatabase() {
                         `updatedAtMillis` INTEGER NOT NULL,
                         PRIMARY KEY(`id`)
                     )
-                    """.trimIndent()
-                )
-                database.execSQL(
-                    """
+                    """.trimIndent())
+                database.execSQL("""
                     CREATE TABLE IF NOT EXISTS `topics` (
                         `id` INTEGER NOT NULL,
                         `name` TEXT NOT NULL,
@@ -56,13 +53,9 @@ abstract class AppDatabase : RoomDatabase() {
                         PRIMARY KEY(`id`),
                         FOREIGN KEY(`parentId`) REFERENCES `topics`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL
                     )
-                    """.trimIndent()
-                )
-                database.execSQL(
-                    "CREATE INDEX IF NOT EXISTS `index_topics_parentId` ON `topics` (`parentId`)"
-                )
-                database.execSQL(
-                    """
+                    """.trimIndent())
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_topics_parentId` ON `topics` (`parentId`)")
+                database.execSQL("""
                     CREATE TABLE IF NOT EXISTS `note_topic_cross_ref` (
                         `noteId` INTEGER NOT NULL,
                         `topicId` INTEGER NOT NULL,
@@ -72,14 +65,16 @@ abstract class AppDatabase : RoomDatabase() {
                         FOREIGN KEY(`noteId`) REFERENCES `notes`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE,
                         FOREIGN KEY(`topicId`) REFERENCES `topics`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
                     )
-                    """.trimIndent()
-                )
-                database.execSQL(
-                    "CREATE INDEX IF NOT EXISTS `index_note_topic_cross_ref_noteId` ON `note_topic_cross_ref` (`noteId`)"
-                )
-                database.execSQL(
-                    "CREATE INDEX IF NOT EXISTS `index_note_topic_cross_ref_topicId` ON `note_topic_cross_ref` (`topicId`)"
-                )
+                    """.trimIndent())
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_note_topic_cross_ref_noteId` ON `note_topic_cross_ref` (`noteId`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_note_topic_cross_ref_topicId` ON `note_topic_cross_ref` (`topicId`)")
+            }
+        }
+
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_topics_origin_name` ON `topics` (`origin`, `name`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_topics_origin_parentId` ON `topics` (`origin`, `parentId`)")
             }
         }
 
@@ -96,7 +91,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "clipboard_vault.db"
                 )
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .build()
                 INSTANCE = instance
                 instance
