@@ -316,7 +316,13 @@ fun MainAppContent(
     val selectedTab = pagerState.currentPage.coerceIn(0, 2)
     val selectedCards = vaultState.cards.filter { vaultState.selectedIds.contains(it.id) }
     val visibleSelectedCount = selectedCards.size
-    val allSelected = vaultState.cards.isNotEmpty() && visibleSelectedCount == vaultState.cards.size
+    val allVaultSelected = vaultState.cards.isNotEmpty() && visibleSelectedCount == vaultState.cards.size
+    var noteSelectedIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    var noteVisibleIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    var noteSearchOpen by remember { mutableStateOf(false) }
+    var noteSearchQuery by remember { mutableStateOf("") }
+    val noteDao = remember { AppDatabase.getInstance(context).noteDao() }
+    val allNoteSelected = noteVisibleIds.isNotEmpty() && noteSelectedIds.containsAll(noteVisibleIds)
     LaunchedEffect(incomingOpenRequest) {
         incomingOpenRequest?.let { request ->
             editorViewModel.openExternalDocument(request.uri, context.contentResolver, request.openContext, request.candidates)
@@ -352,6 +358,22 @@ fun MainAppContent(
         editorViewModel.openNoteInEditor(noteId, origin)
         scope.launch { pagerState.animateScrollToPage(2, animationSpec = tween(durationMillis = 180)) }
     }
+
+    fun toggleSelectedNotesPin() {
+        val now = System.currentTimeMillis()
+        scope.launch {
+            val shouldPin = noteSelectedIds.any { id -> noteDao.getNoteById(id)?.isPinned == false }
+            noteSelectedIds.forEach { id -> noteDao.setPinned(id, shouldPin, now) }
+        }
+    }
+
+    fun deleteSelectedNotes() {
+        val now = System.currentTimeMillis()
+        scope.launch {
+            noteSelectedIds.forEach { id -> noteDao.setDeleted(id, true, now, now) }
+            noteSelectedIds = emptySet()
+        }
+    }
     Scaffold(
         topBar = {
             MainTopBar(
@@ -359,14 +381,18 @@ fun MainAppContent(
                 isNote = isNoteTab,
                 isVault = isVaultTab,
                 isEditor = isEditorTab,
-                selectedCount = if (isSettings) 0 else vaultState.selectedIds.size,
-                allSelected = allSelected,
+                selectedCount = when {
+                    isSettings -> 0
+                    isNoteTab -> noteSelectedIds.size
+                    else -> vaultState.selectedIds.size
+                },
+                allSelected = if (isNoteTab) allNoteSelected else allVaultSelected,
                 allSelectedPinned = !isSettings && selectedCards.isNotEmpty() && selectedCards.all { it.pinned },
                 isSettings = isSettings,
                 showPinnedFirst = vaultState.userSettings.showPinnedFirst,
-                isSearchOpen = if (isEditorTab) editorSearchOpen else if (isVaultTab) vaultState.isSearchOpen else false,
-                searchQuery = if (isEditorTab) editorSearchQuery else if (isVaultTab) vaultState.searchQuery else "",
-                searchPlaceholder = if (isEditorTab) stringResource(com.clipnest.R.string.search_editor) else stringResource(com.clipnest.R.string.search_vault),
+                isSearchOpen = if (isEditorTab) editorSearchOpen else if (isVaultTab) vaultState.isSearchOpen else if (isNoteTab) noteSearchOpen else false,
+                searchQuery = if (isEditorTab) editorSearchQuery else if (isVaultTab) vaultState.searchQuery else if (isNoteTab) noteSearchQuery else "",
+                searchPlaceholder = if (isEditorTab) stringResource(com.clipnest.R.string.search_editor) else stringResource(com.clipnest.R.string.search_notes),
                 editorDocumentName = if (editorUiState.externalDocumentUri != null) editorUiState.documentName else stringResource(com.clipnest.R.string.editor),
                 editorSearchMatchCount = editorSearchMatchCount,
                 editorActiveSearchMatch = editorActiveSearchMatch,
@@ -376,10 +402,30 @@ fun MainAppContent(
                 onReplaceQueryChange = editorViewModel::setReplaceQuery,
                 onReplaceCurrentMatch = editorViewModel::replaceCurrentMatch,
                 onReplaceAllMatches = editorViewModel::replaceAllMatches,
-                onSearchOpen = if (isEditorTab) editorViewModel::openSearchPublic else vaultViewModel::openSearch,
-                onSearchClose = if (isEditorTab) editorViewModel::closeSearch else vaultViewModel::closeSearch,
-                onSearchQueryChange = if (isEditorTab) editorViewModel::setSearchQuery else vaultViewModel::setSearchQuery,
-                onToggleSelectAll = { if (allSelected) vaultViewModel.clearSelection() else vaultViewModel.selectAll() },
+                onSearchOpen = when {
+                    isEditorTab -> editorViewModel::openSearchPublic
+                    isVaultTab -> vaultViewModel::openSearch
+                    else -> { { noteSearchOpen = true } }
+                },
+                onSearchClose = when {
+                    isEditorTab -> editorViewModel::closeSearch
+                    isVaultTab -> vaultViewModel::closeSearch
+                    else -> { { noteSearchOpen = false; noteSearchQuery = "" } }
+                },
+                onSearchQueryChange = when {
+                    isEditorTab -> editorViewModel::setSearchQuery
+                    isVaultTab -> vaultViewModel::setSearchQuery
+                    else -> { query: String -> noteSearchQuery = query }
+                },
+                onToggleSelectAll = {
+                    if (isNoteTab) {
+                        noteSelectedIds = if (allNoteSelected) emptySet() else noteVisibleIds
+                    } else if (allVaultSelected) {
+                        vaultViewModel.clearSelection()
+                    } else {
+                        vaultViewModel.selectAll()
+                    }
+                },
                 onShareSelected = { vaultViewModel.shareSelected() },
                 onSaveFile = vaultViewModel::openExportDialog,
                 onEditorSave = { editorViewModel.onSaveClicked(context.contentResolver) },
@@ -422,10 +468,18 @@ fun MainAppContent(
                 androidx.compose.foundation.pager.HorizontalPager(state = pagerState, beyondViewportPageCount = 1, modifier = Modifier.fillMaxSize().testTag("main_content_pager")) { page ->
                     when (page) {
                         0 -> NoteScreen(
-                            noteDao = AppDatabase.getInstance(context).noteDao(),
+                            noteDao = noteDao,
                             topicDao = AppDatabase.getInstance(context).topicDao(),
                             onCreateNote = ::openNewNote,
                             onOpenNote = ::openExistingNote,
+                            selectedNoteIds = noteSelectedIds,
+                            onSelectionChanged = { noteSelectedIds = it },
+                            onVisibleNoteIdsChanged = { visible ->
+                                noteVisibleIds = visible
+                                noteSelectedIds = noteSelectedIds.intersect(visible)
+                            },
+                            isSearchOpen = noteSearchOpen,
+                            searchQuery = noteSearchQuery,
                             modifier = Modifier.fillMaxSize()
                         )
                         1 -> VaultScreen(
