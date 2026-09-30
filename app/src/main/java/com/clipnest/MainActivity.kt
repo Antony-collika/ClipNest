@@ -333,6 +333,12 @@ fun MainAppContent(
     var noteDeleteConfirm by remember { mutableStateOf(false) }
     val noteDao = remember { AppDatabase.getInstance(context).noteDao() }
     val allNoteSelected = noteVisibleIds.isNotEmpty() && noteSelectedIds.containsAll(noteVisibleIds)
+    val notePinnedIds by remember(noteSelectedTopicId) {
+        noteSelectedTopicId?.let {
+            noteDao.observePinnedNoteIdsForTopic(it, com.clipnest.data.model.NoteTopicRole.USER_TAG)
+        } ?: noteDao.observePinnedNoteIds()
+    }.collectAsStateWithLifecycle(initialValue = emptyList())
+    val allSelectedNotesPinned = noteSelectedIds.isNotEmpty() && noteSelectedIds.all { it in notePinnedIds }
     LaunchedEffect(incomingOpenRequest) {
         incomingOpenRequest?.let { request ->
             editorViewModel.openExternalDocument(request.uri, context.contentResolver, request.openContext, request.candidates)
@@ -425,7 +431,7 @@ fun MainAppContent(
                     else -> vaultState.selectedIds.size
                 },
                 allSelected = if (isNoteTab) allNoteSelected else allVaultSelected,
-                allSelectedPinned = if (isNoteTab) false else !isSettings && selectedCards.isNotEmpty() && selectedCards.all { it.pinned },
+                allSelectedPinned = if (isNoteTab) allSelectedNotesPinned else !isSettings && selectedCards.isNotEmpty() && selectedCards.all { it.pinned },
                 noteCanPin = noteSelectedIds.isNotEmpty(),
                 isSettings = isSettings,
                 showPinnedFirst = vaultState.userSettings.showPinnedFirst,
