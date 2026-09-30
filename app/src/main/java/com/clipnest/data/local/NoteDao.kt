@@ -18,7 +18,7 @@ interface NoteDao {
     suspend fun getNoteById(id: Long): Note?
 
     @Query("""
-        SELECT n.id, n.title, n.content, n.updatedAtMillis,
+        SELECT n.id, n.title, SUBSTR(n.content, 1, 320) AS preview, n.updatedAtMillis,
                COALESCE(GROUP_CONCAT(t.name, ', '), '') AS topicLabels
         FROM notes n
         LEFT JOIN note_topic_cross_ref r ON r.noteId = n.id AND r.role = 'USER_TAG'
@@ -29,6 +29,19 @@ interface NoteDao {
     """)
     fun observeActiveNoteCards(): Flow<List<NoteCardProjection>>
 
+    @Query("""
+        SELECT n.id, n.title, SUBSTR(n.content, 1, 320) AS preview, n.updatedAtMillis,
+               COALESCE(GROUP_CONCAT(t.name, ', '), '') AS topicLabels
+        FROM notes n
+        LEFT JOIN note_topic_cross_ref r ON r.noteId = n.id AND r.role = 'USER_TAG'
+        LEFT JOIN topics t ON t.id = r.topicId
+        WHERE n.isDeleted = 0 AND n.isArchived = 0
+          AND (n.title LIKE '%' || :query || '%' OR n.content LIKE '%' || :query || '%')
+        GROUP BY n.id
+        ORDER BY n.updatedAtMillis DESC
+    """)
+    fun searchActiveNoteCards(query: String): Flow<List<NoteCardProjection>>
+
     @Query("SELECT n.* FROM notes n INNER JOIN note_topic_cross_ref r ON r.noteId = n.id INNER JOIN topics t ON t.id = r.topicId WHERE r.topicId = :topicId AND t.origin = :origin AND n.isDeleted = 0 AND n.isArchived = 0 ORDER BY n.updatedAtMillis DESC")
     fun observeActiveNotesByTopic(topicId: Long, origin: String): Flow<List<Note>>
 
@@ -38,6 +51,8 @@ interface NoteDao {
         FROM notes n
         INNER JOIN note_topic_cross_ref selectedRef
             ON selectedRef.noteId = n.id AND selectedRef.topicId = :topicId
+        INNER JOIN topics selectedTopic
+            ON selectedTopic.id = selectedRef.topicId AND selectedTopic.origin = :origin
         LEFT JOIN note_topic_cross_ref r
             ON r.noteId = n.id AND r.role = 'USER_TAG'
         LEFT JOIN topics t ON t.id = r.topicId
@@ -45,10 +60,44 @@ interface NoteDao {
         GROUP BY n.id
         ORDER BY n.updatedAtMillis DESC
     """)
-    fun observeActiveNoteCardsByTopic(topicId: Long): Flow<List<NoteCardProjection>>
+    fun observeActiveNoteCardsByTopic(topicId: Long, origin: String): Flow<List<NoteCardProjection>>
 
-    @Query("SELECT DISTINCT n.* FROM notes n INNER JOIN note_topic_cross_ref r ON r.noteId = n.id INNER JOIN topics t ON t.id = r.topicId WHERE t.origin = :origin AND (t.id = :topicId OR t.parentId = :topicId) AND n.isDeleted = 0 AND n.isArchived = 0 ORDER BY n.updatedAtMillis DESC")
-    fun observeActiveNotesByTopicTree(topicId: Long, origin: String): Flow<List<Note>>
+    @Query("""
+        SELECT DISTINCT n.id, n.title, SUBSTR(n.content, 1, 320) AS preview, n.updatedAtMillis,
+               COALESCE((
+                   SELECT GROUP_CONCAT(t2.name, ', ')
+                   FROM note_topic_cross_ref r2
+                   INNER JOIN topics t2 ON t2.id = r2.topicId
+                   WHERE r2.noteId = n.id AND r2.role = 'USER_TAG'
+               ), '') AS topicLabels
+        FROM notes n
+        INNER JOIN note_topic_cross_ref selectedRef ON selectedRef.noteId = n.id
+        INNER JOIN topics selectedTopic ON selectedTopic.id = selectedRef.topicId
+        WHERE selectedTopic.origin = :origin
+          AND (selectedTopic.id = :topicId OR selectedTopic.parentId = :topicId)
+          AND n.isDeleted = 0 AND n.isArchived = 0
+        ORDER BY n.updatedAtMillis DESC
+    """)
+    fun observeActiveNoteCardsByTopicTree(topicId: Long, origin: String): Flow<List<NoteCardProjection>>
+
+    @Query("""
+        SELECT DISTINCT n.id, n.title, SUBSTR(n.content, 1, 320) AS preview, n.updatedAtMillis,
+               COALESCE((
+                   SELECT GROUP_CONCAT(t2.name, ', ')
+                   FROM note_topic_cross_ref r2
+                   INNER JOIN topics t2 ON t2.id = r2.topicId
+                   WHERE r2.noteId = n.id AND r2.role = 'USER_TAG'
+               ), '') AS topicLabels
+        FROM notes n
+        INNER JOIN note_topic_cross_ref selectedRef ON selectedRef.noteId = n.id
+        INNER JOIN topics selectedTopic ON selectedTopic.id = selectedRef.topicId
+        WHERE selectedTopic.origin = :origin
+          AND (selectedTopic.id = :topicId OR selectedTopic.parentId = :topicId)
+          AND n.isDeleted = 0 AND n.isArchived = 0
+          AND (n.title LIKE '%' || :query || '%' OR n.content LIKE '%' || :query || '%')
+        ORDER BY n.updatedAtMillis DESC
+    """)
+    fun searchActiveNoteCardsByTopicTree(topicId: Long, origin: String, query: String): Flow<List<NoteCardProjection>>
 
     @Query("SELECT * FROM topics WHERE origin = :origin ORDER BY name COLLATE NOCASE ASC")
     fun observeTopicsForOrigin(origin: String): Flow<List<com.clipnest.data.model.Topic>>
