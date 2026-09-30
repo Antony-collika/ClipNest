@@ -8,6 +8,7 @@ import com.clipnest.data.model.VaultBackupCard
 import com.clipnest.data.model.VaultBackupResult
 import com.clipnest.data.model.ContentType
 import com.clipnest.domain.OrderHelper
+import com.clipnest.domain.FtsSearchQuery
 import com.clipnest.domain.TextNormalizer
 import kotlinx.coroutines.flow.Flow
 
@@ -114,7 +115,8 @@ class ClipboardRepositoryImpl(
     }
 
     override fun searchCardProjections(query: String): Flow<List<ClipboardCardProjection>> {
-        return dao.searchCardProjections(query)
+        val ftsQuery = FtsSearchQuery.fromUserQuery(query)
+        return if (ftsQuery.isBlank()) kotlinx.coroutines.flow.flowOf(emptyList()) else dao.searchCardProjections(ftsQuery)
     }
 
     override suspend fun getCardById(id: Long): ClipboardCard? {
