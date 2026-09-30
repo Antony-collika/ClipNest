@@ -29,6 +29,38 @@ interface TopicDao {
         return insertTopicInternal(topic)
     }
 
+    @Query("SELECT EXISTS(SELECT 1 FROM topics WHERE parentId = :topicId)")
+    suspend fun hasChildren(topicId: Long): Boolean
+
+    @Query("UPDATE topics SET parentId = :parentId WHERE id = :topicId")
+    suspend fun updateParentIdInternal(topicId: Long, parentId: Long?)
+
+    @androidx.room.Transaction
+    suspend fun makeTopicChild(topicId: Long, parentId: Long) {
+        require(topicId != parentId) { "A topic cannot be its own parent" }
+        val topic = getTopicById(topicId)
+            ?: throw IllegalArgumentException("Topic does not exist")
+        require(topic.parentId == null) { "Only a free topic can become a child" }
+        require(!hasChildren(topicId)) { "A topic with children cannot become a child" }
+
+        val parent = getTopicById(parentId)
+            ?: throw IllegalArgumentException("Parent topic does not exist")
+        require(parent.parentId == null) { "Parent must be a root topic" }
+        require(parent.origin == topic.origin) {
+            "Parent and child topics must have the same origin"
+        }
+        updateParentIdInternal(topicId, parentId)
+    }
+
+    @androidx.room.Transaction
+    suspend fun makeTopicFree(topicId: Long) {
+        val topic = getTopicById(topicId)
+            ?: throw IllegalArgumentException("Topic does not exist")
+        require(topic.parentId != null) { "Topic is already free" }
+        require(!hasChildren(topicId)) { "A child topic cannot have children" }
+        updateParentIdInternal(topicId, null)
+    }
+
     @Query("SELECT * FROM topics WHERE origin = :origin AND name LIKE '%' || :query || '%' ORDER BY name COLLATE NOCASE ASC")
     fun searchTopics(query: String, origin: String): Flow<List<Topic>>
 
