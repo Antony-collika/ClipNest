@@ -370,18 +370,21 @@ fun MainAppContent(
     }
 
     fun toggleSelectedNotesPin() {
-        val topicId = noteSelectedTopicId ?: return
+        if (noteSelectedIds.isEmpty()) return
         scope.launch {
             val role = com.clipnest.data.model.NoteTopicRole.USER_TAG
-            val anyUnpinned = noteSelectedIds.any { id ->
-                !noteDao.isTopicPinned(id, topicId, role)
+            val topicIds = if (noteSelectedTopicId != null) {
+                listOf(noteSelectedTopicId!!)
+            } else {
+                noteDao.getUserTopicIdsForNotes(noteSelectedIds.toList(), role)
+            }.distinct()
+
+            for (topicId in topicIds) {
+                val idsForTopic = noteSelectedIds.filter { noteDao.hasTopicRelation(it, topicId, role) }
+                if (idsForTopic.isEmpty()) continue
+                val anyUnpinned = idsForTopic.any { id -> !noteDao.isTopicPinned(id, topicId, role) }
+                noteDao.setTopicPinnedForNotes(idsForTopic, topicId, role, anyUnpinned)
             }
-            noteDao.setTopicPinnedForNotes(
-                noteIds = noteSelectedIds.toList(),
-                topicId = topicId,
-                role = role,
-                isPinned = anyUnpinned
-            )
             noteSelectedIds = emptySet()
         }
     }
