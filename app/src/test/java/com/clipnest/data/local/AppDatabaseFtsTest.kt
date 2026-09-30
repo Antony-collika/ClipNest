@@ -1,7 +1,7 @@
 package com.clipnest.data.local
 
 import androidx.room.Room
-import androidx.test.core.app.ApplicationProvider
+import android.app.Application
 import com.clipnest.data.model.ClipboardCard
 import com.clipnest.data.model.ContentType
 import com.clipnest.data.model.Note
@@ -20,7 +20,7 @@ class AppDatabaseFtsTest {
     @Before
     fun setUp() {
         database = Room.inMemoryDatabaseBuilder(
-            ApplicationProvider.getApplicationContext(),
+            Application(),
             AppDatabase::class.java
         ).build()
     }
