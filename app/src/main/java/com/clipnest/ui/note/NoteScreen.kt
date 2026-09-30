@@ -119,7 +119,7 @@ fun NoteScreen(
                 if (chunk.isEmpty()) break
                 builder.append(chunk)
                 if (chunk.length < chunkSize) break
-                start += chunk.length
+                start += chunkSize
             }
             builder.toString()
         }
