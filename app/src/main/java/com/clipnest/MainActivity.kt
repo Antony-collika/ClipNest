@@ -520,7 +520,7 @@ fun MainAppContent(
             }
         }
     }
-}
+
 
     if (noteDeleteConfirm) {
         com.clipnest.ui.vault.DeleteConfirmDialog(
@@ -533,6 +533,8 @@ fun MainAppContent(
         )
     }
 
+}
+    
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MainTopBar(
