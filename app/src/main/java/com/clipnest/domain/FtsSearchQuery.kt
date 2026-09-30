@@ -1,7 +1,5 @@
 package com.clipnest.domain
 
-import java.text.Normalizer
-
 /**
  * Converts user search text into a safe FTS4 MATCH expression.
  *
@@ -98,25 +96,16 @@ object FtsSearchQuery {
     }
 
     private fun normalizeUnquoted(value: String): List<String> =
-        normalizeText(value)
-            ?.split(Regex("[^\\p{L}\\p{N}_]+"))
-            ?.filter { it.isNotEmpty() }
-            ?.distinct()
-            ?: emptyList()
+        SearchTextNormalizer.normalize(value)
+            .split(Regex("[^\\p{L}\\p{N}_]+"))
+            .filter { it.isNotEmpty() }
+            .distinct()
 
     private fun normalizePhrase(value: String): String? =
-        normalizeText(value)
-            ?.replace(Regex("[^\\p{L}\\p{N}_]+"), " ")
-            ?.trim()
-            ?.takeIf { it.isNotEmpty() }
-
-    private fun normalizeText(value: String): String? {
-        val normalized = Normalizer.normalize(value.trim(), Normalizer.Form.NFD)
-            .replace("\\p{M}+".toRegex(), "")
-            .lowercase()
+        SearchTextNormalizer.normalize(value)
+            .replace(Regex("[^\\p{L}\\p{N}_]+"), " ")
             .trim()
-        return normalized.takeIf { it.isNotEmpty() }
-    }
+            .takeIf { it.isNotEmpty() }
 
     private sealed interface Element {
         data class Operand(val value: String) : Element

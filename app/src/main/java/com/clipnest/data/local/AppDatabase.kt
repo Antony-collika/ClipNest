@@ -20,7 +20,7 @@ import com.clipnest.data.model.Topic
         Topic::class,
         NoteTopicCrossRef::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {

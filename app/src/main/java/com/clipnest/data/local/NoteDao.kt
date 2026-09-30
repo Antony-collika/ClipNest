@@ -7,6 +7,7 @@ import androidx.room.Query
 import androidx.room.SkipQueryVerification
 import com.clipnest.data.model.Note
 import com.clipnest.data.model.NoteCardProjection
+import com.clipnest.domain.SearchTextNormalizer
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -105,8 +106,15 @@ interface NoteDao {
     @Query("SELECT * FROM topics WHERE origin = :origin ORDER BY name COLLATE NOCASE ASC")
     fun observeTopicsForOrigin(origin: String): Flow<List<com.clipnest.data.model.Topic>>
 
-    @Query("UPDATE notes SET title = :title, content = :content, preview = SUBSTR(:content, 1, 320), updatedAtMillis = :now, editSessionCount = editSessionCount + 1, lastAuthoredAtMillis = :now WHERE id = :id")
-    suspend fun updateContentAndBumpEditSession(id: Long, title: String, content: String, now: Long)
+    @Query("UPDATE notes SET title = :title, content = :content, preview = SUBSTR(:content, 1, 320), normalizedTitle = :normalizedTitle, normalizedContent = :normalizedContent, updatedAtMillis = :now, editSessionCount = editSessionCount + 1, lastAuthoredAtMillis = :now WHERE id = :id")
+    suspend fun updateContentAndBumpEditSession(
+        id: Long,
+        title: String,
+        content: String,
+        now: Long,
+        normalizedTitle: String = SearchTextNormalizer.normalize(title),
+        normalizedContent: String = SearchTextNormalizer.normalize(content)
+    )
 
     @Query("UPDATE notes SET isDeleted = :isDeleted, deletedAtMillis = :deletedAtMillis, updatedAtMillis = :updatedAtMillis WHERE id = :id")
     suspend fun setDeleted(id: Long, isDeleted: Boolean, deletedAtMillis: Long?, updatedAtMillis: Long)
@@ -115,7 +123,7 @@ interface NoteDao {
     suspend fun setArchived(id: Long, isArchived: Boolean, updatedAtMillis: Long)
 
     @Query("UPDATE note_topic_cross_ref SET isPinned = :isPinned WHERE noteId = :noteId AND topicId = :topicId AND role = :role")
-    suspend fun setTopicPinned(noteId: Long, topicId: Long, role: com.clipnest.data.model.NoteTopicRole, isPinned: Boolean)
+    suspend fun setTopicPinned(noteId: Long, topicId: Long, role: com.clipnest.data.model.NoteTopicRole, isPinned: Boolean,)
 
     @Query("SELECT EXISTS(SELECT 1 FROM note_topic_cross_ref WHERE noteId = :noteId AND topicId = :topicId AND role = :role AND isPinned = 1)")
     suspend fun isTopicPinned(noteId: Long, topicId: Long, role: com.clipnest.data.model.NoteTopicRole): Boolean
