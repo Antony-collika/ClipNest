@@ -160,10 +160,20 @@ interface NoteDao {
     @Query("UPDATE note_topic_cross_ref SET isPinned = :isPinned WHERE topicId = :topicId AND role = :role AND noteId IN (:noteIds)")
     suspend fun setTopicPinnedForNotes(noteIds: List<Long>, topicId: Long, role: com.clipnest.data.model.NoteTopicRole, isPinned: Boolean)
 
-    @Query("SELECT * FROM notes WHERE isDeleted = 1 ORDER BY deletedAtMillis DESC")
+    @Query("""
+        SELECT n.id, n.title, n.preview AS preview, n.updatedAtMillis, '' AS topicLabels
+        FROM notes n
+        WHERE n.isDeleted = 1
+        ORDER BY n.deletedAtMillis DESC
+    """)
     fun observeDeletedNotes(): Flow<List<NoteCardProjection>>
 
-    @Query("SELECT * FROM notes WHERE isArchived = 1 AND isDeleted = 0 ORDER BY updatedAtMillis DESC")
+    @Query("""
+        SELECT n.id, n.title, n.preview AS preview, n.updatedAtMillis, '' AS topicLabels
+        FROM notes n
+        WHERE n.isArchived = 1 AND n.isDeleted = 0
+        ORDER BY n.updatedAtMillis DESC
+    """)
     fun observeArchivedNotes(): Flow<List<NoteCardProjection>>
 
     @Query("DELETE FROM notes WHERE id = :id")
