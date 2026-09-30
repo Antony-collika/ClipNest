@@ -2,6 +2,7 @@ package com.clipnest.domain
 
 import com.clipnest.data.model.ClipboardCard
 import com.clipnest.data.model.ContentType
+import java.io.Writer
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
