@@ -256,4 +256,6 @@
     <string name="filter_topic">Topic</string>
     <string name="create_topic">Create new topic: #%1$s</string>
     <string name="create_note_from_selection">Create Note from selection</string>
+    <string name="search_notes">Search notes...</string>
+    <string name="no_search_results">No matching notes</string>
 </resources>
