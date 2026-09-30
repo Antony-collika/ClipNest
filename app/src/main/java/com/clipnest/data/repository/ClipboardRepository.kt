@@ -60,7 +60,11 @@ class ClipboardRepositoryImpl(
 
     override suspend fun getAllCards(): List<ClipboardCard> {
         val ids = dao.getAllCardProjections().first().map { it.id }
-        return ids.chunked(CONTENT_BATCH_SIZE).flatMap { batch -> dao.getCardsByIds(batch) }
+        return ids.chunked(CONTENT_BATCH_SIZE).flatMap { batch ->
+            val cards = dao.getCardsByIds(batch)
+            val byId = cards.associateBy { it.id }
+            batch.mapNotNull { byId[it] }
+        }
     }
 
     override suspend fun mergeBackupCards(cards: List<VaultBackupCard>): VaultBackupResult {
