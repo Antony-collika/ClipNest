@@ -7,14 +7,20 @@ class FtsSearchQueryTest {
 
     @Test
     fun vietnameseDiacriticsAreNormalizedAndPrefixMatched() {
-        assertEquals("\"nguyen\"*", FtsSearchQuery.fromUserQuery("Nguyễn"))
-        assertEquals("\"nguy\"*", FtsSearchQuery.fromUserQuery("nguy"))
+        assertEquals("\"nguyen*\"", FtsSearchQuery.fromUserQuery("Nguyễn"))
+        assertEquals("\"nguy*\"", FtsSearchQuery.fromUserQuery("nguy"))
+    }
+
+    @Test
+    fun vietnameseLetterDIsNormalized() {
+        assertEquals("\"dep*\"", FtsSearchQuery.fromUserQuery("Đẹp"))
+        assertEquals("dep", SearchTextNormalizer.normalize("đẹp"))
     }
 
     @Test
     fun multipleKeywordsUseAndSemantics() {
         assertEquals(
-            "\"nguyen\"* AND \"van\"*",
+            "\"nguyen*\" \"van*\"",
             FtsSearchQuery.fromUserQuery("Nguyễn văn")
         )
     }
@@ -22,7 +28,7 @@ class FtsSearchQueryTest {
     @Test
     fun punctuationBecomesSeparators() {
         assertEquals(
-            "\"clip\"* AND \"nest\"*",
+            "\"clip*\" \"nest*\"",
             FtsSearchQuery.fromUserQuery("clip-nest")
         )
     }
@@ -30,7 +36,7 @@ class FtsSearchQueryTest {
     @Test
     fun phraseSearchIsPreserved() {
         assertEquals(
-            "\"android database\"",
+            "\"android database*\"",
             FtsSearchQuery.fromUserQuery("\"Android database\"")
         )
     }
@@ -38,11 +44,11 @@ class FtsSearchQueryTest {
     @Test
     fun orAndNotAreSupported() {
         assertEquals(
-            "\"android\"* OR \"kotlin\"*",
+            "\"android*\" OR \"kotlin*\"",
             FtsSearchQuery.fromUserQuery("android OR kotlin")
         )
         assertEquals(
-            "\"android\"* NOT \"ios\"*",
+            "\"android*\" NOT \"ios*\"",
             FtsSearchQuery.fromUserQuery("android NOT ios")
         )
     }
@@ -50,7 +56,7 @@ class FtsSearchQueryTest {
     @Test
     fun lowercaseOperatorWordsRemainSearchTerms() {
         assertEquals(
-            "\"or\"* AND \"not\"*",
+            "\"or*\" \"not*\"",
             FtsSearchQuery.fromUserQuery("or not")
         )
     }
