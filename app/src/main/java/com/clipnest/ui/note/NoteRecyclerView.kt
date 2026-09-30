@@ -40,7 +40,11 @@ internal data class NoteRecyclerCallbacks(
 
 internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
     private val listAdapter = NoteAdapter(context)
-    private var callbacks = NoteRecyclerCallbacks({}, {}, {})
+    private var callbacks = NoteRecyclerCallbacks(
+        onToggleSelect = {},
+        onLongPress = { _, _ -> },
+        onEdit = {}
+    )
     private var currentColors = NoteRecyclerColors(
         surface = Color.WHITE,
         onSurface = Color.BLACK,
