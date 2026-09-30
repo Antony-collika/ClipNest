@@ -116,6 +116,15 @@ interface NoteDao {
         normalizedContent: String = SearchTextNormalizer.normalize(content)
     )
 
+    @Query("UPDATE notes SET isPinned = :isPinned, updatedAtMillis = :updatedAtMillis WHERE id = :id")
+    suspend fun setNotePinned(id: Long, isPinned: Boolean, updatedAtMillis: Long)
+
+    @Query("SELECT EXISTS(SELECT 1 FROM notes WHERE id = :id AND isPinned = 1)")
+    suspend fun isNotePinned(id: Long): Boolean
+
+    @Query("SELECT id FROM notes WHERE isPinned = 1 AND isDeleted = 0 AND isArchived = 0")
+    fun observePinnedNoteIds(): Flow<List<Long>>
+
     @Query("UPDATE notes SET isDeleted = :isDeleted, deletedAtMillis = :deletedAtMillis, updatedAtMillis = :updatedAtMillis WHERE id = :id")
     suspend fun setDeleted(id: Long, isDeleted: Boolean, deletedAtMillis: Long?, updatedAtMillis: Long)
 
