@@ -481,9 +481,9 @@ fun MainAppContent(
                 onOpenEditor = ::openEditorFromVault,
                 onCreateNoteFromVault = ::createNoteFromVault,
                 onToggleShowPinnedFirst = vaultViewModel::toggleShowPinnedFirst,
-                onPinSelected = vaultViewModel::togglePinSelected,
+                onPinSelected = if (isNoteTab) ::toggleSelectedNotesPin else vaultViewModel::togglePinSelected,
                 onCopySelected = { vaultViewModel.copySelectedCards(context) },
-                onDeleteSelected = vaultViewModel::requestDeleteSelected,
+                onDeleteSelected = if (isNoteTab) { { noteDeleteConfirm = true } } else vaultViewModel::requestDeleteSelected,
                 onOpenSettings = { navController.navigate(Screen.Settings.route) { launchSingleTop = true } },
                 onOpenDrawer = { scope.launch { drawerState.open() } },
                 onTabSelected = { page -> scope.launch { pagerState.animateScrollToPage(page, animationSpec = tween(durationMillis = 180)) } }
