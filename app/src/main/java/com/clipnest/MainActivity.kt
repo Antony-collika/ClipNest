@@ -413,7 +413,7 @@ fun MainAppContent(
                     else -> vaultState.selectedIds.size
                 },
                 allSelected = if (isNoteTab) allNoteSelected else allVaultSelected,
-                allSelectedPinned = if (isNote) false else !isSettings && selectedCards.isNotEmpty() && selectedCards.all { it.pinned },
+                allSelectedPinned = if (isNoteTab) false else !isSettings && selectedCards.isNotEmpty() && selectedCards.all { it.pinned },
                 noteCanPin = noteSelectedTopicId != null,
                 isSettings = isSettings,
                 showPinnedFirst = vaultState.userSettings.showPinnedFirst,
