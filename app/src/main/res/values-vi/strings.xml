@@ -258,4 +258,12 @@
     <string name="create_note_from_selection">Tạo Note từ lựa chọn</string>
     <string name="search_notes">Tìm trong ghi chú...</string>
     <string name="no_search_results">Không tìm thấy ghi chú phù hợp</string>
+    <string name="drawer_mini_me">Mini me</string>
+    <string name="drawer_personal_area">Khu vực cá nhân</string>
+    <string name="drawer_recent">Gần đây trong thế giới của bạn</string>
+    <string name="drawer_trending">Chủ đề thịnh hành</string>
+    <string name="drawer_insight">Insight</string>
+    <string name="drawer_my_topics">Chủ đề của tôi</string>
+    <string name="drawer_add_topic">Thêm chủ đề</string>
+    <string name="drawer_no_topics">Chưa có chủ đề</string>
 </resources>
