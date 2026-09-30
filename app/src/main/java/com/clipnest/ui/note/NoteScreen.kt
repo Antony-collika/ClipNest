@@ -1,6 +1,5 @@
 package com.clipnest.ui.note
 
-import android.graphics.Rect
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -57,6 +56,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.pointer.detectDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
@@ -75,7 +75,6 @@ import com.clipnest.data.local.TopicDao
 import com.clipnest.data.model.Note
 import com.clipnest.data.model.Topic
 import com.clipnest.ui.editor.EditorNoteOrigin
-import kotlinx.coroutines.delay
 
 @Composable
 fun NoteScreen(
@@ -341,7 +340,6 @@ private fun NotePreviewPopup(
         if (dismissing) return
         dismissing = true
         visible = false
-        LaunchedEffect(Unit) { }
         onDismiss()
     }
 
