@@ -110,7 +110,19 @@ fun NoteScreen(
     }
 
     LaunchedEffect(previewNoteId) {
-        previewContent = previewNoteId?.let { noteDao.getNoteById(it)?.content }
+        previewContent = previewNoteId?.let { noteId ->
+            val chunkSize = 262_144
+            var start = 1
+            val builder = StringBuilder()
+            while (true) {
+                val chunk = noteDao.getNoteContentChunk(noteId, start, chunkSize).orEmpty()
+                if (chunk.isEmpty()) break
+                builder.append(chunk)
+                if (chunk.length < chunkSize) break
+                start += chunk.length
+            }
+            builder.toString()
+        }
     }
 
     LaunchedEffect(noteCards.map(NoteCardProjection::id)) {
