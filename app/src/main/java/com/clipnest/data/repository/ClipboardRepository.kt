@@ -11,6 +11,8 @@ import com.clipnest.domain.OrderHelper
 import com.clipnest.domain.FtsSearchQuery
 import com.clipnest.domain.TextNormalizer
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
+import java.security.MessageDigest
 
 /** A single normalized capture request used by every capture entry point. */
 data class CapturePayload(
@@ -47,21 +49,31 @@ class ClipboardRepositoryImpl(
     private val dao: ClipboardDao
 ) : ClipboardRepository {
 
+    private companion object {
+        const val CONTENT_BATCH_SIZE = 50
+    }
+
     override fun getAllCardProjections(): Flow<List<ClipboardCardProjection>> {
         return dao.getAllCardProjections()
     }
 
-    override suspend fun getAllCards(): List<ClipboardCard> = dao.getAllCards()
+    override suspend fun getAllCards(): List<ClipboardCard> {
+        val ids = dao.getAllCardProjections().first().map { it.id }
+        return ids.chunked(CONTENT_BATCH_SIZE).flatMap { batch -> dao.getCardsByIds(batch) }
+    }
 
     override suspend fun mergeBackupCards(cards: List<VaultBackupCard>): VaultBackupResult {
         if (cards.isEmpty()) {
             return VaultBackupResult(imported = 0, skippedDuplicates = 0, skippedInvalid = 0)
         }
 
-        val existingKeys = dao.getAllCards()
-            .asSequence()
-            .map { card -> BackupCardKey(card.content, card.createdAtMillis) }
-            .toMutableSet()
+        val existingKeys = mutableSetOf<BackupCardKey>()
+        val existingIds = dao.getAllCardProjections().first().map { it.id }
+        existingIds.chunked(CONTENT_BATCH_SIZE).forEach { batch ->
+            dao.getCardsByIds(batch).forEach { card ->
+                existingKeys += BackupCardKey(contentHash(card.content), card.createdAtMillis)
+            }
+        }
         val importedCards = mutableListOf<ClipboardCard>()
         var skippedDuplicates = 0
         var skippedInvalid = 0
@@ -71,7 +83,7 @@ class ClipboardRepositoryImpl(
                 skippedInvalid++
                 return@forEach
             }
-            val key = BackupCardKey(backupCard.content, backupCard.createdAtMillis)
+            val key = BackupCardKey(contentHash(backupCard.content), backupCard.createdAtMillis)
             if (!existingKeys.add(key)) {
                 skippedDuplicates++
                 return@forEach
@@ -202,6 +214,11 @@ class ClipboardRepositoryImpl(
 
 
 data class BackupCardKey(
-    val content: String,
+    val contentHash: String,
     val createdAtMillis: Long
 )
+
+private fun contentHash(content: String): String {
+    val digest = MessageDigest.getInstance("SHA-256")
+    return digest.digest(content.toByteArray(Charsets.UTF_8)).joinToString("") { byte -> "%02x".format(byte) }
+}
