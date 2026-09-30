@@ -13,7 +13,7 @@ import com.clipnest.data.model.Topic
 
 @Database(
     entities = [ClipboardCard::class, Note::class, Topic::class, NoteTopicCrossRef::class],
-    version = 3,
+    version = 4,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -78,6 +78,35 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `topics_new` (
+                        `id` INTEGER NOT NULL,
+                        `name` TEXT NOT NULL,
+                        `parentId` INTEGER,
+                        `origin` TEXT NOT NULL,
+                        `icon` TEXT,
+                        `isPinned` INTEGER NOT NULL,
+                        `createdAtMillis` INTEGER NOT NULL,
+                        PRIMARY KEY(`id`),
+                        FOREIGN KEY(`parentId`) REFERENCES `topics_new`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL
+                    )
+                """.trimIndent())
+                database.execSQL("""
+                    INSERT INTO `topics_new`
+                    (`id`, `name`, `parentId`, `origin`, `icon`, `isPinned`, `createdAtMillis`)
+                    SELECT `id`, `name`, `parentId`, `origin`, `icon`, `isPinned`, `createdAtMillis`
+                    FROM `topics`
+                """.trimIndent())
+                database.execSQL("DROP TABLE `topics`")
+                database.execSQL("ALTER TABLE `topics_new` RENAME TO `topics`")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_topics_parentId` ON `topics` (`parentId`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_topics_origin_name` ON `topics` (`origin`, `name`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_topics_origin_parentId` ON `topics` (`origin`, `parentId`)")
+            }
+        }
+
         @Volatile
         private var INSTANCE: AppDatabase? = null
         @Volatile
@@ -91,7 +120,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "clipboard_vault.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     .build()
                 INSTANCE = instance
                 instance
