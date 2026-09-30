@@ -1,6 +1,7 @@
 package com.clipnest.data.local
 
 import androidx.room.Room
+import androidx.test.core.app.ApplicationProvider
 import com.clipnest.data.model.ClipboardCard
 import com.clipnest.data.model.ContentType
 import com.clipnest.data.model.Note
@@ -11,7 +12,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import org.robolectric.RuntimeEnvironment
 
 class AppDatabaseFtsTest {
 
@@ -20,7 +20,7 @@ class AppDatabaseFtsTest {
     @Before
     fun setUp() {
         database = Room.inMemoryDatabaseBuilder(
-            RuntimeEnvironment.getApplication(),
+            ApplicationProvider.getApplicationContext(),
             AppDatabase::class.java
         ).build()
     }
