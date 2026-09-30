@@ -634,11 +634,24 @@ private fun MainTopBar(
                             )
                         }
                     }
-                    isVault && selectedCount > 0 -> {
-                        MainTabSlot(selected = true, onClick = { onTabSelected(1) }, modifier = Modifier.fillMaxWidth().testTag("main_tab_vault")) {
+                    (isNote || isVault) && selectedCount > 0 -> {
+                        MainTabSlot(
+                            selected = true,
+                            onClick = { onTabSelected(if (isNote) 0 else 1) },
+                            modifier = Modifier.fillMaxWidth().testTag(if (isNote) "main_tab_note" else "main_tab_vault")
+                        ) {
                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 8.dp)) {
-                                VaultSelectionCheckbox(checked = allSelected, onClick = onToggleSelectAll, modifier = Modifier.testTag("vault_select_all_checkbox"))
-                                Text(text = stringResource(com.clipnest.R.string.selected_count, selectedCount), style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold), maxLines = 1, modifier = Modifier.testTag("vault_selected_count_text"))
+                                VaultSelectionCheckbox(
+                                    checked = allSelected,
+                                    onClick = onToggleSelectAll,
+                                    modifier = Modifier.testTag(if (isNote) "note_select_all_checkbox" else "vault_select_all_checkbox")
+                                )
+                                Text(
+                                    text = stringResource(com.clipnest.R.string.selected_count, selectedCount),
+                                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                                    maxLines = 1,
+                                    modifier = Modifier.testTag(if (isNote) "note_selected_count_text" else "vault_selected_count_text")
+                                )
                             }
                         }
                     }
@@ -655,9 +668,21 @@ private fun MainTopBar(
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(0.dp)) {
                 if (isAskAiInProgress) CircularProgressIndicator(modifier = Modifier.size(22.dp).testTag("ask_ai_loading_indicator"), strokeWidth = 2.dp)
                 if ((isVault || isNote) && selectedCount > 0 && !isSearchOpen) {
-                    IconButton(onClick = onPinSelected, modifier = Modifier.size(36.dp).testTag("vault_action_pin_direct")) { Icon(if (allSelectedPinned) Icons.Outlined.PushPin else Icons.Default.PushPin, contentDescription = stringResource(if (allSelectedPinned) com.clipnest.R.string.unpin_selected else com.clipnest.R.string.pin_selected), modifier = Modifier.size(22.dp)) }
-                    IconButton(onClick = onCopySelected, modifier = Modifier.size(36.dp).testTag("vault_action_copy")) { Icon(Icons.Default.ContentCopy, contentDescription = stringResource(com.clipnest.R.string.copy_selected), modifier = Modifier.size(22.dp)) }
-                    IconButton(onClick = onDeleteSelected, modifier = Modifier.size(36.dp).testTag("vault_action_delete")) { Icon(Icons.Default.Delete, contentDescription = stringResource(com.clipnest.R.string.delete_selected), modifier = Modifier.size(22.dp)) }
+                    IconButton(onClick = onPinSelected, modifier = Modifier.size(36.dp).testTag(if (isNote) "note_action_pin_direct" else "vault_action_pin_direct")) {
+                        Icon(
+                            if (isNote) Icons.Default.PushPin else if (allSelectedPinned) Icons.Outlined.PushPin else Icons.Default.PushPin,
+                            contentDescription = stringResource(if (!isNote && allSelectedPinned) com.clipnest.R.string.unpin_selected else com.clipnest.R.string.pin_selected),
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    if (isVault) {
+                        IconButton(onClick = onCopySelected, modifier = Modifier.size(36.dp).testTag("vault_action_copy")) {
+                            Icon(Icons.Default.ContentCopy, contentDescription = stringResource(com.clipnest.R.string.copy_selected), modifier = Modifier.size(22.dp))
+                        }
+                    }
+                    IconButton(onClick = onDeleteSelected, modifier = Modifier.size(36.dp).testTag(if (isNote) "note_action_delete" else "vault_action_delete")) {
+                        Icon(Icons.Default.Delete, contentDescription = stringResource(com.clipnest.R.string.delete_selected), modifier = Modifier.size(22.dp))
+                    }
                 }
                 if (!isSettings) {
                     if (isSearchOpen) {
