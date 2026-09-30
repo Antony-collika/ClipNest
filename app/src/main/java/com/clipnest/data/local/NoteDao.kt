@@ -18,7 +18,7 @@ interface NoteDao {
     suspend fun getNoteById(id: Long): Note?
 
     @Query("""
-        SELECT n.id, n.title, SUBSTR(n.content, 1, 320) AS preview, n.updatedAtMillis,
+        SELECT n.id, n.title, n.preview AS preview, n.updatedAtMillis,
                COALESCE(GROUP_CONCAT(t.name, ', '), '') AS topicLabels
         FROM notes n
         LEFT JOIN note_topic_cross_ref r ON r.noteId = n.id AND r.role = 'USER_TAG'
@@ -30,7 +30,7 @@ interface NoteDao {
     fun observeActiveNoteCards(): Flow<List<NoteCardProjection>>
 
     @Query("""
-        SELECT n.id, n.title, SUBSTR(n.content, 1, 320) AS preview, n.updatedAtMillis,
+        SELECT n.id, n.title, n.preview AS preview, n.updatedAtMillis,
                COALESCE(GROUP_CONCAT(t.name, ', '), '') AS topicLabels
         FROM notes n
         LEFT JOIN note_topic_cross_ref r ON r.noteId = n.id AND r.role = 'USER_TAG'
@@ -46,7 +46,7 @@ interface NoteDao {
     fun observeActiveNotesByTopic(topicId: Long, origin: String): Flow<List<Note>>
 
     @Query("""
-        SELECT n.id, n.title, SUBSTR(n.content, 1, 320) AS preview, n.updatedAtMillis,
+        SELECT n.id, n.title, n.preview AS preview, n.updatedAtMillis,
                COALESCE(GROUP_CONCAT(t.name, ', '), '') AS topicLabels
         FROM notes n
         INNER JOIN note_topic_cross_ref selectedRef
@@ -63,7 +63,7 @@ interface NoteDao {
     fun observeActiveNoteCardsByTopic(topicId: Long, origin: String): Flow<List<NoteCardProjection>>
 
     @Query("""
-        SELECT DISTINCT n.id, n.title, SUBSTR(n.content, 1, 320) AS preview, n.updatedAtMillis,
+        SELECT DISTINCT n.id, n.title, n.preview AS preview, n.updatedAtMillis,
                COALESCE((
                    SELECT GROUP_CONCAT(t2.name, ', ')
                    FROM note_topic_cross_ref r2
@@ -81,7 +81,7 @@ interface NoteDao {
     fun observeActiveNoteCardsByTopicTree(topicId: Long, origin: String): Flow<List<NoteCardProjection>>
 
     @Query("""
-        SELECT DISTINCT n.id, n.title, SUBSTR(n.content, 1, 320) AS preview, n.updatedAtMillis,
+        SELECT DISTINCT n.id, n.title, n.preview AS preview, n.updatedAtMillis,
                COALESCE((
                    SELECT GROUP_CONCAT(t2.name, ', ')
                    FROM note_topic_cross_ref r2
@@ -102,7 +102,7 @@ interface NoteDao {
     @Query("SELECT * FROM topics WHERE origin = :origin ORDER BY name COLLATE NOCASE ASC")
     fun observeTopicsForOrigin(origin: String): Flow<List<com.clipnest.data.model.Topic>>
 
-    @Query("UPDATE notes SET title = :title, content = :content, updatedAtMillis = :now, editSessionCount = editSessionCount + 1, lastAuthoredAtMillis = :now WHERE id = :id")
+    @Query("UPDATE notes SET title = :title, content = :content, preview = SUBSTR(:content, 1, 320), updatedAtMillis = :now, editSessionCount = editSessionCount + 1, lastAuthoredAtMillis = :now WHERE id = :id")
     suspend fun updateContentAndBumpEditSession(id: Long, title: String, content: String, now: Long)
 
     @Query("UPDATE notes SET isDeleted = :isDeleted, deletedAtMillis = :deletedAtMillis, updatedAtMillis = :updatedAtMillis WHERE id = :id")
