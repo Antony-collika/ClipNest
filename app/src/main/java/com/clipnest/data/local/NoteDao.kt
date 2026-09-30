@@ -18,7 +18,6 @@ interface NoteDao {
     @Query("SELECT * FROM notes WHERE id = :id LIMIT 1")
     suspend fun getNoteById(id: Long): Note?
 
-    @SkipQueryVerification
     @Query("""
         SELECT n.id, n.title, n.preview AS preview, n.updatedAtMillis,
                COALESCE(GROUP_CONCAT(t.name, ', '), '') AS topicLabels
@@ -31,6 +30,7 @@ interface NoteDao {
     """)
     fun observeActiveNoteCards(): Flow<List<NoteCardProjection>>
 
+    @SkipQueryVerification
     @Query("""
         SELECT n.id, n.title, n.preview AS preview, n.updatedAtMillis,
                COALESCE(GROUP_CONCAT(t.name, ', '), '') AS topicLabels
@@ -82,6 +82,7 @@ interface NoteDao {
     """)
     fun observeActiveNoteCardsByTopicTree(topicId: Long, origin: String): Flow<List<NoteCardProjection>>
 
+    @SkipQueryVerification
     @Query("""
         SELECT DISTINCT n.id, n.title, n.preview AS preview, n.updatedAtMillis,
                COALESCE((
