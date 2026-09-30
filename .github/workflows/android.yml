@@ -4,7 +4,7 @@ name: Android CI/CD
 on:
   push:
     branches:
-      - Note-database
+      - Draft
   pull_request:
     branches:
       - Note-database
