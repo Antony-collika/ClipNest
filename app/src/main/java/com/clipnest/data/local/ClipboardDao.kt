@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.SkipQueryVerification
 import androidx.room.Transaction
 import androidx.room.Update
 import com.clipnest.data.model.ClipboardCard
@@ -22,15 +23,16 @@ interface ClipboardDao {
     )
     fun getAllCardProjections(): Flow<List<ClipboardCardProjection>>
 
+    @SkipQueryVerification
     @Query(
         """
         SELECT id, preview, createdAtMillis, sortOrder, sourceApp, contentType, pinned, isSensitive 
         FROM clipboard_cards 
-        WHERE content LIKE '%' || :query || '%' OR (sourceApp IS NOT NULL AND sourceApp LIKE '%' || :query || '%')
+        WHERE id IN (SELECT rowid FROM clipboard_cards_fts WHERE clipboard_cards_fts MATCH :ftsQuery)
         ORDER BY sortOrder DESC
         """
     )
-    fun searchCardProjections(query: String): Flow<List<ClipboardCardProjection>>
+    fun searchCardProjections(ftsQuery: String): Flow<List<ClipboardCardProjection>>
 
     @Query("SELECT * FROM clipboard_cards ORDER BY sortOrder DESC")
     suspend fun getAllCards(): List<ClipboardCard>
