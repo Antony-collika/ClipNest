@@ -21,3 +21,9 @@ data class Note(
     val normalizedTitle: String = SearchTextNormalizer.normalize(title),
     val normalizedContent: String = SearchTextNormalizer.normalize(content)
 )
+
+
+data class NoteEditorProjection(
+    val id: Long,
+    val title: String
+)
