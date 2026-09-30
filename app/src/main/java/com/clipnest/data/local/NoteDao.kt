@@ -131,6 +131,9 @@ interface NoteDao {
     @Query("SELECT EXISTS(SELECT 1 FROM note_topic_cross_ref WHERE noteId = :noteId AND topicId = :topicId AND role = :role)")
     suspend fun hasTopicRelation(noteId: Long, topicId: Long, role: com.clipnest.data.model.NoteTopicRole): Boolean
 
+    @Query("SELECT DISTINCT topicId FROM note_topic_cross_ref WHERE noteId IN (:noteIds) AND role = :role")
+    suspend fun getUserTopicIdsForNotes(noteIds: List<Long>, role: com.clipnest.data.model.NoteTopicRole): List<Long>
+
     @Query("SELECT r.noteId FROM note_topic_cross_ref r WHERE r.topicId = :topicId AND r.role = :role AND r.isPinned = 1")
     fun observePinnedNoteIdsForTopic(topicId: Long, role: com.clipnest.data.model.NoteTopicRole): Flow<List<Long>>
 
