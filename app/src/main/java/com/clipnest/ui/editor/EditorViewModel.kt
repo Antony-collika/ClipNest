@@ -24,7 +24,6 @@ import com.clipnest.data.local.FileManager
 import com.clipnest.data.local.NoteDao
 import com.clipnest.data.local.TopicDao
 import com.clipnest.data.model.Note
-import com.clipnest.data.model.NoteEditorProjection
 import com.clipnest.data.model.NoteTopicCrossRef
 import com.clipnest.data.model.NoteTopicRole
 import com.clipnest.data.model.Topic
@@ -928,7 +927,7 @@ class EditorViewModel(
             if (chunk.isEmpty()) break
             builder.append(chunk)
             if (chunk.length < chunkSize) break
-            start += chunk.length
+            start += chunkSize
         }
         return builder.toString()
     }
