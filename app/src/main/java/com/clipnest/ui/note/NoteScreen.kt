@@ -117,7 +117,7 @@ fun NoteScreen(
 
     val selectedTopic = topics.firstOrNull { it.id == selectedTopicId }
     val pinnedNoteIds by remember(selectedTopicId) {
-        selectedTopicId?.let { topicDao.observePinnedNoteIdsForTopic(it, com.clipnest.data.model.NoteTopicRole.USER_TAG) }
+        selectedTopicId?.let { noteDao.observePinnedNoteIdsForTopic(it, com.clipnest.data.model.NoteTopicRole.USER_TAG) }
             ?: kotlinx.coroutines.flow.flowOf(emptyList())
     }.collectAsState(initial = emptyList())
     LaunchedEffect(selectedTopicId) { onSelectedTopicIdChanged(selectedTopicId) }
