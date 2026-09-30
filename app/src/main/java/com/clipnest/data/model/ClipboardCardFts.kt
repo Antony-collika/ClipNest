@@ -8,7 +8,6 @@ import androidx.room.FtsOptions
     tokenizer = FtsOptions.TOKENIZER_UNICODE61,
     tokenizerArgs = ["remove_diacritics=2"],
     contentEntity = ClipboardCard::class,
-    prefix = [2, 3, 4, 5, 6]
 )
 @Entity(tableName = "clipboard_cards_fts")
 data class ClipboardCardFts(
