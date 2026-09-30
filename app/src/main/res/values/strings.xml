@@ -266,4 +266,8 @@
     <string name="drawer_my_topics">My topics</string>
     <string name="drawer_add_topic">Add topic</string>
     <string name="drawer_no_topics">No topics yet</string>
+    <string name="drawer_trash">Trash</string>
+    <string name="trash_empty">Trash is empty</string>
+    <string name="trash_restore">Restore</string>
+    <string name="trash_delete_forever">Delete permanently</string>
 </resources>
