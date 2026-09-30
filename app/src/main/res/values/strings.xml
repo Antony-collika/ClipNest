@@ -258,4 +258,12 @@
     <string name="create_note_from_selection">Create Note from selection</string>
     <string name="search_notes">Search notes...</string>
     <string name="no_search_results">No matching notes</string>
+    <string name="drawer_mini_me">Mini me</string>
+    <string name="drawer_personal_area">Personal area</string>
+    <string name="drawer_recent">Recent in your world</string>
+    <string name="drawer_trending">Trending topics</string>
+    <string name="drawer_insight">Insight</string>
+    <string name="drawer_my_topics">My topics</string>
+    <string name="drawer_add_topic">Add topic</string>
+    <string name="drawer_no_topics">No topics yet</string>
 </resources>
