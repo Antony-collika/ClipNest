@@ -13,10 +13,6 @@ object TopicOrigins {
     const val USER = "USER"
 }
 
-enum class TopicLevel {
-    PARENT,
-    CHILD
-}
 
 @Entity(
     tableName = "topics",
@@ -39,7 +35,6 @@ data class Topic(
     val name: String,
     val parentId: Long? = null,
     val origin: String = TopicOrigins.USER,
-    val level: TopicLevel = TopicLevel.PARENT,
     val icon: String? = null,
     val isPinned: Boolean = false,
     val createdAtMillis: Long
