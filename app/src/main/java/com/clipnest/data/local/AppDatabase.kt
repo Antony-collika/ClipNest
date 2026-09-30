@@ -80,6 +80,7 @@ abstract class AppDatabase : RoomDatabase() {
 
         private val MIGRATION_3_4 = object : Migration(3, 4) {
             override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE `note_topic_cross_ref` RENAME TO `note_topic_cross_ref_old`")
                 database.execSQL("""
                     CREATE TABLE IF NOT EXISTS `topics_new` (
                         `id` INTEGER NOT NULL,
@@ -99,11 +100,32 @@ abstract class AppDatabase : RoomDatabase() {
                     SELECT `id`, `name`, `parentId`, `origin`, `icon`, `isPinned`, `createdAtMillis`
                     FROM `topics`
                 """.trimIndent())
+                database.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `note_topic_cross_ref_new` (
+                        `noteId` INTEGER NOT NULL,
+                        `topicId` INTEGER NOT NULL,
+                        `role` TEXT NOT NULL,
+                        `rank` INTEGER,
+                        PRIMARY KEY(`noteId`, `topicId`, `role`),
+                        FOREIGN KEY(`noteId`) REFERENCES `notes`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE,
+                        FOREIGN KEY(`topicId`) REFERENCES `topics_new`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                """.trimIndent())
+                database.execSQL("""
+                    INSERT INTO `note_topic_cross_ref_new`
+                    (`noteId`, `topicId`, `role`, `rank`)
+                    SELECT `noteId`, `topicId`, `role`, `rank`
+                    FROM `note_topic_cross_ref_old`
+                """.trimIndent())
+                database.execSQL("DROP TABLE `note_topic_cross_ref_old`")
                 database.execSQL("DROP TABLE `topics`")
                 database.execSQL("ALTER TABLE `topics_new` RENAME TO `topics`")
+                database.execSQL("ALTER TABLE `note_topic_cross_ref_new` RENAME TO `note_topic_cross_ref`")
                 database.execSQL("CREATE INDEX IF NOT EXISTS `index_topics_parentId` ON `topics` (`parentId`)")
                 database.execSQL("CREATE INDEX IF NOT EXISTS `index_topics_origin_name` ON `topics` (`origin`, `name`)")
                 database.execSQL("CREATE INDEX IF NOT EXISTS `index_topics_origin_parentId` ON `topics` (`origin`, `parentId`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_note_topic_cross_ref_noteId` ON `note_topic_cross_ref` (`noteId`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_note_topic_cross_ref_topicId` ON `note_topic_cross_ref` (`topicId`)")
             }
         }
 
