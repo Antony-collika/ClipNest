@@ -81,6 +81,7 @@ fun NoteScreen(
     searchQuery: String,
     onOpenSearch: () -> Unit = {},
     onCloseSearch: () -> Unit = {},
+    onSearchQueryChange: (String) -> Unit = {},
     onOpenMenu: () -> Unit = {},
     onOpenOverflow: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -153,7 +154,7 @@ fun NoteScreen(
             if (isSearchOpen) {
                 SearchOverlay(
                     query = searchQuery,
-                    onQueryChange = { /* query is owned by MainActivity */ },
+                    onQueryChange = onSearchQueryChange,
                     onClose = onCloseSearch,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                 )
