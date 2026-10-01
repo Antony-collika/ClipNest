@@ -634,6 +634,14 @@ fun MainAppContent(
                             },
                             isSearchOpen = noteSearchOpen,
                             searchQuery = noteSearchQuery,
+                            onOpenSearch = {
+                                noteSearchOpen = true
+                                pagerState.animateScrollToPage(0)
+                            },
+                            onOpenMenu = {
+                                scope.launch { drawerState.open() }
+                            },
+                            onOpenOverflow = {},
                             modifier = Modifier.fillMaxSize()
                         )
                         1 -> VaultScreen(
