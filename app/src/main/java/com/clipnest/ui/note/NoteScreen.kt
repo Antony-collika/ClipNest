@@ -368,7 +368,7 @@ private fun NotePreviewPopup(
                     ) {
                         Text(
                             text = RelativeTimeFormatter.format(
-                                note.updatedAtMillis,
+                                note.createdAtMillis,
                                 androidx.compose.ui.res.stringResource(R.string.today),
                                 androidx.compose.ui.res.stringResource(R.string.yesterday)
                             ),
