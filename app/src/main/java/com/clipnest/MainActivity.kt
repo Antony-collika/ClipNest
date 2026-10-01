@@ -861,34 +861,6 @@ private fun MainTopBar(
                         )
                     }
                 }
-                    Box {
-                        IconButton(onClick = { overflowExpanded = true }, modifier = Modifier.size(36.dp).testTag("main_overflow_button")) { Icon(Icons.Default.MoreVert, contentDescription = stringResource(com.clipnest.R.string.more_options), modifier = Modifier.size(22.dp)) }
-                        if (overflowExpanded) {
-                            DropdownMenu(expanded = overflowExpanded, onDismissRequest = { overflowExpanded = false }, containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp, shadowElevation = 2.dp, modifier = Modifier.testTag("main_overflow_menu")) {
-                                if (isVault) {
-                                    DropdownMenuItem(text = { Text(if (allSelected) stringResource(com.clipnest.R.string.clear_selection) else stringResource(com.clipnest.R.string.select_all)) }, onClick = { overflowExpanded = false; onToggleSelectAll() }, modifier = Modifier.testTag("main_menu_select_all"))
-                                    DropdownMenuItem(text = { Text(stringResource(com.clipnest.R.string.share)) }, enabled = selectedCount > 0, onClick = { overflowExpanded = false; onShareSelected() }, modifier = Modifier.testTag("main_menu_share"))
-                                    DropdownMenuItem(text = { Text(stringResource(com.clipnest.R.string.save_file)) }, enabled = selectedCount > 0, onClick = { overflowExpanded = false; onSaveFile() }, modifier = Modifier.testTag("main_menu_save_file"))
-                                    DropdownMenuItem(text = { Text(stringResource(com.clipnest.R.string.new_note)) }, onClick = { overflowExpanded = false; onCreateNoteFromVault() }, modifier = Modifier.testTag("main_menu_new_note"))
-                                    DropdownMenuItem(text = { Text(stringResource(com.clipnest.R.string.create_note_from_selection)) }, enabled = selectedCount > 0, onClick = { overflowExpanded = false; onOpenEditor() }, modifier = Modifier.testTag("main_menu_create_note_from_selection"))
-                                    DropdownMenuItem(text = { Text(stringResource(com.clipnest.R.string.show_pinned_first)) }, trailingIcon = { if (showPinnedFirst) Icon(Icons.Default.Check, contentDescription = stringResource(com.clipnest.R.string.active)) }, onClick = { overflowExpanded = false; onToggleShowPinnedFirst() }, modifier = Modifier.testTag("main_menu_show_pinned_first"))
-                                    DropdownMenuItem(text = { Text(stringResource(com.clipnest.R.string.settings)) }, onClick = { overflowExpanded = false; onOpenSettings() }, modifier = Modifier.testTag("main_menu_settings"))
-                                } else if (isNote) {
-                                    DropdownMenuItem(text = { Text(if (allSelected) stringResource(com.clipnest.R.string.clear_selection) else stringResource(com.clipnest.R.string.select_all)) }, onClick = { overflowExpanded = false; onToggleSelectAll() }, modifier = Modifier.testTag("note_menu_select_all"))
-                                    DropdownMenuItem(text = { Text(stringResource(com.clipnest.R.string.new_note)) }, onClick = { overflowExpanded = false; onCreateNoteFromVault() }, modifier = Modifier.testTag("note_menu_new_note"))
-                                    DropdownMenuItem(text = { Text(stringResource(com.clipnest.R.string.settings)) }, onClick = { overflowExpanded = false; onOpenSettings() }, modifier = Modifier.testTag("main_menu_settings"))
-                                } else if (isEditor) {
-                                    DropdownMenuItem(text = { Text(stringResource(com.clipnest.R.string.open_file)) }, onClick = { overflowExpanded = false; onOpenFile() }, modifier = Modifier.testTag("editor_menu_open_file"))
-                                    DropdownMenuItem(text = { Text(stringResource(com.clipnest.R.string.return_to_editor)) }, enabled = isExternalDocument, onClick = { overflowExpanded = false; onReturnToEditor() }, modifier = Modifier.testTag("editor_menu_return_to_editor"))
-                                    DropdownMenuItem(text = { Text(stringResource(com.clipnest.R.string.save_file)) }, onClick = { overflowExpanded = false; onEditorSave() }, modifier = Modifier.testTag("editor_menu_save_file"))
-                                    DropdownMenuItem(text = { Text(stringResource(com.clipnest.R.string.ask_ai)) }, onClick = { overflowExpanded = false; onAskAi() }, modifier = Modifier.testTag("editor_menu_ask_ai"))
-                                    DropdownMenuItem(text = { Text(stringResource(com.clipnest.R.string.settings)) }, onClick = { overflowExpanded = false; onOpenSettings() }, modifier = Modifier.testTag("main_menu_settings"))
-                                } else {
-                                    DropdownMenuItem(text = { Text(stringResource(com.clipnest.R.string.settings)) }, onClick = { overflowExpanded = false; onOpenSettings() }, modifier = Modifier.testTag("main_menu_settings"))
-                                }
-                            }
-                        }
-                    }
                 }
             }
         }
