@@ -38,11 +38,11 @@ data class ThemePalette(
         val semantic = semanticColors(isDark)
         return ThemeNoteColors(
             card = scheme.surfaceVariant,
-            selectedCard = scheme.primaryContainer,
-            pinnedSurface = semantic.pinned.copy(alpha = 0.12f),
-            tagSurface = scheme.secondaryContainer,
+            selectedCard = scheme.primaryContainer.copy(alpha = 0.72f),
+            pinnedSurface = semantic.pinned.copy(alpha = 0.10f),
+            tagSurface = scheme.secondaryContainer.copy(alpha = 0.88f),
             tagContent = scheme.onSecondaryContainer,
-            headerSurface = scheme.surfaceVariant.copy(alpha = 0.55f),
+            headerSurface = scheme.surfaceVariant.copy(alpha = 0.46f),
             dockSurface = scheme.surface,
             wavePrimary = scheme.primaryContainer,
             waveSecondary = scheme.secondary
