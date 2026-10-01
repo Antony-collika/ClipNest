@@ -27,6 +27,11 @@
     <string name="delete_selected">Xóa mục đã chọn</string>
     <string name="search">Tìm kiếm</string>
     <string name="more_options">Tùy chọn khác</string>
+    <string name="menu">Menu</string>
+    <string name="note_list_view">Danh sách</string>
+    <string name="note_grid_view">Lưới</string>
+    <string name="collapse_pinned">Thu gọn Pinned</string>
+    <string name="expand_pinned">Mở rộng Pinned</string>
     <string name="active">Đang bật</string>
     <string name="close_search">Đóng tìm kiếm</string>
     <string name="clear_search">Xóa tìm kiếm</string>
