@@ -23,6 +23,20 @@ data class Note(
 )
 
 
+data class NoteBackupProjection(
+    val id: Long,
+    val title: String,
+    val createdAtMillis: Long,
+    val updatedAtMillis: Long,
+    val isPinned: Boolean,
+    val isArchived: Boolean,
+    val isDeleted: Boolean,
+    val deletedAtMillis: Long?,
+    val editSessionCount: Long,
+    val lastAuthoredAtMillis: Long?
+)
+
+
 data class NoteEditorProjection(
     val id: Long,
     val title: String
