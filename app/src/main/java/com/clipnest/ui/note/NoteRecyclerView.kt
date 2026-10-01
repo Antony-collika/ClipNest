@@ -51,6 +51,8 @@ internal data class NoteRecyclerColors(
     val outlineVariant: Int
 )
 
+internal enum class NoteViewMode { LIST, GRID }
+
 internal data class NoteHeaderState(
     val title: String,
     val allNotesLabel: String,
@@ -58,7 +60,9 @@ internal data class NoteHeaderState(
     val topics: List<Topic>,
     val colors: androidx.compose.material3.ColorScheme,
     val typography: androidx.compose.material3.Typography,
-    val onTopicSelected: (Long?) -> Unit
+    val viewMode: NoteViewMode,
+    val onTopicSelected: (Long?) -> Unit,
+    val onViewModeChanged: (NoteViewMode) -> Unit
 )
 
 internal data class NoteRecyclerCallbacks(
@@ -111,6 +115,14 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
         }
 
         headerAdapter.setState(header)
+        if (header.viewMode == NoteViewMode.GRID) {
+            if (layoutManager !is androidx.recyclerview.widget.GridLayoutManager) {
+                layoutManager = androidx.recyclerview.widget.GridLayoutManager(context, 2)
+            }
+        } else if (layoutManager !is androidx.recyclerview.widget.LinearLayoutManager ||
+            layoutManager is androidx.recyclerview.widget.GridLayoutManager) {
+            layoutManager = androidx.recyclerview.widget.LinearLayoutManager(context)
+        }
         listAdapter.setVisualState(selectedIds, pinnedIds, colors)
         if (listAdapter.isSameData(notes)) return
 
@@ -157,27 +169,40 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
     @Composable
     private fun NoteHeaderContent(state: NoteHeaderState) {
         var expanded by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 0.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 0.dp, vertical = 8.dp)
         ) {
-            androidx.compose.foundation.layout.Box {
-                TextButton(onClick = { expanded = true }) { Text(state.title) }
-                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                    DropdownMenuItem(
-                        text = { Text(state.allNotesLabel) },
-                        onClick = { expanded = false; state.onTopicSelected(null) }
-                    )
-                    state.topics.forEach { topic ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                androidx.compose.foundation.layout.Box {
+                    TextButton(onClick = { expanded = true }) { Text(state.title) }
+                    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                         DropdownMenuItem(
-                            text = { Text(topic.name) },
-                            onClick = { expanded = false; state.onTopicSelected(topic.id) }
+                            text = { Text(state.allNotesLabel) },
+                            onClick = { expanded = false; state.onTopicSelected(null) }
                         )
+                        state.topics.forEach { topic ->
+                            DropdownMenuItem(
+                                text = { Text(topic.name) },
+                                onClick = { expanded = false; state.onTopicSelected(topic.id) }
+                            )
+                        }
                     }
                 }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = {
+                        state.onViewModeChanged(
+                            if (state.viewMode == NoteViewMode.LIST) NoteViewMode.GRID else NoteViewMode.LIST
+                        )
+                    }) {
+                        Text(if (state.viewMode == NoteViewMode.LIST) "Grid" else "List")
+                    }
+                    Text(text = state.noteTabLabel, style = MaterialTheme.typography.titleMedium)
+                }
             }
-            Text(text = state.noteTabLabel, style = MaterialTheme.typography.titleMedium)
         }
     }
 
