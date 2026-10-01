@@ -9,6 +9,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -55,6 +56,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.viewinterop.AndroidView
 import com.clipnest.R
 import com.clipnest.data.local.NoteDao
@@ -92,6 +94,7 @@ fun NoteScreen(
     var previewNoteId by rememberSaveable { mutableStateOf<Long?>(null) }
     var previewAnchorY by remember { mutableStateOf(0f) }
     var previewContent by remember { mutableStateOf<String?>(null) }
+    var overflowExpanded by rememberSaveable { mutableStateOf(false) }
 
     val topics by topicDao.observeAllTopics().collectAsState(initial = emptyList())
     val normalizedSearchQuery = searchQuery.trim()
@@ -236,6 +239,24 @@ fun NoteScreen(
             }
         }
 
+        Canvas(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .heightIn(min = 96.dp, max = 112.dp)
+                .padding(bottom = 8.dp)
+        ) {
+            val wave = Path().apply {
+                moveTo(0f, size.height * 0.72f)
+                cubicTo(size.width * 0.18f, size.height * 0.42f, size.width * 0.34f, size.height * 0.95f, size.width * 0.52f, size.height * 0.64f)
+                cubicTo(size.width * 0.70f, size.height * 0.34f, size.width * 0.84f, size.height * 0.78f, size.width, size.height * 0.48f)
+                lineTo(size.width, size.height)
+                lineTo(0f, size.height)
+                close()
+            }
+            drawPath(wave, MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.34f))
+        }
+
         Row(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -265,11 +286,41 @@ fun NoteScreen(
                     contentDescription = androidx.compose.ui.res.stringResource(R.string.new_note)
                 )
             }
-            FloatingActionButton(
-                onClick = onOpenOverflow,
-                modifier = Modifier.width(52.dp)
-            ) {
-                Icon(Icons.Default.MoreVert, contentDescription = "More")
+            Box {
+                FloatingActionButton(
+                    onClick = { overflowExpanded = true },
+                    modifier = Modifier.width(52.dp)
+                ) {
+                    Icon(Icons.Default.MoreVert, contentDescription = "More")
+                }
+                DropdownMenu(
+                    expanded = overflowExpanded,
+                    onDismissRequest = { overflowExpanded = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Danh sách") },
+                        onClick = {
+                            overflowExpanded = false
+                            viewMode = NoteViewMode.LIST
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Lưới") },
+                        onClick = {
+                            overflowExpanded = false
+                            viewMode = NoteViewMode.GRID
+                        }
+                    )
+                    if (pinnedNoteIds.isNotEmpty()) {
+                        DropdownMenuItem(
+                            text = { Text(if (pinnedExpanded) "Thu gọn Pinned" else "Mở rộng Pinned") },
+                            onClick = {
+                                overflowExpanded = false
+                                pinnedExpanded = !pinnedExpanded
+                            }
+                        )
+                    }
+                }
             }
         }
     }
@@ -297,7 +348,7 @@ private fun SearchOverlay(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
