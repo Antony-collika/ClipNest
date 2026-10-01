@@ -3,7 +3,7 @@ package com.clipnest.data.model
 import com.squareup.moshi.JsonClass
 
 const val VAULT_BACKUP_FORMAT = "clipnest-backup"
-const val VAULT_BACKUP_VERSION = 1
+const val VAULT_BACKUP_VERSION = 2
 const val ENCRYPTED_BACKUP_FORMAT = "clipnest-encrypted-backup"
 const val ENCRYPTED_BACKUP_VERSION = 1
 
@@ -11,7 +11,22 @@ const val ENCRYPTED_BACKUP_VERSION = 1
 data class VaultBackupFile(
     val format: String = VAULT_BACKUP_FORMAT,
     val version: Int = VAULT_BACKUP_VERSION,
-    val cards: List<VaultBackupCard> = emptyList()
+    val cards: List<VaultBackupCard> = emptyList(),
+    val notes: List<VaultBackupNote> = emptyList()
+)
+
+@JsonClass(generateAdapter = true)
+data class VaultBackupNote(
+    val title: String,
+    val content: String,
+    val createdAtMillis: Long,
+    val updatedAtMillis: Long,
+    val isPinned: Boolean = false,
+    val isArchived: Boolean = false,
+    val isDeleted: Boolean = false,
+    val deletedAtMillis: Long? = null,
+    val editSessionCount: Long = 0L,
+    val lastAuthoredAtMillis: Long? = null
 )
 
 @JsonClass(generateAdapter = true)
