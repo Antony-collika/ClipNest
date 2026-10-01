@@ -467,7 +467,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             actions.addView(checkbox); actions.addView(View(context), LinearLayout.LayoutParams(0, 1, 1f)); actions.addView(editButton); addView(actions)
             title = TextView(context).apply { layoutParams = LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT); maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END; textSize = 16f; setTypeface(Typeface.DEFAULT, Typeface.BOLD) }; addView(title)
             preview = TextView(context).apply { layoutParams = LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) }; maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END; textSize = 14f }; addView(preview)
-            label = TextView(context).apply { layoutParams = LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(3) }; maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END; textSize = 12f }; addView(label)
+            label = TextView(context).apply { layoutParams = LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(3) }; maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END; textSize = 12f }; addView(label)
         }
         fun bind(note: NoteCardProjection, selected: Boolean, colors: NoteRecyclerColors, onToggleSelect: () -> Unit, onLongPress: () -> Unit, onEdit: () -> Unit) {
             background = GradientDrawable().apply { shape = GradientDrawable.RECTANGLE; cornerRadius = dp(16).toFloat(); setColor(if (selected) colors.noteSelectedCard else colors.noteCard) }
@@ -566,7 +566,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             contentColumn.addView(title)
 
             label = TextView(context).apply {
-                layoutParams = LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                layoutParams = LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                     topMargin = dp(3)
                 }
                 maxLines = 1
