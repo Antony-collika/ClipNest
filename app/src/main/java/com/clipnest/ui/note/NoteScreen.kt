@@ -15,12 +15,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Menu
@@ -31,6 +32,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -262,76 +264,93 @@ fun NoteScreen(
             drawPath(wave, waveColor)
         }
 
-        Row(
+        Surface(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = 20.dp, vertical = 14.dp),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(36.dp),
+            tonalElevation = 6.dp,
+            shadowElevation = 8.dp
         ) {
-            FloatingActionButton(
-                onClick = onOpenMenu,
-                modifier = Modifier.width(52.dp)
+            Row(
+                modifier = Modifier
+                    .heightIn(min = 68.dp)
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Menu, contentDescription = androidx.compose.ui.res.stringResource(R.string.menu))
-            }
-            FloatingActionButton(
-                onClick = onOpenSearch,
-                modifier = Modifier.width(52.dp)
-            ) {
-                Icon(Icons.Default.Search, contentDescription = "Search")
-            }
-            FloatingActionButton(
-                onClick = { onCreateNote(origin, selectedTopicId) },
-                modifier = Modifier.width(64.dp)
-            ) {
-                Icon(
-                    Icons.Default.Add,
-                    contentDescription = androidx.compose.ui.res.stringResource(R.string.new_note)
-                )
-            }
-            Box {
-                FloatingActionButton(
-                    onClick = { overflowExpanded = true },
-                    modifier = Modifier.width(52.dp)
+                IconButton(
+                    onClick = onOpenMenu,
+                    modifier = Modifier.size(52.dp)
                 ) {
-                    Icon(Icons.Default.MoreVert, contentDescription = androidx.compose.ui.res.stringResource(R.string.more_options))
+                    Icon(
+                        Icons.Default.Menu,
+                        contentDescription = androidx.compose.ui.res.stringResource(R.string.menu)
+                    )
                 }
-                DropdownMenu(
-                    expanded = overflowExpanded,
-                    onDismissRequest = { overflowExpanded = false }
+                IconButton(
+                    onClick = onOpenSearch,
+                    modifier = Modifier.size(52.dp)
                 ) {
-                    DropdownMenuItem(
-                        text = { Text(androidx.compose.ui.res.stringResource(R.string.note_list_view)) },
-                        onClick = {
-                            overflowExpanded = false
-                            viewMode = NoteViewMode.LIST
-                        }
+                    Icon(
+                        Icons.Default.Search,
+                        contentDescription = androidx.compose.ui.res.stringResource(R.string.search_notes)
                     )
-                    DropdownMenuItem(
-                        text = { Text(androidx.compose.ui.res.stringResource(R.string.note_grid_view)) },
-                        onClick = {
-                            overflowExpanded = false
-                            viewMode = NoteViewMode.GRID
-                        }
+                }
+                FloatingActionButton(
+                    onClick = { onCreateNote(origin, selectedTopicId) },
+                    modifier = Modifier.size(56.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Edit,
+                        contentDescription = androidx.compose.ui.res.stringResource(R.string.new_note)
                     )
-                    if (pinnedNoteIds.isNotEmpty()) {
+                }
+                Box {
+                    IconButton(
+                        onClick = { overflowExpanded = true },
+                        modifier = Modifier.size(52.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.MoreVert,
+                            contentDescription = androidx.compose.ui.res.stringResource(R.string.more_options)
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = overflowExpanded,
+                        onDismissRequest = { overflowExpanded = false }
+                    ) {
                         DropdownMenuItem(
-                            text = { Text(androidx.compose.ui.res.stringResource(if (pinnedExpanded) R.string.collapse_pinned else R.string.expand_pinned)) },
+                            text = { Text(androidx.compose.ui.res.stringResource(R.string.note_list_view)) },
                             onClick = {
                                 overflowExpanded = false
-                                pinnedExpanded = !pinnedExpanded
+                                viewMode = NoteViewMode.LIST
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(androidx.compose.ui.res.stringResource(R.string.note_grid_view)) },
+                            onClick = {
+                                overflowExpanded = false
+                                viewMode = NoteViewMode.GRID
+                            }
+                        )
+                        if (pinnedNoteIds.isNotEmpty()) {
+                            DropdownMenuItem(
+                                text = { Text(androidx.compose.ui.res.stringResource(if (pinnedExpanded) R.string.collapse_pinned else R.string.expand_pinned)) },
+                                onClick = {
+                                    overflowExpanded = false
+                                    pinnedExpanded = !pinnedExpanded
+                                }
+                            )
+                        }
+                        DropdownMenuItem(
+                            text = { Text(androidx.compose.ui.res.stringResource(R.string.settings)) },
+                            onClick = {
+                                overflowExpanded = false
+                                onOpenSettings()
                             }
                         )
                     }
-                    DropdownMenuItem(
-                        text = { Text(androidx.compose.ui.res.stringResource(R.string.settings)) },
-                        onClick = {
-                            overflowExpanded = false
-                            onOpenSettings()
-                        }
-                    )
                 }
             }
         }
