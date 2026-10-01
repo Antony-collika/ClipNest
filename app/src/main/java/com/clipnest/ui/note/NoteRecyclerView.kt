@@ -62,6 +62,14 @@ internal data class NoteHeaderState(
     val colors: androidx.compose.material3.ColorScheme,
     val typography: androidx.compose.material3.Typography,
     val viewMode: NoteViewMode,
+    val pinnedLabel: String,
+    val pinnedExpanded: Boolean,
+    val onPinnedExpandedChanged: (Boolean) -> Unit,
+    val todayLabel: String,
+    val yesterdayLabel: String,
+    val previous7DaysLabel: String,
+    val previous30DaysLabel: String,
+    val olderLabel: String,
     val onTopicSelected: (Long?) -> Unit,
     val onViewModeChanged: (NoteViewMode) -> Unit
 )
@@ -125,13 +133,9 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             layoutManager = androidx.recyclerview.widget.LinearLayoutManager(context)
         }
         listAdapter.setVisualState(selectedIds, pinnedIds, colors)
-        if (listAdapter.isSameData(notes)) return
-
-        if (listAdapter.ids() == notes.map { it.id }) {
-            listAdapter.replaceDataWithoutChangingOrder(notes)
-        } else {
-            listAdapter.replace(notes)
-        }
+        val items = buildListItems(notes, pinnedIds.toSet(), header)
+        if (listAdapter.isSameData(notes, header)) return
+        listAdapter.replace(items, notes, header)
     }
 
     private inner class HeaderAdapter(private val context: Context) : RecyclerView.Adapter<HeaderViewHolder>() {
@@ -207,68 +211,81 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
         }
     }
 
-    private inner class NoteAdapter(private val context: Context) : ListAdapter<NoteCardProjection, NoteViewHolder>(DIFF_CALLBACK) {
+    private sealed class NoteListItem {
+        data class Section(val id: String, val title: String, val count: Int) : NoteListItem()
+        data class Note(val value: NoteCardProjection) : NoteListItem()
+    }
+
+    private inner class NoteAdapter(private val context: Context) : ListAdapter<NoteListItem, RecyclerView.ViewHolder>(ITEM_DIFF_CALLBACK) {
         private var selectedIds: Set<Long> = emptySet()
         private var pinnedIds: Set<Long> = emptySet()
         private var colors = currentColors
+        private var currentSourceIds: List<Long> = emptyList()
+        private var currentHeader: NoteHeaderState? = null
 
-        init {
-            setHasStableIds(true)
+        init { setHasStableIds(true) }
+
+        override fun getItemViewType(position: Int): Int = if (getItem(position) is NoteListItem.Section) 0 else 1
+
+        override fun getItemId(position: Int): Long = when (val item = getItem(position)) {
+            is NoteListItem.Section -> item.id.hashCode().toLong()
+            is NoteListItem.Note -> item.value.id
         }
 
-        override fun getItemId(position: Int): Long = getItem(position).id
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder =
+            if (viewType == 0) SectionViewHolder(TextView(context).apply {
+                layoutParams = RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                setPadding(dp(8), dp(14), dp(8), dp(6))
+                setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+                textSize = 13f
+            }) else NoteViewHolder(NoteRowView(context))
 
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): NoteViewHolder {
-            return NoteViewHolder(NoteRowView(context))
-        }
-
-        override fun onBindViewHolder(holder: NoteViewHolder, position: Int) {
-            val note = getItem(position)
-            holder.bind(
-                note = note,
-                selected = selectedIds.contains(note.id),
-                pinned = pinnedIds.contains(note.id),
-                colors = colors,
-                callbacks = callbacks
-            )
-        }
-
-        fun isSameData(value: List<NoteCardProjection>): Boolean = currentList == value
-
-        fun replace(value: List<NoteCardProjection>) {
-            submitList(value)
-        }
-
-        fun replaceDataWithoutChangingOrder(value: List<NoteCardProjection>) {
-            if (currentList.map { it.id } != value.map { it.id }) return
-            submitList(value)
-        }
-
-        fun setVisualState(
-            selectedIds: Set<Long>,
-            pinnedIds: Set<Long>,
-            colors: NoteRecyclerColors
-        ) {
-            val changed = this.selectedIds != selectedIds ||
-                this.pinnedIds != pinnedIds ||
-                this.colors != colors
-            this.selectedIds = selectedIds
-            this.pinnedIds = pinnedIds
-            this.colors = colors
-            if (changed && currentList.isNotEmpty()) {
-                notifyItemRangeChanged(0, currentList.size, PAYLOAD_STATE)
+        override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+            when (val item = getItem(position)) {
+                is NoteListItem.Section -> (holder as SectionViewHolder).bind(item, colors)
+                is NoteListItem.Note -> {
+                    val note = item.value
+                    (holder as NoteViewHolder).bind(note, selectedIds.contains(note.id), pinnedIds.contains(note.id), colors, callbacks)
+                }
             }
         }
 
-        fun ids(): List<Long> = currentList.map { it.id }
+        fun isFullSpanPosition(position: Int): Boolean = getItem(position) is NoteListItem.Section
+
+        fun isSameData(value: List<NoteCardProjection>, header: NoteHeaderState): Boolean =
+            currentSourceIds == value.map { it.id } && currentHeader == header
+
+        fun replace(value: List<NoteListItem>, source: List<NoteCardProjection>, header: NoteHeaderState) {
+            currentSourceIds = source.map { it.id }
+            currentHeader = header
+            submitList(value)
+        }
+
+        fun setVisualState(selectedIds: Set<Long>, pinnedIds: Set<Long>, colors: NoteRecyclerColors) {
+            val changed = this.selectedIds != selectedIds || this.pinnedIds != pinnedIds || this.colors != colors
+            this.selectedIds = selectedIds
+            this.pinnedIds = pinnedIds
+            this.colors = colors
+            if (changed && currentList.isNotEmpty()) notifyItemRangeChanged(0, currentList.size, PAYLOAD_STATE)
+        }
+
+        fun ids(): List<Long> = currentList.mapNotNull { (it as? NoteListItem.Note)?.value?.id }
     }
 
-    private object NoteDiffCallback : DiffUtil.ItemCallback<NoteCardProjection>() {
-        override fun areItemsTheSame(oldItem: NoteCardProjection, newItem: NoteCardProjection): Boolean =
-            oldItem.id == newItem.id
+    private class SectionViewHolder(private val view: TextView) : RecyclerView.ViewHolder(view) {
+        fun bind(item: NoteListItem.Section, colors: NoteRecyclerColors) {
+            view.text = item.title + " · " + item.count
+            view.setTextColor(colors.onSurface)
+        }
+    }
 
-        override fun areContentsTheSame(oldItem: NoteCardProjection, newItem: NoteCardProjection): Boolean =
-            oldItem == newItem
+    private object ITEM_DIFF_CALLBACK : DiffUtil.ItemCallback<NoteListItem>() {
+        override fun areItemsTheSame(oldItem: NoteListItem, newItem: NoteListItem): Boolean = when {
+            oldItem is NoteListItem.Section && newItem is NoteListItem.Section -> oldItem.id == newItem.id
+            oldItem is NoteListItem.Note && newItem is NoteListItem.Note -> oldItem.value.id == newItem.value.id
+            else -> false
+        }
+        override fun areContentsTheSame(oldItem: NoteListItem, newItem: NoteListItem): Boolean = oldItem == newItem
     }
 
     private companion object {
@@ -498,7 +515,36 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             return (color and 0x00FFFFFF) or ((alpha.coerceIn(0, 255)) shl 24)
         }
 
-        private fun dp(value: Int): Int = (value * density + 0.5f).toInt()
+        private fun buildListItems(notes: List<NoteCardProjection>, pinnedIds: Set<Long>, header: NoteHeaderState): List<NoteListItem> {
+        val result = mutableListOf<NoteListItem>()
+        val pinned = notes.filter { it.id in pinnedIds }
+        if (pinned.isNotEmpty()) {
+            result += NoteListItem.Section("pinned", header.pinnedLabel, pinned.size)
+            if (header.pinnedExpanded) pinned.forEach { result += NoteListItem.Note(it) }
+        }
+        val groups = linkedMapOf(
+            header.todayLabel to mutableListOf<NoteCardProjection>(),
+            header.yesterdayLabel to mutableListOf(),
+            header.previous7DaysLabel to mutableListOf(),
+            header.previous30DaysLabel to mutableListOf(),
+            header.olderLabel to mutableListOf()
+        )
+        val today = java.time.LocalDate.now()
+        notes.filterNot { it.id in pinnedIds }.forEach { note ->
+            val date = java.time.Instant.ofEpochMilli(note.createdAtMillis).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+            val days = java.time.temporal.ChronoUnit.DAYS.between(date, today)
+            val key = when { days <= 0L -> header.todayLabel; days == 1L -> header.yesterdayLabel; days <= 7L -> header.previous7DaysLabel; days <= 30L -> header.previous30DaysLabel; else -> header.olderLabel }
+            groups.getValue(key).add(note)
+        }
+        groups.forEach { (title, items) ->
+            if (items.isNotEmpty()) {
+                result += NoteListItem.Section("time:" + title, title, items.size)
+                items.forEach { result += NoteListItem.Note(it) }
+            }
+        }
+        return result
+    }
+    private fun dp(value: Int): Int = (value * density + 0.5f).toInt()
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density + 0.5f).toInt()
