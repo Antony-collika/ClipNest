@@ -644,6 +644,9 @@ fun MainAppContent(
                             onOpenMenu = {
                                 scope.launch { drawerState.open() }
                             },
+                            onOpenSettings = {
+                                navController.navigate(Screen.Settings.route) { launchSingleTop = true }
+                            },
                             modifier = Modifier.fillMaxSize()
                         )
                         1 -> VaultScreen(
