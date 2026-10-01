@@ -53,6 +53,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
@@ -249,34 +250,50 @@ fun NoteScreen(
         Canvas(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .heightIn(min = 96.dp, max = 112.dp)
-                .padding(bottom = 8.dp)
+                .fillMaxSize()
         ) {
-            val wave = Path().apply {
-                moveTo(0f, size.height * 0.72f)
-                cubicTo(size.width * 0.18f, size.height * 0.42f, size.width * 0.34f, size.height * 0.95f, size.width * 0.52f, size.height * 0.64f)
-                cubicTo(size.width * 0.70f, size.height * 0.34f, size.width * 0.84f, size.height * 0.78f, size.width, size.height * 0.48f)
+            val backWave = Path().apply {
+                moveTo(0f, size.height * 0.78f)
+                cubicTo(size.width * 0.14f, size.height * 0.60f, size.width * 0.30f, size.height * 0.88f, size.width * 0.46f, size.height * 0.70f)
+                cubicTo(size.width * 0.63f, size.height * 0.51f, size.width * 0.80f, size.height * 0.82f, size.width, size.height * 0.62f)
                 lineTo(size.width, size.height)
                 lineTo(0f, size.height)
                 close()
             }
-            drawPath(wave, waveColor)
+            val middleWave = Path().apply {
+                moveTo(0f, size.height * 0.84f)
+                cubicTo(size.width * 0.18f, size.height * 0.68f, size.width * 0.34f, size.height * 0.92f, size.width * 0.52f, size.height * 0.76f)
+                cubicTo(size.width * 0.69f, size.height * 0.60f, size.width * 0.84f, size.height * 0.88f, size.width, size.height * 0.70f)
+                lineTo(size.width, size.height)
+                lineTo(0f, size.height)
+                close()
+            }
+            val frontWave = Path().apply {
+                moveTo(0f, size.height * 0.91f)
+                cubicTo(size.width * 0.16f, size.height * 0.80f, size.width * 0.31f, size.height * 0.98f, size.width * 0.49f, size.height * 0.86f)
+                cubicTo(size.width * 0.67f, size.height * 0.74f, size.width * 0.84f, size.height * 0.94f, size.width, size.height * 0.80f)
+                lineTo(size.width, size.height)
+                lineTo(0f, size.height)
+                close()
+            }
+            drawPath(backWave, waveColor.copy(alpha = 0.18f))
+            drawPath(middleWave, waveColor.copy(alpha = 0.24f))
+            drawPath(frontWave, waveColor.copy(alpha = 0.34f))
         }
 
         Surface(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(horizontal = 20.dp, vertical = 14.dp),
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(36.dp),
+                .padding(horizontal = 20.dp, vertical = 20.dp),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(32.dp),
             tonalElevation = 6.dp,
             shadowElevation = 8.dp
         ) {
             Row(
                 modifier = Modifier
-                    .heightIn(min = 68.dp)
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    .heightIn(min = 56.dp)
+                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(
@@ -299,7 +316,13 @@ fun NoteScreen(
                 }
                 FloatingActionButton(
                     onClick = { onCreateNote(origin, selectedTopicId) },
-                    modifier = Modifier.size(56.dp)
+                    modifier = Modifier
+                        .size(56.dp)
+                        .offset(y = (-10).dp),
+                    elevation = androidx.compose.material3.FloatingActionButtonDefaults.elevation(
+                        defaultElevation = 8.dp,
+                        pressedElevation = 12.dp
+                    )
                 ) {
                     Icon(
                         Icons.Default.Edit,
