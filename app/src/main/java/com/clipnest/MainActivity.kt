@@ -543,7 +543,7 @@ fun MainAppContent(
                 noteCanPin = noteSelectedIds.isNotEmpty(),
                 isSettings = isSettings,
                 showPinnedFirst = vaultState.userSettings.showPinnedFirst,
-                isSearchOpen = if (isEditorTab) editorSearchOpen else if (isVaultTab) vaultState.isSearchOpen else if (isNoteTab) noteSearchOpen else false,
+                isSearchOpen = if (isEditorTab) editorSearchOpen else if (isVaultTab) vaultState.isSearchOpen else false,
                 searchQuery = if (isEditorTab) editorSearchQuery else if (isVaultTab) vaultState.searchQuery else if (isNoteTab) noteSearchQuery else "",
                 searchPlaceholder = if (isEditorTab) stringResource(com.clipnest.R.string.search_editor) else stringResource(com.clipnest.R.string.search_notes),
                 editorDocumentName = if (editorUiState.externalDocumentUri != null) editorUiState.documentName else stringResource(com.clipnest.R.string.editor),
@@ -634,6 +634,11 @@ fun MainAppContent(
                             },
                             isSearchOpen = noteSearchOpen,
                             searchQuery = noteSearchQuery,
+                            onSearchQueryChange = { noteSearchQuery = it },
+                            onCloseSearch = {
+                                noteSearchOpen = false
+                                noteSearchQuery = ""
+                            },
                             onOpenSearch = {
                                 noteSearchOpen = true
                                 scope.launch { pagerState.animateScrollToPage(0) }
