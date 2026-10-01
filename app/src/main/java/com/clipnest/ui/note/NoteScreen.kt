@@ -86,6 +86,7 @@ fun NoteScreen(
 ) {
     var selectedTopicId by rememberSaveable { mutableStateOf<Long?>(null) }
     var viewMode by rememberSaveable { mutableStateOf(NoteViewMode.LIST) }
+    var pinnedExpanded by rememberSaveable { mutableStateOf(true) }
     var previewNoteId by rememberSaveable { mutableStateOf<Long?>(null) }
     var previewAnchorY by remember { mutableStateOf(0f) }
     var previewContent by remember { mutableStateOf<String?>(null) }
@@ -176,6 +177,14 @@ fun NoteScreen(
                     colors = MaterialTheme.colorScheme,
                     typography = MaterialTheme.typography,
                     viewMode = viewMode,
+                    pinnedLabel = "Pinned",
+                    pinnedExpanded = pinnedExpanded,
+                    onPinnedExpandedChanged = { pinnedExpanded = it },
+                    todayLabel = "Today",
+                    yesterdayLabel = "Yesterday",
+                    previous7DaysLabel = "Previous 7 Days",
+                    previous30DaysLabel = "Previous 30 Days",
+                    olderLabel = "Older",
                     onTopicSelected = { topicId -> selectedTopicId = topicId },
                     onViewModeChanged = { viewMode = it }
                 )
