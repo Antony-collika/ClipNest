@@ -636,7 +636,7 @@ fun MainAppContent(
                             searchQuery = noteSearchQuery,
                             onOpenSearch = {
                                 noteSearchOpen = true
-                                pagerState.animateScrollToPage(0)
+                                scope.launch { pagerState.animateScrollToPage(0) }
                             },
                             onOpenMenu = {
                                 scope.launch { drawerState.open() }
