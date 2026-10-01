@@ -270,4 +270,6 @@
     <string name="trash_empty">Thùng rác trống</string>
     <string name="trash_restore">Khôi phục</string>
     <string name="trash_delete_forever">Xóa vĩnh viễn</string>
+    <string name="trash_delete_forever_confirm_title">Xóa vĩnh viễn %1$d Note?</string>
+    <string name="trash_delete_forever_confirm_message">Bạn có chắc muốn xóa vĩnh viễn %1$d Note đã chọn không? Hành động này không thể hoàn tác.</string>
 </resources>
