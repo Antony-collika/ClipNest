@@ -86,6 +86,7 @@ fun NoteScreen(
     onCloseSearch: () -> Unit = {},
     onSearchQueryChange: (String) -> Unit = {},
     onOpenMenu: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var selectedTopicId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -324,6 +325,13 @@ fun NoteScreen(
                             }
                         )
                     }
+                    DropdownMenuItem(
+                        text = { Text(androidx.compose.ui.res.stringResource(R.string.settings)) },
+                        onClick = {
+                            overflowExpanded = false
+                            onOpenSettings()
+                        }
+                    )
                 }
             }
         }
