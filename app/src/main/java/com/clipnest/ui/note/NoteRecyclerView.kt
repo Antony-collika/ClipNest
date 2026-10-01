@@ -255,7 +255,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
 
         init { setHasStableIds(true) }
 
-        override fun getItemViewType(position: Int): Int = if (getItem(position) is NoteListItem.Section) 0 else 1
+        override fun getItemViewType(position: Int): Int = when { getItem(position) is NoteListItem.Section -> 0; currentHeader?.viewMode == NoteViewMode.GRID -> 2; else -> 1 }
 
         override fun getItemId(position: Int): Long = when (val item = getItem(position)) {
             is NoteListItem.Section -> item.id.hashCode().toLong()
@@ -275,7 +275,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
                 is NoteListItem.Section -> (holder as SectionViewHolder).bind(item, colors, if (item.id == "pinned") (currentHeader?.pinnedExpanded ?: true) else true, if (item.id == "pinned") pinnedToggle else null)
                 is NoteListItem.Note -> {
                     val note = item.value
-                    (holder as NoteViewHolder).bind(note, selectedIds.contains(note.id), pinnedIds.contains(note.id), colors, callbacks)
+                    if (holder is NoteViewHolder) holder.bind(note, selectedIds.contains(note.id), pinnedIds.contains(note.id), colors, callbacks) else (holder as GridNoteViewHolder).bind(note, selectedIds.contains(note.id), colors, callbacks)
                 }
             }
         }
@@ -283,8 +283,10 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
         fun isFullSpanPosition(position: Int): Boolean = getItem(position) is NoteListItem.Section
 
         fun setSectionState(header: NoteHeaderState, notes: List<NoteCardProjection>) {
+            val modeChanged = currentHeader?.viewMode != null && currentHeader?.viewMode != header.viewMode
             currentHeader = header
             pinnedToggle = header.onPinnedExpandedChanged
+            if (modeChanged) notifyDataSetChanged()
         }
 
         fun isSameData(value: List<NoteCardProjection>, header: NoteHeaderState): Boolean =
@@ -386,6 +388,13 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
         const val LONG_PRESS_DELAY_MS = 280L
     }
 
+    private inner class GridNoteViewHolder(itemView: NoteGridView) : ViewHolder(itemView) {
+        fun bind(note: NoteCardProjection, selected: Boolean, colors: NoteRecyclerColors, callbacks: NoteRecyclerCallbacks) {
+            (itemView as NoteGridView).bind(note, selected, colors, { callbacks.onToggleSelect(note.id) }, { callbacks.onLongPress(note.id, anchorY(itemView)) }, { callbacks.onEdit(note.id) })
+        }
+        private fun anchorY(view: View): Float { val location = IntArray(2); view.getLocationOnScreen(location); return location[1] + view.height / 2f }
+    }
+
     private inner class NoteViewHolder(itemView: NoteRowView) : ViewHolder(itemView) {
         private val row = itemView
 
@@ -412,6 +421,37 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             view.getLocationOnScreen(location)
             return location[1] + view.height / 2f
         }
+    }
+
+    private class NoteGridView(context: Context) : LinearLayout(context) {
+        private val checkbox: CheckBox
+        private val editButton: ImageButton
+        private val title: TextView
+        private val preview: TextView
+        private val label: TextView
+        private val density = resources.displayMetrics.density
+        init {
+            orientation = VERTICAL; layoutParams = RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            setPadding(dp(10), dp(10), dp(10), dp(10)); minimumHeight = dp(156); isClickable = true; isFocusable = true
+            val actions = LinearLayout(context).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; layoutParams = LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(44)) }
+            checkbox = CheckBox(context).apply { layoutParams = LayoutParams(dp(44), dp(44)); minWidth = dp(44); minHeight = dp(44); contentDescription = context.getString(R.string.select_card) }
+            editButton = ImageButton(context).apply { layoutParams = LayoutParams(dp(44), dp(44)); setPadding(dp(10), dp(10), dp(10), dp(10)); setImageResource(android.R.drawable.ic_menu_edit); background = null; contentDescription = context.getString(R.string.edit_note) }
+            actions.addView(checkbox); actions.addView(View(context), LinearLayout.LayoutParams(0, 1, 1f)); actions.addView(editButton); addView(actions)
+            title = TextView(context).apply { layoutParams = LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT); maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END; textSize = 16f; setTypeface(Typeface.DEFAULT, Typeface.BOLD) }; addView(title)
+            preview = TextView(context).apply { layoutParams = LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) }; maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END; textSize = 14f }; addView(preview)
+            label = TextView(context).apply { layoutParams = LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(3) }; maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END; textSize = 12f }; addView(label)
+        }
+        fun bind(note: NoteCardProjection, selected: Boolean, colors: NoteRecyclerColors, onToggleSelect: () -> Unit, onLongPress: () -> Unit, onEdit: () -> Unit) {
+            background = GradientDrawable().apply { shape = GradientDrawable.RECTANGLE; cornerRadius = dp(16).toFloat(); setColor(if (selected) withAlpha(colors.primaryContainer, 90) else colors.surface) }
+            checkbox.buttonTintList = ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(colors.primary, colors.onSurfaceVariant)); checkbox.isChecked = selected; checkbox.setOnClickListener { onToggleSelect() }
+            title.text = note.title.ifBlank { context.getString(R.string.untitled) }; title.setTextColor(colors.onSurface)
+            preview.text = note.preview.ifBlank { context.getString(R.string.untitled) }; preview.setTextColor(colors.onSurfaceVariant)
+            label.text = note.topicLabels; label.visibility = if (note.topicLabels.isBlank()) GONE else VISIBLE; label.setTextColor(colors.primary)
+            editButton.imageTintList = ColorStateList.valueOf(colors.onSurfaceVariant); editButton.setOnClickListener { onEdit() }
+            setOnClickListener { onToggleSelect() }; setOnLongClickListener { onLongPress(); true }
+        }
+        private fun withAlpha(color: Int, alpha: Int): Int = (color and 0x00FFFFFF) or ((alpha.coerceIn(0, 255)) shl 24)
+        private fun dp(value: Int): Int = (value * density + 0.5f).toInt()
     }
 
     private class NoteSpacingDecoration(
@@ -607,35 +647,6 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             return (color and 0x00FFFFFF) or ((alpha.coerceIn(0, 255)) shl 24)
         }
 
-        private fun buildListItems(notes: List<NoteCardProjection>, pinnedIds: Set<Long>, header: NoteHeaderState): List<NoteListItem> {
-        val result = mutableListOf<NoteListItem>()
-        val pinned = notes.filter { it.id in pinnedIds }
-        if (pinned.isNotEmpty()) {
-            result += NoteListItem.Section("pinned", header.pinnedLabel, pinned.size)
-            if (header.pinnedExpanded) pinned.forEach { result += NoteListItem.Note(it) }
-        }
-        val groups = linkedMapOf(
-            header.todayLabel to mutableListOf<NoteCardProjection>(),
-            header.yesterdayLabel to mutableListOf(),
-            header.previous7DaysLabel to mutableListOf(),
-            header.previous30DaysLabel to mutableListOf(),
-            header.olderLabel to mutableListOf()
-        )
-        val today = java.time.LocalDate.now()
-        notes.filterNot { it.id in pinnedIds }.forEach { note ->
-            val date = java.time.Instant.ofEpochMilli(note.createdAtMillis).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
-            val days = java.time.temporal.ChronoUnit.DAYS.between(date, today)
-            val key = when { days <= 0L -> header.todayLabel; days == 1L -> header.yesterdayLabel; days <= 7L -> header.previous7DaysLabel; days <= 30L -> header.previous30DaysLabel; else -> header.olderLabel }
-            groups.getValue(key).add(note)
-        }
-        groups.forEach { (title, items) ->
-            if (items.isNotEmpty()) {
-                result += NoteListItem.Section("time:" + title, title, items.size)
-                items.forEach { result += NoteListItem.Note(it) }
-            }
-        }
-        return result
-    }
     private fun dp(value: Int): Int = (value * density + 0.5f).toInt()
     }
 
