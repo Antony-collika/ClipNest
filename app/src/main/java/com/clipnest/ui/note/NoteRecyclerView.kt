@@ -293,9 +293,10 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             if (item.id == "pinned" && onPinnedToggle != null) {
                 val expanded = pinnedExpanded
                 view.setCompoundDrawablesWithIntrinsicBounds(
-                    if (expanded) android.R.drawable.arrow_down_float else android.R.drawable.arrow_forward,
+                    if (expanded) android.R.drawable.arrow_down_float else 0,
                     0, 0, 0
                 )
+                view.text = if (expanded) item.title + " · " + item.count else "› " + item.title + " · " + item.count
                 view.contentDescription = item.title + " " + item.count
                 view.setOnClickListener {
                     view.tag = !expanded
