@@ -849,13 +849,18 @@ private fun MainTopBar(
                         Icon(Icons.Default.Delete, contentDescription = stringResource(com.clipnest.R.string.delete_selected), modifier = Modifier.size(22.dp))
                     }
                 }
-                if (!isSettings) {
-                    if (isSearchOpen) {
-                        IconButton(onClick = onSearchClose, modifier = Modifier.size(36.dp).testTag("main_close_search_button")) { Icon(Icons.Default.Close, contentDescription = stringResource(com.clipnest.R.string.close_search), modifier = Modifier.size(22.dp)) }
-                        } else {
-                            IconButton(onClick = onSearchOpen, modifier = Modifier.size(36.dp).testTag("main_search_button")) { Icon(Icons.Default.Search, contentDescription = stringResource(com.clipnest.R.string.search), modifier = Modifier.size(22.dp)) }
-                        }
+                if (isSearchOpen) {
+                    IconButton(
+                        onClick = onSearchClose,
+                        modifier = Modifier.size(36.dp).testTag("main_close_search_button")
+                    ) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = stringResource(com.clipnest.R.string.close_search),
+                            modifier = Modifier.size(22.dp)
+                        )
                     }
+                }
                     Box {
                         IconButton(onClick = { overflowExpanded = true }, modifier = Modifier.size(36.dp).testTag("main_overflow_button")) { Icon(Icons.Default.MoreVert, contentDescription = stringResource(com.clipnest.R.string.more_options), modifier = Modifier.size(22.dp)) }
                         if (overflowExpanded) {
