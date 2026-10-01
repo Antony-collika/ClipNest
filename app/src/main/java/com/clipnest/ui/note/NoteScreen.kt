@@ -7,7 +7,9 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,12 +23,15 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -136,43 +141,6 @@ fun NoteScreen(
 
     Box(modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box {
-                    TextButton(onClick = { topicMenuExpanded = true }) {
-                        Text(selectedTopic?.name ?: androidx.compose.ui.res.stringResource(R.string.all_notes))
-                    }
-                    DropdownMenu(
-                        expanded = topicMenuExpanded,
-                        onDismissRequest = { topicMenuExpanded = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text(androidx.compose.ui.res.stringResource(R.string.all_notes)) },
-                            onClick = {
-                                selectedTopicId = null
-                                topicMenuExpanded = false
-                            }
-                        )
-                        topics.forEach { topic ->
-                            DropdownMenuItem(
-                                text = { Text(topic.name) },
-                                onClick = {
-                                    selectedTopicId = topic.id
-                                    topicMenuExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-                Text(
-                    text = androidx.compose.ui.res.stringResource(R.string.note_tab),
-                    style = MaterialTheme.typography.titleMedium
-                )
-            }
-
             if (noteCards.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
