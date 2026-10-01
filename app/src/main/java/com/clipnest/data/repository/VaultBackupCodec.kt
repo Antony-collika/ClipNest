@@ -5,6 +5,7 @@ import com.clipnest.data.model.ENCRYPTED_BACKUP_FORMAT
 import com.clipnest.data.model.ENCRYPTED_BACKUP_VERSION
 import com.clipnest.data.model.EncryptedVaultBackup
 import com.clipnest.data.model.VaultBackupCard
+import com.clipnest.data.model.VaultBackupNote
 import com.clipnest.data.model.VaultBackupFile
 import com.clipnest.data.model.VAULT_BACKUP_FORMAT
 import com.clipnest.data.model.VAULT_BACKUP_VERSION
@@ -32,10 +33,20 @@ object VaultBackupCodec {
     private val base64Encoder = Base64.getEncoder()
     private val base64Decoder = Base64.getDecoder()
 
-    fun encode(cards: List<ClipboardCard>): String = buildBackup(cards).let(adapter::toJson)
+    fun encode(cards: List<ClipboardCard>): String = buildBackup(cards, emptyList()).let(adapter::toJson)
 
-    fun encodeEncrypted(cards: List<ClipboardCard>, password: String): String {
-        val plaintext = encode(cards).toByteArray(StandardCharsets.UTF_8)
+    fun encode(cards: List<ClipboardCard>, notes: List<VaultBackupNote>): String =
+        buildBackup(cards, notes).let(adapter::toJson)
+
+    fun encodeEncrypted(cards: List<ClipboardCard>, password: String): String =
+        encodeEncrypted(cards, emptyList(), password)
+
+    fun encodeEncrypted(
+        cards: List<ClipboardCard>,
+        notes: List<VaultBackupNote>,
+        password: String
+    ): String {
+        val plaintext = encode(cards, notes).toByteArray(StandardCharsets.UTF_8)
         val salt = ByteArray(SALT_LENGTH_BYTES).also(secureRandom::nextBytes)
         val nonce = ByteArray(NONCE_LENGTH_BYTES).also(secureRandom::nextBytes)
         val key = deriveKey(password, salt, PBKDF2_ITERATIONS)
@@ -90,7 +101,10 @@ object VaultBackupCodec {
         }
     }
 
-    private fun buildBackup(cards: List<ClipboardCard>): VaultBackupFile = VaultBackupFile(
+    private fun buildBackup(
+        cards: List<ClipboardCard>,
+        notes: List<VaultBackupNote>
+    ): VaultBackupFile = VaultBackupFile(
         cards = cards.map { card ->
             VaultBackupCard(
                 content = card.content,
@@ -98,7 +112,8 @@ object VaultBackupCodec {
                 pinned = card.pinned,
                 isSensitive = card.isSensitive
             )
-        }
+        },
+        notes = notes
     )
 
     private fun deriveKey(password: String, salt: ByteArray, iterations: Int): SecretKeySpec {
