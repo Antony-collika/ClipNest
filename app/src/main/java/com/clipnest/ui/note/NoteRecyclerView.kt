@@ -50,7 +50,8 @@ internal data class NoteRecyclerColors(
     val onSurfaceVariant: Int,
     val primary: Int,
     val primaryContainer: Int,
-    val outlineVariant: Int
+    val outlineVariant: Int,
+    val pinned: Int
 )
 
 internal enum class NoteViewMode { LIST, GRID }
@@ -98,7 +99,8 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
         onSurfaceVariant = Color.DKGRAY,
         primary = Color.DKGRAY,
         primaryContainer = Color.LTGRAY,
-        outlineVariant = Color.LTGRAY
+        outlineVariant = Color.LTGRAY,
+        pinned = Color.DKGRAY
     )
     private val spacingDecoration = NoteSpacingDecoration(dp(8))
 
@@ -143,7 +145,6 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
         listAdapter.setVisualState(selectedIds, pinnedIds, colors)
         listAdapter.setSectionState(header, notes)
         val items = buildListItems(notes, pinnedIds.toSet(), header)
-        if (listAdapter.isSameData(notes, header)) return
         listAdapter.replace(items, notes, header)
     }
 
@@ -268,7 +269,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
                 setPadding(dp(8), dp(14), dp(8), dp(6))
                 setTypeface(Typeface.DEFAULT, Typeface.BOLD)
                 textSize = 13f
-            }) else NoteViewHolder(NoteRowView(context))
+            }) else if (viewType == 2) GridNoteViewHolder(NoteGridView(context)) else NoteViewHolder(NoteRowView(context))
 
         override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
             when (val item = getItem(position)) {
@@ -288,9 +289,6 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             pinnedToggle = header.onPinnedExpandedChanged
             if (modeChanged) notifyDataSetChanged()
         }
-
-        fun isSameData(value: List<NoteCardProjection>, header: NoteHeaderState): Boolean =
-            currentSourceIds == value.map { it.id } && currentHeader == header
 
         fun replace(value: List<NoteListItem>, source: List<NoteCardProjection>, header: NoteHeaderState) {
             currentSourceIds = source.map { it.id }
@@ -312,7 +310,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
     private class SectionViewHolder(private val view: TextView) : RecyclerView.ViewHolder(view) {
         fun bind(item: NoteListItem.Section, colors: NoteRecyclerColors, pinnedExpanded: Boolean, onPinnedToggle: ((Boolean) -> Unit)?) {
             view.text = item.title + " · " + item.count
-            view.setTextColor(colors.onSurface)
+            view.setTextColor(if (item.id == "pinned") colors.pinned else colors.onSurface)
             view.setCompoundDrawablePadding(dp(6))
             if (item.id == "pinned" && onPinnedToggle != null) {
                 val expanded = pinnedExpanded
