@@ -14,7 +14,9 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Restore
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -42,6 +44,7 @@ fun TrashScreen(noteDao: NoteDao, onBack: () -> Unit, modifier: Modifier = Modif
     val notes by noteDao.observeDeletedNotes().collectAsState(initial = emptyList())
     val scope = rememberCoroutineScope()
     var selectedIds by remember { mutableStateOf(emptySet<Long>()) }
+    var pendingDeleteIds by remember { mutableStateOf<Set<Long>?>(null) }
     val allSelected = notes.isNotEmpty() && selectedIds.size == notes.size
     val selectedNotes = notes.filter { it.id in selectedIds }
 
@@ -76,10 +79,7 @@ fun TrashScreen(noteDao: NoteDao, onBack: () -> Unit, modifier: Modifier = Modif
                     Text(stringResource(R.string.trash_restore), modifier = Modifier.padding(start = 6.dp))
                 }
                 Button(onClick = {
-                    scope.launch(Dispatchers.IO) {
-                        selectedNotes.forEach { noteDao.deleteNotePermanently(it.id) }
-                        selectedIds = emptySet()
-                    }
+                    pendingDeleteIds = selectedNotes.map { it.id }.toSet()
                 }) {
                     Icon(Icons.Default.DeleteForever, contentDescription = null)
                     Text(stringResource(R.string.trash_delete_forever), modifier = Modifier.padding(start = 6.dp))
@@ -99,11 +99,35 @@ fun TrashScreen(noteDao: NoteDao, onBack: () -> Unit, modifier: Modifier = Modif
                         selected = note.id in selectedIds,
                         onToggle = { selectedIds = if (note.id in selectedIds) selectedIds - note.id else selectedIds + note.id },
                         onRestore = { scope.launch(Dispatchers.IO) { noteDao.setDeleted(note.id, false, null, System.currentTimeMillis()) } },
-                        onDeleteForever = { scope.launch(Dispatchers.IO) { noteDao.deleteNotePermanently(note.id) } }
+                        onDeleteForever = { pendingDeleteIds = setOf(note.id) }
                     )
                 }
             }
         }
+    }
+
+    pendingDeleteIds?.let { ids ->
+        AlertDialog(
+            onDismissRequest = { pendingDeleteIds = null },
+            title = { Text(stringResource(R.string.trash_delete_forever_confirm_title, ids.size)) },
+            text = { Text(stringResource(R.string.trash_delete_forever_confirm_message, ids.size)) },
+            confirmButton = {
+                Button(onClick = {
+                    pendingDeleteIds = null
+                    scope.launch(Dispatchers.IO) {
+                        ids.forEach { noteDao.deleteNotePermanently(it) }
+                        selectedIds = selectedIds - ids
+                    }
+                }) {
+                    Text(stringResource(R.string.trash_delete_forever))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDeleteIds = null }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
     }
 }
 
