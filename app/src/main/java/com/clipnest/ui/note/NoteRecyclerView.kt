@@ -623,7 +623,13 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
 
             label.text = note.topicLabels
             label.visibility = if (note.topicLabels.isBlank()) GONE else VISIBLE
-            label.setTextColor(colors.primary)
+            label.setTextColor(colors.noteTagContent)
+            label.background = if (note.topicLabels.isBlank()) null else GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dp(9).toFloat()
+                setColor(colors.noteTagSurface)
+            }
+            label.setPadding(dp(8), dp(3), dp(8), dp(3))
 
             preview.text = note.preview.ifBlank { context.getString(R.string.untitled) }
             preview.setTextColor(colors.onSurfaceVariant)
