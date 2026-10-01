@@ -95,6 +95,8 @@ import com.clipnest.data.repository.AiRepository
 import com.clipnest.data.repository.AskAiCoordinator
 import com.clipnest.data.ai.AiApi
 import com.clipnest.data.repository.VaultBackupCodec
+import com.clipnest.data.model.Note
+import com.clipnest.data.model.VaultBackupNote
 import com.clipnest.service.CaptureNotificationManager
 import com.clipnest.ui.editor.EditorScreen
 import com.clipnest.ui.drawer.ClipNestDrawer
@@ -118,6 +120,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.security.MessageDigest
 
 enum class BackupPasswordAction { EXPORT, IMPORT }
 
@@ -234,15 +237,67 @@ class MainActivity : ComponentActivity() {
     private fun launchRestoreFilePicker() { restoreFileLauncher.launch(arrayOf("application/json", "text/json", "*/*")) }
     private fun writeVaultBackup(uri: Uri, password: String) {
         lifecycleScope.launch(Dispatchers.IO) {
-            val result = runCatching { val json = VaultBackupCodec.encodeEncrypted(repository.getAllCards(), password); contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray(Charsets.UTF_8)) } ?: error("Unable to open backup destination") }
+            val result = runCatching {
+                val cards = repository.getAllCards()
+                val notes = loadNotesForBackup()
+                val json = VaultBackupCodec.encodeEncrypted(cards, notes, password)
+                contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray(Charsets.UTF_8)) }
+                    ?: error("Unable to open backup destination")
+            }
             val language = settingsDataStore.userSettingsFlow.first().language
-            val message = applicationContext.withAppLanguage(language).getString(if (result.isSuccess) com.clipnest.R.string.backup_saved else com.clipnest.R.string.backup_failed)
-            withContext(Dispatchers.Main) { Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show() }
+            val message = applicationContext.withAppLanguage(language).getString(
+                if (result.isSuccess) com.clipnest.R.string.backup_saved else com.clipnest.R.string.backup_failed
+            )
+            withContext(Dispatchers.Main) {
+                Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
+            }
         }
     }
+
+    private suspend fun loadNotesForBackup(): List<VaultBackupNote> {
+        val noteDao = database.noteDao()
+        val projections = noteDao.getAllNoteBackupProjections()
+        val chunkSize = 262_144
+        return projections.map { note ->
+            val content = buildString {
+                var start = 1
+                while (true) {
+                    val chunk = noteDao.getNoteContentChunk(note.id, start, chunkSize) ?: break
+                    if (chunk.isEmpty()) break
+                    append(chunk)
+                    if (chunk.length < chunkSize) break
+                    start += chunkSize
+                }
+            }
+            VaultBackupNote(
+                title = note.title,
+                content = content,
+                createdAtMillis = note.createdAtMillis,
+                updatedAtMillis = note.updatedAtMillis,
+                isPinned = note.isPinned,
+                isArchived = note.isArchived,
+                isDeleted = note.isDeleted,
+                deletedAtMillis = note.deletedAtMillis,
+                editSessionCount = note.editSessionCount,
+                lastAuthoredAtMillis = note.lastAuthoredAtMillis
+            )
+        }
+    }
+
     private fun readVaultBackup(uri: Uri, password: String) {
         lifecycleScope.launch(Dispatchers.IO) {
-            val result = runCatching { val json = contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) } ?: error("Unable to open backup source"); val backup = VaultBackupCodec.decodeEncrypted(json, password); repository.mergeBackupCards(backup.cards) }
+            val result = runCatching {
+                val json = contentResolver.openInputStream(uri)?.use {
+                    it.readBytes().toString(Charsets.UTF_8)
+                } ?: error("Unable to open backup source")
+                val backup = VaultBackupCodec.decodeEncrypted(json, password)
+                val cardResult = repository.mergeBackupCards(backup.cards)
+                val noteResult = restoreBackupNotes(backup.notes)
+                cardResult.copy(
+                    imported = cardResult.imported + noteResult.first,
+                    skippedDuplicates = cardResult.skippedDuplicates + noteResult.second
+                )
+            }
             val language = settingsDataStore.userSettingsFlow.first().language
             val message = applicationContext.withAppLanguage(language).getString(
                 when {
@@ -250,9 +305,69 @@ class MainActivity : ComponentActivity() {
                     result.isSuccess -> com.clipnest.R.string.restore_complete
                     result.exceptionOrNull() is IllegalArgumentException || result.exceptionOrNull() is com.squareup.moshi.JsonDataException || result.exceptionOrNull() is com.squareup.moshi.JsonEncodingException -> com.clipnest.R.string.invalid_backup_file
                     else -> com.clipnest.R.string.restore_failed
-                }, result.getOrNull()?.imported ?: 0, result.getOrNull()?.skippedDuplicates ?: 0)
-            withContext(Dispatchers.Main) { Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show() }
+                },
+                result.getOrNull()?.imported ?: 0,
+                result.getOrNull()?.skippedDuplicates ?: 0
+            )
+            withContext(Dispatchers.Main) {
+                Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
+            }
         }
+    }
+
+    private suspend fun restoreBackupNotes(notes: List<VaultBackupNote>): Pair<Int, Int> {
+        if (notes.isEmpty()) return 0 to 0
+        val noteDao = database.noteDao()
+        val chunkSize = 262_144
+        val existingKeys = mutableSetOf<String>()
+
+        noteDao.getAllNoteBackupProjections().forEach { note ->
+            val content = buildString {
+                var start = 1
+                while (true) {
+                    val chunk = noteDao.getNoteContentChunk(note.id, start, chunkSize) ?: break
+                    if (chunk.isEmpty()) break
+                    append(chunk)
+                    if (chunk.length < chunkSize) break
+                    start += chunkSize
+                }
+            }
+            existingKeys += noteBackupKey(note.title, note.createdAtMillis, content)
+        }
+
+        var imported = 0
+        var skippedDuplicates = 0
+        notes.forEach { note ->
+            val key = noteBackupKey(note.title, note.createdAtMillis, note.content)
+            if (!existingKeys.add(key)) {
+                skippedDuplicates++
+                return@forEach
+            }
+            noteDao.insertNote(
+                Note(
+                    title = note.title,
+                    content = note.content,
+                    preview = note.content.take(320),
+                    isPinned = note.isPinned,
+                    isArchived = note.isArchived,
+                    isDeleted = note.isDeleted,
+                    deletedAtMillis = note.deletedAtMillis,
+                    editSessionCount = note.editSessionCount,
+                    lastAuthoredAtMillis = note.lastAuthoredAtMillis,
+                    createdAtMillis = note.createdAtMillis,
+                    updatedAtMillis = note.updatedAtMillis
+                )
+            )
+            imported++
+        }
+        return imported to skippedDuplicates
+    }
+
+    private fun noteBackupKey(title: String, createdAtMillis: Long, content: String): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        val hash = digest.digest(content.toByteArray(Charsets.UTF_8))
+            .joinToString("") { byte -> "%02x".format(byte) }
+        return "$title\u0000$createdAtMillis\u0000$hash"
     }
     private fun shareTextExternally(text: String, chooserTitle: String) {
         val sendIntent = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, text) }
