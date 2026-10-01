@@ -307,8 +307,44 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
         override fun areContentsTheSame(oldItem: NoteListItem, newItem: NoteListItem): Boolean = oldItem == newItem
     }
 
+    private fun buildListItems(notes: List<NoteCardProjection>, pinnedIds: Set<Long>, header: NoteHeaderState): List<NoteListItem> {
+        val result = mutableListOf<NoteListItem>()
+        val pinned = notes.filter { it.id in pinnedIds }
+        if (pinned.isNotEmpty()) {
+            result += NoteListItem.Section("pinned", header.pinnedLabel, pinned.size)
+            if (header.pinnedExpanded) pinned.forEach { result += NoteListItem.Note(it) }
+        }
+        val groups = linkedMapOf(
+            header.todayLabel to mutableListOf<NoteCardProjection>(),
+            header.yesterdayLabel to mutableListOf(),
+            header.previous7DaysLabel to mutableListOf(),
+            header.previous30DaysLabel to mutableListOf(),
+            header.olderLabel to mutableListOf()
+        )
+        val today = java.time.LocalDate.now()
+        notes.filterNot { it.id in pinnedIds }.forEach { note ->
+            val date = java.time.Instant.ofEpochMilli(note.createdAtMillis)
+                .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+            val days = java.time.temporal.ChronoUnit.DAYS.between(date, today)
+            val key = when {
+                days <= 0L -> header.todayLabel
+                days == 1L -> header.yesterdayLabel
+                days <= 7L -> header.previous7DaysLabel
+                days <= 30L -> header.previous30DaysLabel
+                else -> header.olderLabel
+            }
+            groups.getValue(key).add(note)
+        }
+        groups.forEach { (title, items) ->
+            if (items.isNotEmpty()) {
+                result += NoteListItem.Section("time:$title", title, items.size)
+                items.forEach { result += NoteListItem.Note(it) }
+            }
+        }
+        return result
+    }
+
     private companion object {
-        val DIFF_CALLBACK = NoteDiffCallback
         const val PAYLOAD_STATE = "note_state"
         const val LONG_PRESS_DELAY_MS = 280L
     }
