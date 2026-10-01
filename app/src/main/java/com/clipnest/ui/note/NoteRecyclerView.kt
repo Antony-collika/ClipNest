@@ -14,6 +14,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewGroup
+import kotlin.math.roundToInt
 import android.widget.CheckBox
 import android.widget.ImageButton
 import android.widget.LinearLayout
@@ -288,14 +289,27 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
         fun bind(item: NoteListItem.Section, colors: NoteRecyclerColors, onPinnedToggle: ((Boolean) -> Unit)?) {
             view.text = item.title + " · " + item.count
             view.setTextColor(colors.onSurface)
-            view.setOnClickListener {
-                if (onPinnedToggle != null) {
-                    val expanded = view.tag as? Boolean ?: true
+            view.setCompoundDrawablePadding(dp(6))
+            if (item.id == "pinned" && onPinnedToggle != null) {
+                val expanded = view.tag as? Boolean ?: true
+                view.setCompoundDrawablesWithIntrinsicBounds(
+                    if (expanded) android.R.drawable.arrow_down_float else android.R.drawable.arrow_right,
+                    0, 0, 0
+                )
+                view.contentDescription = item.title + " " + item.count
+                view.setOnClickListener {
                     view.tag = !expanded
                     onPinnedToggle(!expanded)
                 }
+            } else {
+                view.setCompoundDrawablesWithIntrinsicBounds(0, 0, 0, 0)
+                view.contentDescription = null
+                view.setOnClickListener(null)
             }
         }
+
+        private fun dp(value: Int): Int =
+            (value * view.resources.displayMetrics.density).roundToInt()
     }
 
     private object ITEM_DIFF_CALLBACK : DiffUtil.ItemCallback<NoteListItem>() {
