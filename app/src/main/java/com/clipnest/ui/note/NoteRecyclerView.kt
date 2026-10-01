@@ -302,7 +302,6 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
         private val checkbox: CheckBox
         private val contentColumn: LinearLayout
         private val title: TextView
-        private val labels: TextView
         private val preview: TextView
         private val label: TextView
         private val editButton: ImageButton
