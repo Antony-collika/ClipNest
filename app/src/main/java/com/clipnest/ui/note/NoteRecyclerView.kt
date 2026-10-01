@@ -41,7 +41,6 @@ import androidx.recyclerview.widget.RecyclerView
 import com.clipnest.R
 import com.clipnest.data.model.NoteCardProjection
 import com.clipnest.data.model.Topic
-import com.clipnest.domain.RelativeTimeFormatter
 
 internal data class NoteRecyclerColors(
     val surface: Int,
@@ -305,8 +304,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
         private val title: TextView
         private val labels: TextView
         private val preview: TextView
-        private val pinnedLabel: TextView
-        private val timestamp: TextView
+        private val label: TextView
         private val editButton: ImageButton
         private val density = resources.displayMetrics.density
         private var selectedState = false
@@ -357,7 +355,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             }
             contentColumn.addView(title)
 
-            labels = TextView(context).apply {
+            label = TextView(context).apply {
                 layoutParams = LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                     topMargin = dp(3)
                 }
@@ -365,38 +363,17 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
                 ellipsize = android.text.TextUtils.TruncateAt.END
                 textSize = 12f
             }
-            contentColumn.addView(labels)
+            contentColumn.addView(label)
 
             preview = TextView(context).apply {
                 layoutParams = LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                     topMargin = dp(4)
                 }
-                maxLines = 3
+                maxLines = 2
                 ellipsize = android.text.TextUtils.TruncateAt.END
                 textSize = 14f
             }
             contentColumn.addView(preview)
-
-            val metadataRow = LinearLayout(context).apply {
-                orientation = HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                layoutParams = LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                    topMargin = dp(3)
-                }
-            }
-            timestamp = TextView(context).apply {
-                layoutParams = LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                textSize = 11f
-            }
-            metadataRow.addView(timestamp)
-            pinnedLabel = TextView(context).apply {
-                layoutParams = LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                text = context.getString(R.string.pinned)
-                textSize = 11f
-                setTypeface(Typeface.DEFAULT, Typeface.BOLD)
-            }
-            metadataRow.addView(pinnedLabel)
-            contentColumn.addView(metadataRow)
 
             editButton = ImageButton(context).apply {
                 layoutParams = LayoutParams(dp(48), dp(48))
@@ -435,22 +412,12 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             title.text = note.title.ifBlank { context.getString(R.string.untitled) }
             title.setTextColor(colors.onSurface)
 
-            labels.text = note.topicLabels
-            labels.visibility = if (note.topicLabels.isBlank()) GONE else VISIBLE
-            labels.setTextColor(colors.primary)
+            label.text = note.topicLabels
+            label.visibility = if (note.topicLabels.isBlank()) GONE else VISIBLE
+            label.setTextColor(colors.primary)
 
             preview.text = note.preview.ifBlank { context.getString(R.string.untitled) }
             preview.setTextColor(colors.onSurfaceVariant)
-
-            timestamp.text = RelativeTimeFormatter.format(
-                note.updatedAtMillis,
-                context.getString(R.string.today),
-                context.getString(R.string.yesterday)
-            )
-            timestamp.setTextColor(colors.onSurfaceVariant)
-
-            pinnedLabel.visibility = if (pinned) VISIBLE else GONE
-            pinnedLabel.setTextColor(colors.primary)
 
             editButton.imageTintList = ColorStateList.valueOf(colors.onSurfaceVariant)
             editButton.setOnClickListener { onEdit() }
