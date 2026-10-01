@@ -165,6 +165,15 @@ fun NoteScreen(
                     factory = { context -> NoteRecyclerView(context) },
                     update = { recyclerView ->
                         recyclerView.render(
+                            header = NoteHeaderState(
+                                title = selectedTopic?.name ?: androidx.compose.ui.res.stringResource(R.string.all_notes),
+                                allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
+                                noteTabLabel = androidx.compose.ui.res.stringResource(R.string.note_tab),
+                                topics = topics,
+                                colors = MaterialTheme.colorScheme,
+                                typography = MaterialTheme.typography,
+                                onTopicSelected = { topicId -> selectedTopicId = topicId }
+                            ),
                             notes = noteCards,
                             selectedIds = selectedNoteIds,
                             pinnedIds = pinnedNoteIds.toSet(),
