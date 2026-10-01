@@ -38,16 +38,12 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.DrawerValue
@@ -617,7 +613,6 @@ fun MainAppContent(
                 onCopySelected = { vaultViewModel.copySelectedCards(context) },
                 onDeleteSelected = if (isNoteTab) ::deleteSelectedNotes else vaultViewModel::requestDeleteSelected,
                 onOpenSettings = { navController.navigate(Screen.Settings.route) { launchSingleTop = true } },
-                onOpenDrawer = { scope.launch { drawerState.open() } },
                 onTabSelected = { page -> scope.launch { pagerState.animateScrollToPage(page, animationSpec = tween(durationMillis = 180)) } }
             )
         },
@@ -734,7 +729,6 @@ private fun MainTopBar(
     onCopySelected: () -> Unit,
     onDeleteSelected: () -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenDrawer: () -> Unit,
     onTabSelected: (Int) -> Unit
 ) {
     var overflowExpanded by remember { mutableStateOf(false) }
@@ -834,11 +828,6 @@ private fun MainTopBar(
                         }
                     }
                     else -> Text(text = title, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), modifier = Modifier.padding(start = 16.dp).testTag("main_title"))
-                }
-            }
-            if (!isSettings && !isSearchOpen && selectedCount == 0) {
-                IconButton(onClick = onOpenDrawer, modifier = Modifier.size(36.dp).testTag("main_drawer_button")) {
-                    Icon(Icons.Default.Menu, contentDescription = stringResource(com.clipnest.R.string.navigation_drawer), modifier = Modifier.size(22.dp))
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(0.dp)) {
