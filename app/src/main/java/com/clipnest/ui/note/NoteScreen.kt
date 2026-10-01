@@ -158,6 +158,10 @@ fun NoteScreen(
     val origin = originForTopic(selectedTopic)
     val previewNote = noteCards.firstOrNull { it.id == previewNoteId }
 
+    val isDark = MaterialTheme.colorScheme.background.red < 0.5f
+    val palette = LocalThemePalette.current
+    val noteColors = palette.noteColors(isDark)
+
     Box(modifier.fillMaxSize()) {
         Canvas(
             modifier = Modifier
@@ -217,10 +221,7 @@ fun NoteScreen(
                     )
                 }
             } else {
-                val isDark = MaterialTheme.colorScheme.background.red < 0.5f
-                val palette = LocalThemePalette.current
                 val semanticColors = palette.semanticColors(isDark)
-                val noteColors = palette.noteColors(isDark)
                 val colors = NoteRecyclerColors(
                     surface = MaterialTheme.colorScheme.surface.toArgb(),
                     onSurface = MaterialTheme.colorScheme.onSurface.toArgb(),
@@ -292,43 +293,6 @@ fun NoteScreen(
                         .padding(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 0.dp)
                 )
             }
-        }
-
-        Canvas(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = 190.dp)
-                .align(Alignment.BottomCenter)
-        ) {
-            val backWave = Path().apply {
-                moveTo(0f, size.height * 0.35f)
-                cubicTo(size.width * 0.14f, size.height * 0.02f, size.width * 0.30f, size.height * 0.55f, size.width * 0.46f, size.height * 0.24f)
-                cubicTo(size.width * 0.63f, -size.height * 0.02f, size.width * 0.80f, size.height * 0.42f, size.width, size.height * 0.10f)
-                lineTo(size.width, size.height)
-                lineTo(0f, size.height)
-                close()
-            }
-            val middleWave = Path().apply {
-                moveTo(0f, size.height * 0.58f)
-                cubicTo(size.width * 0.18f, size.height * 0.20f, size.width * 0.34f, size.height * 0.68f, size.width * 0.52f, size.height * 0.42f)
-                cubicTo(size.width * 0.69f, size.height * 0.18f, size.width * 0.84f, size.height * 0.60f, size.width, size.height * 0.30f)
-                lineTo(size.width, size.height)
-                lineTo(0f, size.height)
-                close()
-            }
-            val frontWave = Path().apply {
-                moveTo(0f, size.height * 0.78f)
-                cubicTo(size.width * 0.16f, size.height * 0.52f, size.width * 0.31f, size.height * 0.90f, size.width * 0.49f, size.height * 0.62f)
-                cubicTo(size.width * 0.67f, size.height * 0.38f, size.width * 0.84f, size.height * 0.76f, size.width, size.height * 0.52f)
-                lineTo(size.width, size.height)
-                lineTo(0f, size.height)
-                close()
-            }
-            val wavePrimary = noteColors.wavePrimary.copy(alpha = 0.16f)
-            val waveSecondary = noteColors.waveSecondary.copy(alpha = 0.08f)
-            drawPath(backWave, waveSecondary)
-            drawPath(middleWave, wavePrimary.copy(alpha = 0.11f))
-            drawPath(frontWave, wavePrimary.copy(alpha = 0.16f))
         }
 
         Surface(
