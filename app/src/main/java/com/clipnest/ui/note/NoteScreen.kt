@@ -159,6 +159,43 @@ fun NoteScreen(
     val previewNote = noteCards.firstOrNull { it.id == previewNoteId }
 
     Box(modifier.fillMaxSize()) {
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 190.dp)
+                .align(Alignment.BottomCenter)
+        ) {
+            val backWave = Path().apply {
+                moveTo(0f, size.height * 0.35f)
+                cubicTo(size.width * 0.14f, size.height * 0.02f, size.width * 0.30f, size.height * 0.55f, size.width * 0.46f, size.height * 0.24f)
+                cubicTo(size.width * 0.63f, -size.height * 0.02f, size.width * 0.80f, size.height * 0.42f, size.width, size.height * 0.10f)
+                lineTo(size.width, size.height)
+                lineTo(0f, size.height)
+                close()
+            }
+            val middleWave = Path().apply {
+                moveTo(0f, size.height * 0.58f)
+                cubicTo(size.width * 0.18f, size.height * 0.20f, size.width * 0.34f, size.height * 0.68f, size.width * 0.52f, size.height * 0.42f)
+                cubicTo(size.width * 0.69f, size.height * 0.18f, size.width * 0.84f, size.height * 0.60f, size.width, size.height * 0.30f)
+                lineTo(size.width, size.height)
+                lineTo(0f, size.height)
+                close()
+            }
+            val frontWave = Path().apply {
+                moveTo(0f, size.height * 0.78f)
+                cubicTo(size.width * 0.16f, size.height * 0.52f, size.width * 0.31f, size.height * 0.90f, size.width * 0.49f, size.height * 0.62f)
+                cubicTo(size.width * 0.67f, size.height * 0.38f, size.width * 0.84f, size.height * 0.76f, size.width, size.height * 0.52f)
+                lineTo(size.width, size.height)
+                lineTo(0f, size.height)
+                close()
+            }
+            val wavePrimary = noteColors.wavePrimary.copy(alpha = 0.16f)
+            val waveSecondary = noteColors.waveSecondary.copy(alpha = 0.08f)
+            drawPath(backWave, waveSecondary)
+            drawPath(middleWave, wavePrimary.copy(alpha = 0.11f))
+            drawPath(frontWave, wavePrimary.copy(alpha = 0.16f))
+        }
+
         Column(Modifier.fillMaxSize()) {
             if (isSearchOpen) {
                 SearchOverlay(
@@ -181,7 +218,9 @@ fun NoteScreen(
                 }
             } else {
                 val isDark = MaterialTheme.colorScheme.background.red < 0.5f
-                val semanticColors = LocalThemePalette.current.semanticColors(isDark)
+                val palette = LocalThemePalette.current
+                val semanticColors = palette.semanticColors(isDark)
+                val noteColors = palette.noteColors(isDark)
                 val colors = NoteRecyclerColors(
                     surface = MaterialTheme.colorScheme.surface.toArgb(),
                     onSurface = MaterialTheme.colorScheme.onSurface.toArgb(),
@@ -189,7 +228,12 @@ fun NoteScreen(
                     primary = MaterialTheme.colorScheme.primary.toArgb(),
                     primaryContainer = MaterialTheme.colorScheme.primaryContainer.toArgb(),
                     outlineVariant = MaterialTheme.colorScheme.outlineVariant.toArgb(),
-                    pinned = semanticColors.pinned.toArgb()
+                    pinned = semanticColors.pinned.toArgb(),
+                    noteCard = noteColors.card.toArgb(),
+                    noteSelectedCard = noteColors.selectedCard.toArgb(),
+                    notePinnedSurface = noteColors.pinnedSurface.toArgb(),
+                    noteTagSurface = noteColors.tagSurface.toArgb(),
+                    noteTagContent = noteColors.tagContent.toArgb()
                 )
                 val headerState = NoteHeaderState(
                     title = selectedTopic?.name ?: androidx.compose.ui.res.stringResource(R.string.all_notes),
@@ -200,6 +244,10 @@ fun NoteScreen(
                     topics = topics,
                     colors = MaterialTheme.colorScheme,
                     typography = MaterialTheme.typography,
+                    headerSurface = noteColors.headerSurface,
+                    headerContent = MaterialTheme.colorScheme.onSurface,
+                    tagSurface = noteColors.tagSurface,
+                    tagContent = noteColors.tagContent,
                     viewMode = viewMode,
                     pinnedLabel = androidx.compose.ui.res.stringResource(R.string.pinned),
                     pinnedExpanded = pinnedExpanded,
@@ -246,39 +294,41 @@ fun NoteScreen(
             }
         }
 
-        val waveColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.34f)
         Canvas(
             modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 190.dp)
                 .align(Alignment.BottomCenter)
-                .fillMaxSize()
         ) {
             val backWave = Path().apply {
-                moveTo(0f, size.height * 0.78f)
-                cubicTo(size.width * 0.14f, size.height * 0.60f, size.width * 0.30f, size.height * 0.88f, size.width * 0.46f, size.height * 0.70f)
-                cubicTo(size.width * 0.63f, size.height * 0.51f, size.width * 0.80f, size.height * 0.82f, size.width, size.height * 0.62f)
+                moveTo(0f, size.height * 0.35f)
+                cubicTo(size.width * 0.14f, size.height * 0.02f, size.width * 0.30f, size.height * 0.55f, size.width * 0.46f, size.height * 0.24f)
+                cubicTo(size.width * 0.63f, -size.height * 0.02f, size.width * 0.80f, size.height * 0.42f, size.width, size.height * 0.10f)
                 lineTo(size.width, size.height)
                 lineTo(0f, size.height)
                 close()
             }
             val middleWave = Path().apply {
-                moveTo(0f, size.height * 0.84f)
-                cubicTo(size.width * 0.18f, size.height * 0.68f, size.width * 0.34f, size.height * 0.92f, size.width * 0.52f, size.height * 0.76f)
-                cubicTo(size.width * 0.69f, size.height * 0.60f, size.width * 0.84f, size.height * 0.88f, size.width, size.height * 0.70f)
+                moveTo(0f, size.height * 0.58f)
+                cubicTo(size.width * 0.18f, size.height * 0.20f, size.width * 0.34f, size.height * 0.68f, size.width * 0.52f, size.height * 0.42f)
+                cubicTo(size.width * 0.69f, size.height * 0.18f, size.width * 0.84f, size.height * 0.60f, size.width, size.height * 0.30f)
                 lineTo(size.width, size.height)
                 lineTo(0f, size.height)
                 close()
             }
             val frontWave = Path().apply {
-                moveTo(0f, size.height * 0.91f)
-                cubicTo(size.width * 0.16f, size.height * 0.80f, size.width * 0.31f, size.height * 0.98f, size.width * 0.49f, size.height * 0.86f)
-                cubicTo(size.width * 0.67f, size.height * 0.74f, size.width * 0.84f, size.height * 0.94f, size.width, size.height * 0.80f)
+                moveTo(0f, size.height * 0.78f)
+                cubicTo(size.width * 0.16f, size.height * 0.52f, size.width * 0.31f, size.height * 0.90f, size.width * 0.49f, size.height * 0.62f)
+                cubicTo(size.width * 0.67f, size.height * 0.38f, size.width * 0.84f, size.height * 0.76f, size.width, size.height * 0.52f)
                 lineTo(size.width, size.height)
                 lineTo(0f, size.height)
                 close()
             }
-            drawPath(backWave, waveColor.copy(alpha = 0.18f))
-            drawPath(middleWave, waveColor.copy(alpha = 0.24f))
-            drawPath(frontWave, waveColor.copy(alpha = 0.34f))
+            val wavePrimary = noteColors.wavePrimary.copy(alpha = 0.16f)
+            val waveSecondary = noteColors.waveSecondary.copy(alpha = 0.08f)
+            drawPath(backWave, waveSecondary)
+            drawPath(middleWave, wavePrimary.copy(alpha = 0.11f))
+            drawPath(frontWave, wavePrimary.copy(alpha = 0.16f))
         }
 
         Surface(
@@ -286,8 +336,9 @@ fun NoteScreen(
                 .align(Alignment.BottomCenter)
                 .padding(horizontal = 20.dp, vertical = 20.dp),
             shape = androidx.compose.foundation.shape.RoundedCornerShape(32.dp),
-            tonalElevation = 6.dp,
-            shadowElevation = 8.dp
+            color = noteColors.dockSurface,
+            tonalElevation = 4.dp,
+            shadowElevation = 7.dp
         ) {
             Row(
                 modifier = Modifier
