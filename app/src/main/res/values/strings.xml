@@ -27,6 +27,11 @@
     <string name="delete_selected">Delete selected</string>
     <string name="search">Search</string>
     <string name="more_options">More options</string>
+    <string name="menu">Menu</string>
+    <string name="note_list_view">List</string>
+    <string name="note_grid_view">Grid</string>
+    <string name="collapse_pinned">Collapse Pinned</string>
+    <string name="expand_pinned">Expand Pinned</string>
     <string name="active">Active</string>
     <string name="close_search">Close search</string>
     <string name="clear_search">Clear search</string>
