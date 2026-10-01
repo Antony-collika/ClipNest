@@ -57,6 +57,8 @@ internal enum class NoteViewMode { LIST, GRID }
 
 internal data class NoteHeaderState(
     val title: String,
+    val breadcrumb: String,
+    val subTopics: List<Topic>,
     val allNotesLabel: String,
     val noteTabLabel: String,
     val topics: List<Topic>,
@@ -184,6 +186,14 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 0.dp, vertical = 8.dp)
         ) {
+            if (state.breadcrumb.isNotBlank()) {
+                Text(
+                    text = state.breadcrumb,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                )
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -213,6 +223,18 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
                         Text(if (state.viewMode == NoteViewMode.LIST) "Grid" else "List")
                     }
                     Text(text = state.noteTabLabel, style = MaterialTheme.typography.titleMedium)
+                }
+            }
+            if (state.subTopics.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    state.subTopics.forEach { topic ->
+                        TextButton(onClick = { state.onTopicSelected(topic.id) }) {
+                            Text(topic.name, maxLines = 1)
+                        }
+                    }
                 }
             }
         }
