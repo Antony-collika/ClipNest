@@ -221,7 +221,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
                             if (state.viewMode == NoteViewMode.LIST) NoteViewMode.GRID else NoteViewMode.LIST
                         )
                     }) {
-                        Text(if (state.viewMode == NoteViewMode.LIST) "Grid" else "List")
+                        Text(if (state.viewMode == NoteViewMode.LIST) androidx.compose.ui.res.stringResource(R.string.note_grid_view) else androidx.compose.ui.res.stringResource(R.string.note_list_view))
                     }
                     Text(text = state.noteTabLabel, style = MaterialTheme.typography.titleMedium)
                 }
