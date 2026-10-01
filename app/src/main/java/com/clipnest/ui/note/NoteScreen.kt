@@ -221,7 +221,7 @@ fun NoteScreen(
                     },
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 0.dp)
+                        .padding(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 0.dp)
                 )
             }
         }
