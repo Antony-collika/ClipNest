@@ -239,6 +239,7 @@ fun NoteScreen(
             }
         }
 
+        val waveColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.34f)
         Canvas(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -254,7 +255,7 @@ fun NoteScreen(
                 lineTo(0f, size.height)
                 close()
             }
-            drawPath(wave, MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.34f))
+            drawPath(wave, waveColor)
         }
 
         Row(
