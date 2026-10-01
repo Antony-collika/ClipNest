@@ -162,7 +162,7 @@ fun NoteScreen(
                 )
             }
             if (noteCards.isEmpty()) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                     Text(
                         text = if (searchQuery.isBlank()) {
                             androidx.compose.ui.res.stringResource(R.string.no_notes)
