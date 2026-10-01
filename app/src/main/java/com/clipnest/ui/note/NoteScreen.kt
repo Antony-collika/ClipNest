@@ -67,6 +67,7 @@ import com.clipnest.data.model.Topic
 import com.clipnest.domain.RelativeTimeFormatter
 import com.clipnest.domain.FtsSearchQuery
 import com.clipnest.ui.editor.EditorNoteOrigin
+import com.clipnest.ui.theme.LocalThemePalette
 import kotlinx.coroutines.flow.flowOf
 
 @Composable
@@ -85,7 +86,6 @@ fun NoteScreen(
     onCloseSearch: () -> Unit = {},
     onSearchQueryChange: (String) -> Unit = {},
     onOpenMenu: () -> Unit = {},
-    onOpenOverflow: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var selectedTopicId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -176,13 +176,16 @@ fun NoteScreen(
                     )
                 }
             } else {
+                val isDark = MaterialTheme.colorScheme.background.red < 0.5f
+                val semanticColors = LocalThemePalette.current.semanticColors(isDark)
                 val colors = NoteRecyclerColors(
                     surface = MaterialTheme.colorScheme.surface.toArgb(),
                     onSurface = MaterialTheme.colorScheme.onSurface.toArgb(),
                     onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant.toArgb(),
                     primary = MaterialTheme.colorScheme.primary.toArgb(),
                     primaryContainer = MaterialTheme.colorScheme.primaryContainer.toArgb(),
-                    outlineVariant = MaterialTheme.colorScheme.outlineVariant.toArgb()
+                    outlineVariant = MaterialTheme.colorScheme.outlineVariant.toArgb(),
+                    pinned = semanticColors.pinned.toArgb()
                 )
                 val headerState = NoteHeaderState(
                     title = selectedTopic?.name ?: androidx.compose.ui.res.stringResource(R.string.all_notes),
@@ -270,7 +273,7 @@ fun NoteScreen(
                 onClick = onOpenMenu,
                 modifier = Modifier.width(52.dp)
             ) {
-                Icon(Icons.Default.Menu, contentDescription = "Menu")
+                Icon(Icons.Default.Menu, contentDescription = androidx.compose.ui.res.stringResource(R.string.menu))
             }
             FloatingActionButton(
                 onClick = onOpenSearch,
@@ -292,21 +295,21 @@ fun NoteScreen(
                     onClick = { overflowExpanded = true },
                     modifier = Modifier.width(52.dp)
                 ) {
-                    Icon(Icons.Default.MoreVert, contentDescription = "More")
+                    Icon(Icons.Default.MoreVert, contentDescription = androidx.compose.ui.res.stringResource(R.string.more_options))
                 }
                 DropdownMenu(
                     expanded = overflowExpanded,
                     onDismissRequest = { overflowExpanded = false }
                 ) {
                     DropdownMenuItem(
-                        text = { Text("Danh sách") },
+                        text = { Text(androidx.compose.ui.res.stringResource(R.string.note_list_view)) },
                         onClick = {
                             overflowExpanded = false
                             viewMode = NoteViewMode.LIST
                         }
                     )
                     DropdownMenuItem(
-                        text = { Text("Lưới") },
+                        text = { Text(androidx.compose.ui.res.stringResource(R.string.note_grid_view)) },
                         onClick = {
                             overflowExpanded = false
                             viewMode = NoteViewMode.GRID
@@ -314,7 +317,7 @@ fun NoteScreen(
                     )
                     if (pinnedNoteIds.isNotEmpty()) {
                         DropdownMenuItem(
-                            text = { Text(if (pinnedExpanded) "Thu gọn Pinned" else "Mở rộng Pinned") },
+                            text = { Text(androidx.compose.ui.res.stringResource(if (pinnedExpanded) R.string.collapse_pinned else R.string.expand_pinned)) },
                             onClick = {
                                 overflowExpanded = false
                                 pinnedExpanded = !pinnedExpanded
