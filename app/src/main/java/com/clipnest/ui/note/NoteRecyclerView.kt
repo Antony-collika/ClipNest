@@ -203,7 +203,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             parent: RecyclerView,
             state: State
         ) {
-            outRect.bottom = spacing
+            outRect.bottom = if (parent.getChildAdapterPosition(view) == 0) spacing / 2 else spacing
         }
     }
 
