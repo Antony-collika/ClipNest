@@ -2,9 +2,11 @@ name: Android CI/CD
 
 on:
   push:
-    branches: [ "Refine", "finalizing", "release-debug", "debug-apk-release", "ask-AI", "Editor" ]
+    branches:
+      - circleci-project-setup
   pull_request:
-    branches: [ "Refine", "finalizing", "release-debug", "debug-apk-release", "ask-AI", "Editor" ]
+    branches:
+      - circleci-project-setup
   workflow_dispatch:
 
 jobs:
