@@ -250,7 +250,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
 
         override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
             when (val item = getItem(position)) {
-                is NoteListItem.Section -> (holder as SectionViewHolder).bind(item, colors, if (item.id == "pinned") pinnedToggle else null)
+                is NoteListItem.Section -> (holder as SectionViewHolder).bind(item, colors, if (item.id == "pinned") (currentHeader?.pinnedExpanded ?: true) else true, if (item.id == "pinned") pinnedToggle else null)
                 is NoteListItem.Note -> {
                     val note = item.value
                     (holder as NoteViewHolder).bind(note, selectedIds.contains(note.id), pinnedIds.contains(note.id), colors, callbacks)
@@ -286,12 +286,12 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
     }
 
     private class SectionViewHolder(private val view: TextView) : RecyclerView.ViewHolder(view) {
-        fun bind(item: NoteListItem.Section, colors: NoteRecyclerColors, onPinnedToggle: ((Boolean) -> Unit)?) {
+        fun bind(item: NoteListItem.Section, colors: NoteRecyclerColors, pinnedExpanded: Boolean, onPinnedToggle: ((Boolean) -> Unit)?) {
             view.text = item.title + " · " + item.count
             view.setTextColor(colors.onSurface)
             view.setCompoundDrawablePadding(dp(6))
             if (item.id == "pinned" && onPinnedToggle != null) {
-                val expanded = view.tag as? Boolean ?: true
+                val expanded = pinnedExpanded
                 view.setCompoundDrawablesWithIntrinsicBounds(
                     if (expanded) android.R.drawable.arrow_down_float else android.R.drawable.arrow_right,
                     0, 0, 0
