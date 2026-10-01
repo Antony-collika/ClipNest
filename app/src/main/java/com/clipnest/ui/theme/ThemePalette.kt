@@ -12,6 +12,18 @@ data class ThemeSemanticColors(
     val sensitive: Color
 )
 
+data class ThemeNoteColors(
+    val card: Color,
+    val selectedCard: Color,
+    val pinnedSurface: Color,
+    val tagSurface: Color,
+    val tagContent: Color,
+    val headerSurface: Color,
+    val dockSurface: Color,
+    val wavePrimary: Color,
+    val waveSecondary: Color
+)
+
 data class ThemePalette(
     val light: ColorScheme,
     val dark: ColorScheme,
@@ -20,6 +32,22 @@ data class ThemePalette(
 ) {
     fun semanticColors(isDark: Boolean): ThemeSemanticColors =
         if (isDark) darkSemantic else lightSemantic
+
+    fun noteColors(isDark: Boolean): ThemeNoteColors {
+        val scheme = if (isDark) dark else light
+        val semantic = semanticColors(isDark)
+        return ThemeNoteColors(
+            card = scheme.surfaceVariant,
+            selectedCard = scheme.primaryContainer,
+            pinnedSurface = semantic.pinned.copy(alpha = 0.12f),
+            tagSurface = scheme.secondaryContainer,
+            tagContent = scheme.onSecondaryContainer,
+            headerSurface = scheme.surfaceVariant.copy(alpha = 0.55f),
+            dockSurface = scheme.surface,
+            wavePrimary = scheme.primaryContainer,
+            waveSecondary = scheme.secondary
+        )
+    }
 }
 
 val LightThemePalette = ThemePalette(
