@@ -440,7 +440,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             label = TextView(context).apply { layoutParams = LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(3) }; maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END; textSize = 12f }; addView(label)
         }
         fun bind(note: NoteCardProjection, selected: Boolean, colors: NoteRecyclerColors, onToggleSelect: () -> Unit, onLongPress: () -> Unit, onEdit: () -> Unit) {
-            background = GradientDrawable().apply { shape = GradientDrawable.RECTANGLE; cornerRadius = dp(16).toFloat(); setColor(if (selected) withAlpha(colors.primaryContainer, 90) else colors.surface) }
+            background = GradientDrawable().apply { shape = GradientDrawable.RECTANGLE; cornerRadius = dp(16).toFloat(); setColor(if (selected) withAlpha(colors.primaryContainer, 90) else withAlpha(colors.surface, 179)) }
             checkbox.buttonTintList = ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(colors.primary, colors.onSurfaceVariant)); checkbox.isChecked = selected; checkbox.setOnClickListener { onToggleSelect() }
             title.text = note.title.ifBlank { context.getString(R.string.untitled) }; title.setTextColor(colors.onSurface)
             preview.text = note.preview.ifBlank { context.getString(R.string.untitled) }; preview.setTextColor(colors.onSurfaceVariant)
@@ -637,7 +637,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             return GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dp(16).toFloat()
-                setColor(if (isSelected) withAlpha(colors.primaryContainer, 90) else colors.surface)
+                setColor(if (isSelected) withAlpha(colors.primaryContainer, 90) else withAlpha(colors.surface, 179))
             }
         }
 
