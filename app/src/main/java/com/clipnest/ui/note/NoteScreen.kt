@@ -21,6 +21,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -76,9 +79,13 @@ fun NoteScreen(
     onSelectedTopicIdChanged: (Long?) -> Unit,
     isSearchOpen: Boolean,
     searchQuery: String,
+    onOpenSearch: () -> Unit = {},
+    onOpenMenu: () -> Unit = {},
+    onOpenOverflow: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var selectedTopicId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var viewMode by rememberSaveable { mutableStateOf(NoteViewMode.LIST) }
     var previewNoteId by rememberSaveable { mutableStateOf<Long?>(null) }
     var previewAnchorY by remember { mutableStateOf(0f) }
     var previewContent by remember { mutableStateOf<String?>(null) }
@@ -168,7 +175,9 @@ fun NoteScreen(
                     topics = topics,
                     colors = MaterialTheme.colorScheme,
                     typography = MaterialTheme.typography,
-                    onTopicSelected = { topicId -> selectedTopicId = topicId }
+                    viewMode = viewMode,
+                    onTopicSelected = { topicId -> selectedTopicId = topicId },
+                    onViewModeChanged = { viewMode = it }
                 )
                 AndroidView(
                     factory = { context -> NoteRecyclerView(context) },
@@ -204,14 +213,41 @@ fun NoteScreen(
             }
         }
 
-        FloatingActionButton(
-            onClick = { onCreateNote(origin, selectedTopicId) },
-            modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp)
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                Icons.Default.Add,
-                contentDescription = androidx.compose.ui.res.stringResource(R.string.new_note)
-            )
+            FloatingActionButton(
+                onClick = onOpenMenu,
+                modifier = Modifier.width(52.dp)
+            ) {
+                Icon(Icons.Default.Menu, contentDescription = "Menu")
+            }
+            FloatingActionButton(
+                onClick = onOpenSearch,
+                modifier = Modifier.width(52.dp)
+            ) {
+                Icon(Icons.Default.Search, contentDescription = "Search")
+            }
+            FloatingActionButton(
+                onClick = { onCreateNote(origin, selectedTopicId) },
+                modifier = Modifier.width(64.dp)
+            ) {
+                Icon(
+                    Icons.Default.Add,
+                    contentDescription = androidx.compose.ui.res.stringResource(R.string.new_note)
+                )
+            }
+            FloatingActionButton(
+                onClick = onOpenOverflow,
+                modifier = Modifier.width(52.dp)
+            ) {
+                Icon(Icons.Default.MoreVert, contentDescription = "More")
+            }
         }
     }
 
