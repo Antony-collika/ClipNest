@@ -138,6 +138,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             layoutManager = androidx.recyclerview.widget.LinearLayoutManager(context)
         }
         listAdapter.setVisualState(selectedIds, pinnedIds, colors)
+        listAdapter.setSectionState(header, notes)
         val items = buildListItems(notes, pinnedIds.toSet(), header)
         if (listAdapter.isSameData(notes, header)) return
         listAdapter.replace(items, notes, header)
