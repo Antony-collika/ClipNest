@@ -259,6 +259,11 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
 
         fun isFullSpanPosition(position: Int): Boolean = getItem(position) is NoteListItem.Section
 
+        fun setSectionState(header: NoteHeaderState, notes: List<NoteCardProjection>) {
+            currentHeader = header
+            pinnedToggle = header.onPinnedExpandedChanged
+        }
+
         fun isSameData(value: List<NoteCardProjection>, header: NoteHeaderState): Boolean =
             currentSourceIds == value.map { it.id } && currentHeader == header
 
