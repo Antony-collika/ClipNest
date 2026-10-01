@@ -445,7 +445,6 @@ fun MainAppContent(
     var noteVisibleIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var noteSearchOpen by remember { mutableStateOf(false) }
     var noteSearchQuery by remember { mutableStateOf("") }
-    var noteDeleteConfirm by remember { mutableStateOf(false) }
     val noteDao = remember { AppDatabase.getInstance(context).noteDao() }
     val allNoteSelected = noteVisibleIds.isNotEmpty() && noteSelectedIds.containsAll(noteVisibleIds)
     val notePinnedIds by remember(noteSelectedTopicId) {
@@ -616,7 +615,7 @@ fun MainAppContent(
                 onToggleShowPinnedFirst = vaultViewModel::toggleShowPinnedFirst,
                 onPinSelected = if (isNoteTab) ::toggleSelectedNotesPin else vaultViewModel::togglePinSelected,
                 onCopySelected = { vaultViewModel.copySelectedCards(context) },
-                onDeleteSelected = if (isNoteTab) { { noteDeleteConfirm = true } } else vaultViewModel::requestDeleteSelected,
+                onDeleteSelected = if (isNoteTab) ::deleteSelectedNotes else vaultViewModel::requestDeleteSelected,
                 onOpenSettings = { navController.navigate(Screen.Settings.route) { launchSingleTop = true } },
                 onOpenDrawer = { scope.launch { drawerState.open() } },
                 onTabSelected = { page -> scope.launch { pagerState.animateScrollToPage(page, animationSpec = tween(durationMillis = 180)) } }
@@ -687,16 +686,6 @@ fun MainAppContent(
     }
 
 
-    if (noteDeleteConfirm) {
-        com.clipnest.ui.vault.DeleteConfirmDialog(
-            count = noteSelectedIds.size,
-            onDismiss = { noteDeleteConfirm = false },
-            onConfirm = {
-                noteDeleteConfirm = false
-                deleteSelectedNotes()
-            }
-        )
-    }
 
 }
     
