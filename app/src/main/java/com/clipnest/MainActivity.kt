@@ -646,7 +646,6 @@ fun MainAppContent(
                             onOpenMenu = {
                                 scope.launch { drawerState.open() }
                             },
-                            onOpenOverflow = {},
                             modifier = Modifier.fillMaxSize()
                         )
                         1 -> VaultScreen(
