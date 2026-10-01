@@ -8,6 +8,7 @@ import androidx.room.SkipQueryVerification
 import com.clipnest.data.model.Note
 import com.clipnest.data.model.NoteCardProjection
 import com.clipnest.data.model.NoteEditorProjection
+import com.clipnest.data.model.NoteBackupProjection
 import com.clipnest.domain.SearchTextNormalizer
 import kotlinx.coroutines.flow.Flow
 
@@ -16,6 +17,15 @@ interface NoteDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertNote(note: Note): Long
+
+    @Query("""
+        SELECT id, title, createdAtMillis, updatedAtMillis,
+               isPinned, isArchived, isDeleted, deletedAtMillis,
+               editSessionCount, lastAuthoredAtMillis
+        FROM notes
+        ORDER BY id ASC
+    """)
+    suspend fun getAllNoteBackupProjections(): List<NoteBackupProjection>
 
     @Query("SELECT id, title FROM notes WHERE id = :id LIMIT 1")
     suspend fun getNoteEditorProjection(id: Long): NoteEditorProjection?
