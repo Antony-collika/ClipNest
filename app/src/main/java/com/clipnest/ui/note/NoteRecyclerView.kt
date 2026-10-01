@@ -18,11 +18,26 @@ import android.widget.CheckBox
 import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.clipnest.R
 import com.clipnest.data.model.NoteCardProjection
+import com.clipnest.data.model.Topic
 import com.clipnest.domain.RelativeTimeFormatter
 
 internal data class NoteRecyclerColors(
@@ -34,6 +49,16 @@ internal data class NoteRecyclerColors(
     val outlineVariant: Int
 )
 
+internal data class NoteHeaderState(
+    val title: String,
+    val allNotesLabel: String,
+    val noteTabLabel: String,
+    val topics: List<Topic>,
+    val colors: androidx.compose.material3.ColorScheme,
+    val typography: androidx.compose.material3.Typography,
+    val onTopicSelected: (Long?) -> Unit
+)
+
 internal data class NoteRecyclerCallbacks(
     val onToggleSelect: (Long) -> Unit,
     val onLongPress: (Long, Float) -> Unit,
@@ -41,7 +66,9 @@ internal data class NoteRecyclerCallbacks(
 )
 
 internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
+    private val headerAdapter = HeaderAdapter(context)
     private val listAdapter = NoteAdapter(context)
+    private val concatAdapter = androidx.recyclerview.widget.ConcatAdapter(headerAdapter, listAdapter)
     private var callbacks = NoteRecyclerCallbacks(
         onToggleSelect = {},
         onLongPress = { _, _ -> },
@@ -59,13 +86,14 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
 
     init {
         layoutManager = androidx.recyclerview.widget.LinearLayoutManager(context)
-        adapter = listAdapter
+        adapter = concatAdapter
         setHasFixedSize(false)
         clipToPadding = false
         addItemDecoration(spacingDecoration)
     }
 
     fun render(
+        header: NoteHeaderState,
         notes: List<NoteCardProjection>,
         selectedIds: Set<Long>,
         pinnedIds: Set<Long>,
@@ -80,6 +108,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             invalidateItemDecorations()
         }
 
+        headerAdapter.setState(header)
         listAdapter.setVisualState(selectedIds, pinnedIds, colors)
         if (listAdapter.isSameData(notes)) return
 
@@ -87,6 +116,66 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             listAdapter.replaceDataWithoutChangingOrder(notes)
         } else {
             listAdapter.replace(notes)
+        }
+    }
+
+    private inner class HeaderAdapter(private val context: Context) : RecyclerView.Adapter<HeaderViewHolder>() {
+        private var state: NoteHeaderState? = null
+        init { setHasStableIds(true) }
+        override fun getItemCount(): Int = 1
+        override fun getItemId(position: Int): Long = Long.MIN_VALUE
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): HeaderViewHolder =
+            HeaderViewHolder(ComposeView(context).apply {
+                layoutParams = RecyclerView.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+                setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            })
+        override fun onBindViewHolder(holder: HeaderViewHolder, position: Int) {
+            state?.let { holder.bind(it) }
+        }
+        fun setState(value: NoteHeaderState) {
+            if (state == value) return
+            state = value
+            if (itemCount == 1) notifyItemChanged(0)
+        }
+    }
+
+    private inner class HeaderViewHolder(private val composeView: ComposeView) : RecyclerView.ViewHolder(composeView) {
+        fun bind(state: NoteHeaderState) {
+            composeView.setContent {
+                MaterialTheme(colorScheme = state.colors, typography = state.typography) {
+                    NoteHeaderContent(state)
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun NoteHeaderContent(state: NoteHeaderState) {
+        var expanded by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 0.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            androidx.compose.foundation.layout.Box {
+                TextButton(onClick = { expanded = true }) { Text(state.title) }
+                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    DropdownMenuItem(
+                        text = { Text(state.allNotesLabel) },
+                        onClick = { expanded = false; state.onTopicSelected(null) }
+                    )
+                    state.topics.forEach { topic ->
+                        DropdownMenuItem(
+                            text = { Text(topic.name) },
+                            onClick = { expanded = false; state.onTopicSelected(topic.id) }
+                        )
+                    }
+                }
+            }
+            Text(text = state.noteTabLabel, style = MaterialTheme.typography.titleMedium)
         }
     }
 
