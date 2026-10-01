@@ -80,6 +80,7 @@ fun NoteScreen(
     isSearchOpen: Boolean,
     searchQuery: String,
     onOpenSearch: () -> Unit = {},
+    onCloseSearch: () -> Unit = {},
     onOpenMenu: () -> Unit = {},
     onOpenOverflow: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -149,6 +150,14 @@ fun NoteScreen(
 
     Box(modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
+            if (isSearchOpen) {
+                SearchOverlay(
+                    query = searchQuery,
+                    onQueryChange = { /* query is owned by MainActivity */ },
+                    onClose = onCloseSearch,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
             if (noteCards.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
@@ -271,6 +280,45 @@ fun NoteScreen(
                 onOpenNote(previewNote.id, origin)
             }
         )
+    }
+}
+
+@Composable
+private fun SearchOverlay(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Default.Search, contentDescription = androidx.compose.ui.res.stringResource(R.string.search_notes))
+            androidx.compose.material3.TextField(
+                value = query,
+                onValueChange = onQueryChange,
+                placeholder = { Text(androidx.compose.ui.res.stringResource(R.string.search_notes)) },
+                singleLine = true,
+                modifier = Modifier.weight(1f),
+                colors = androidx.compose.material3.TextFieldDefaults.colors(
+                    focusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
+                    unfocusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
+                    disabledContainerColor = androidx.compose.ui.graphics.Color.Transparent,
+                    errorContainerColor = androidx.compose.ui.graphics.Color.Transparent,
+                    focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                    unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent
+                )
+            )
+            IconButton(onClick = onClose) {
+                Icon(Icons.Default.Clear, contentDescription = androidx.compose.ui.res.stringResource(R.string.close_search))
+            }
+        }
     }
 }
 
