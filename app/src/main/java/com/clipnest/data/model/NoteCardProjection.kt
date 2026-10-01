@@ -4,6 +4,6 @@ data class NoteCardProjection(
     val id: Long,
     val title: String,
     val preview: String,
-    val updatedAtMillis: Long,
+    val createdAtMillis: Long,
     val topicLabels: String
 )
