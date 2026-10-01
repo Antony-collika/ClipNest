@@ -363,8 +363,6 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
                 ellipsize = android.text.TextUtils.TruncateAt.END
                 textSize = 12f
             }
-            contentColumn.addView(label)
-
             preview = TextView(context).apply {
                 layoutParams = LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                     topMargin = dp(4)
@@ -374,6 +372,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
                 textSize = 14f
             }
             contentColumn.addView(preview)
+            contentColumn.addView(label)
 
             editButton = ImageButton(context).apply {
                 layoutParams = LayoutParams(dp(48), dp(48))
