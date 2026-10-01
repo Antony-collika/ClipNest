@@ -4,10 +4,10 @@ name: Android CI/CD
 on:
   push:
     branches:
-      - Optimization
+      - Draft
   pull_request:
     branches:
-      - Optimization
+      - Draft
   workflow_dispatch:
 
 jobs:
