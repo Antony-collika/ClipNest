@@ -227,6 +227,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
         private var colors = currentColors
         private var currentSourceIds: List<Long> = emptyList()
         private var currentHeader: NoteHeaderState? = null
+        private var pinnedToggle: ((Boolean) -> Unit)? = null
 
         init { setHasStableIds(true) }
 
@@ -247,7 +248,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
 
         override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
             when (val item = getItem(position)) {
-                is NoteListItem.Section -> (holder as SectionViewHolder).bind(item, colors)
+                is NoteListItem.Section -> (holder as SectionViewHolder).bind(item, colors, if (item.id == "pinned") pinnedToggle else null)
                 is NoteListItem.Note -> {
                     val note = item.value
                     (holder as NoteViewHolder).bind(note, selectedIds.contains(note.id), pinnedIds.contains(note.id), colors, callbacks)
@@ -278,9 +279,16 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
     }
 
     private class SectionViewHolder(private val view: TextView) : RecyclerView.ViewHolder(view) {
-        fun bind(item: NoteListItem.Section, colors: NoteRecyclerColors) {
+        fun bind(item: NoteListItem.Section, colors: NoteRecyclerColors, onPinnedToggle: ((Boolean) -> Unit)?) {
             view.text = item.title + " · " + item.count
             view.setTextColor(colors.onSurface)
+            view.setOnClickListener {
+                if (onPinnedToggle != null) {
+                    val expanded = view.tag as? Boolean ?: true
+                    view.tag = !expanded
+                    onPinnedToggle(!expanded)
+                }
+            }
         }
     }
 
