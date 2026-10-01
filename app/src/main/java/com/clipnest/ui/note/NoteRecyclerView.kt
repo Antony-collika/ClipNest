@@ -24,9 +24,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -51,7 +53,12 @@ internal data class NoteRecyclerColors(
     val primary: Int,
     val primaryContainer: Int,
     val outlineVariant: Int,
-    val pinned: Int
+    val pinned: Int,
+    val noteCard: Int,
+    val noteSelectedCard: Int,
+    val notePinnedSurface: Int,
+    val noteTagSurface: Int,
+    val noteTagContent: Int
 )
 
 internal enum class NoteViewMode { LIST, GRID }
@@ -65,6 +72,10 @@ internal data class NoteHeaderState(
     val topics: List<Topic>,
     val colors: androidx.compose.material3.ColorScheme,
     val typography: androidx.compose.material3.Typography,
+    val headerSurface: androidx.compose.ui.graphics.Color,
+    val headerContent: androidx.compose.ui.graphics.Color,
+    val tagSurface: androidx.compose.ui.graphics.Color,
+    val tagContent: androidx.compose.ui.graphics.Color,
     val viewMode: NoteViewMode,
     val pinnedLabel: String,
     val pinnedExpanded: Boolean,
@@ -100,9 +111,14 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
         primary = Color.DKGRAY,
         primaryContainer = Color.LTGRAY,
         outlineVariant = Color.LTGRAY,
-        pinned = Color.DKGRAY
+        pinned = Color.DKGRAY,
+        noteCard = Color.WHITE,
+        noteSelectedCard = Color.LTGRAY,
+        notePinnedSurface = Color.LTGRAY,
+        noteTagSurface = Color.LTGRAY,
+        noteTagContent = Color.DKGRAY
     )
-    private val spacingDecoration = NoteSpacingDecoration(dp(8))
+    private val spacingDecoration = NoteSpacingDecoration(dp(12))
 
     init {
         layoutManager = androidx.recyclerview.widget.LinearLayoutManager(context)
@@ -184,15 +200,21 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
     @Composable
     private fun NoteHeaderContent(state: NoteHeaderState) {
         var expanded by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 0.dp, vertical = 8.dp)
+        Surface(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+            shape = RoundedCornerShape(20.dp),
+            color = state.headerSurface,
+            contentColor = state.headerContent
         ) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp)
+            ) {
             if (state.breadcrumb.isNotBlank()) {
                 Text(
                     text = state.breadcrumb,
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                    color = state.headerContent.copy(alpha = 0.72f),
+                    modifier = Modifier.padding(vertical = 2.dp)
                 )
             }
             Row(
@@ -201,7 +223,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 androidx.compose.foundation.layout.Box {
-                    TextButton(onClick = { expanded = true }) { Text(state.title) }
+                    TextButton(onClick = { expanded = true }) { Text(state.title, style = MaterialTheme.typography.titleLarge) }
                     DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                         DropdownMenuItem(
                             text = { Text(state.allNotesLabel) },
@@ -223,20 +245,23 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
                     }) {
                         Text(if (state.viewMode == NoteViewMode.LIST) androidx.compose.ui.res.stringResource(R.string.note_grid_view) else androidx.compose.ui.res.stringResource(R.string.note_list_view))
                     }
-                    Text(text = state.noteTabLabel, style = MaterialTheme.typography.titleMedium)
+                    Text(text = state.noteTabLabel, style = MaterialTheme.typography.labelLarge, color = state.headerContent.copy(alpha = 0.72f))
                 }
             }
             if (state.subTopics.isNotEmpty()) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     state.subTopics.forEach { topic ->
                         TextButton(onClick = { state.onTopicSelected(topic.id) }) {
-                            Text(topic.name, maxLines = 1)
+                            Surface(shape = RoundedCornerShape(10.dp), color = state.tagSurface, contentColor = state.tagContent) {
+                                Text(topic.name, maxLines = 1, modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp))
+                            }
                         }
                     }
                 }
+            }
             }
         }
     }
@@ -266,7 +291,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder =
             if (viewType == 0) SectionViewHolder(TextView(context).apply {
                 layoutParams = RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                setPadding(dp(8), dp(14), dp(8), dp(6))
+                setPadding(dp(8), dp(10), dp(8), dp(6))
                 setTypeface(Typeface.DEFAULT, Typeface.BOLD)
                 textSize = 13f
             }) else if (viewType == 2) GridNoteViewHolder(NoteGridView(context)) else NoteViewHolder(NoteRowView(context))
@@ -311,6 +336,11 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
         fun bind(item: NoteListItem.Section, colors: NoteRecyclerColors, pinnedExpanded: Boolean, onPinnedToggle: ((Boolean) -> Unit)?) {
             view.text = item.title + " · " + item.count
             view.setTextColor(if (item.id == "pinned") colors.pinned else colors.onSurface)
+            view.background = if (item.id == "pinned") GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dp(14).toFloat()
+                setColor(colors.notePinnedSurface)
+            } else null
             view.setCompoundDrawablePadding(dp(6))
             if (item.id == "pinned" && onPinnedToggle != null) {
                 val expanded = pinnedExpanded
@@ -440,11 +470,19 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             label = TextView(context).apply { layoutParams = LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(3) }; maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END; textSize = 12f }; addView(label)
         }
         fun bind(note: NoteCardProjection, selected: Boolean, colors: NoteRecyclerColors, onToggleSelect: () -> Unit, onLongPress: () -> Unit, onEdit: () -> Unit) {
-            background = GradientDrawable().apply { shape = GradientDrawable.RECTANGLE; cornerRadius = dp(16).toFloat(); setColor(if (selected) withAlpha(colors.primaryContainer, 90) else withAlpha(colors.surface, 179)) }
+            background = GradientDrawable().apply { shape = GradientDrawable.RECTANGLE; cornerRadius = dp(16).toFloat(); setColor(if (selected) colors.noteSelectedCard else colors.noteCard) }
             checkbox.buttonTintList = ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(colors.primary, colors.onSurfaceVariant)); checkbox.isChecked = selected; checkbox.setOnClickListener { onToggleSelect() }
             title.text = note.title.ifBlank { context.getString(R.string.untitled) }; title.setTextColor(colors.onSurface)
             preview.text = note.preview.ifBlank { context.getString(R.string.untitled) }; preview.setTextColor(colors.onSurfaceVariant)
-            label.text = note.topicLabels; label.visibility = if (note.topicLabels.isBlank()) GONE else VISIBLE; label.setTextColor(colors.primary)
+            label.text = note.topicLabels
+            label.visibility = if (note.topicLabels.isBlank()) GONE else VISIBLE
+            label.setTextColor(colors.noteTagContent)
+            label.background = if (note.topicLabels.isBlank()) null else GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dp(9).toFloat()
+                setColor(colors.noteTagSurface)
+            }
+            label.setPadding(dp(8), dp(3), dp(8), dp(3))
             editButton.imageTintList = ColorStateList.valueOf(colors.onSurfaceVariant); editButton.setOnClickListener { onEdit() }
             setOnClickListener { onToggleSelect() }; setOnLongClickListener { onLongPress(); true }
         }
@@ -637,7 +675,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             return GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dp(16).toFloat()
-                setColor(if (isSelected) withAlpha(colors.primaryContainer, 90) else withAlpha(colors.surface, 179))
+                setColor(if (isSelected) colors.noteSelectedCard else colors.noteCard)
             }
         }
 
