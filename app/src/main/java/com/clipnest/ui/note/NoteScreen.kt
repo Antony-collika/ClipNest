@@ -167,7 +167,7 @@ fun NoteScreen(
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(190.dp)
+                .height(156.dp)
                 .align(Alignment.BottomCenter)
         ) {
             val backWave = Path().apply {
@@ -194,11 +194,11 @@ fun NoteScreen(
                 lineTo(0f, size.height)
                 close()
             }
-            val wavePrimary = noteColors.wavePrimary.copy(alpha = 0.16f)
-            val waveSecondary = noteColors.waveSecondary.copy(alpha = 0.08f)
+            val wavePrimary = noteColors.wavePrimary.copy(alpha = 0.10f)
+            val waveSecondary = noteColors.waveSecondary.copy(alpha = 0.045f)
             drawPath(backWave, waveSecondary)
-            drawPath(middleWave, wavePrimary.copy(alpha = 0.11f))
-            drawPath(frontWave, wavePrimary.copy(alpha = 0.16f))
+            drawPath(middleWave, wavePrimary.copy(alpha = 0.07f))
+            drawPath(frontWave, wavePrimary.copy(alpha = 0.10f))
         }
 
         Column(Modifier.fillMaxSize()) {
@@ -291,7 +291,7 @@ fun NoteScreen(
                     },
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 0.dp)
+                        .padding(start = 12.dp, end = 12.dp, top = 2.dp, bottom = 0.dp)
                 )
             }
         }
@@ -299,11 +299,11 @@ fun NoteScreen(
         Surface(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(horizontal = 20.dp, vertical = 20.dp),
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(32.dp),
+                .padding(horizontal = 18.dp, vertical = 18.dp),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
             color = noteColors.dockSurface,
-            tonalElevation = 4.dp,
-            shadowElevation = 7.dp
+            tonalElevation = 3.dp,
+            shadowElevation = 5.dp
         ) {
             Row(
                 modifier = Modifier
