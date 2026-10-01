@@ -270,4 +270,6 @@
     <string name="trash_empty">Trash is empty</string>
     <string name="trash_restore">Restore</string>
     <string name="trash_delete_forever">Delete permanently</string>
+    <string name="trash_delete_forever_confirm_title">Delete %1$d note permanently?</string>
+    <string name="trash_delete_forever_confirm_message">Are you sure you want to permanently delete %1$d selected note(s)? This action cannot be undone.</string>
 </resources>
