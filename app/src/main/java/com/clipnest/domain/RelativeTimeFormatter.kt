@@ -19,7 +19,7 @@ object RelativeTimeFormatter {
         if (targetDate == today) return "Hôm nay"
         if (targetDate == today.minusDays(1)) return "Hôm qua"
 
-        val weekFields = java.time.temporal.WeekFields.of(Locale.getDefault())
+        val weekFields = java.time.temporal.WeekFields.ISO
         val firstDayOfWeek = weekFields.firstDayOfWeek
         val todayWeek = today.with(java.time.temporal.TemporalAdjusters.previousOrSame(firstDayOfWeek))
         val targetWeek = targetDate.with(java.time.temporal.TemporalAdjusters.previousOrSame(firstDayOfWeek))
