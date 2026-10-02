@@ -212,15 +212,15 @@ private fun NoteHeaderContent(state: NoteHeaderState) {
     var expanded by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
 
     Surface(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-        shape = RoundedCornerShape(18.dp),
+        modifier = Modifier.fillMaxWidth(),
+        shape = androidx.compose.ui.graphics.RectangleShape,
         color = state.headerSurface,
         contentColor = state.headerContent
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
+                .padding(horizontal = 20.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // 1. Avatar — trang trí, không bấm
