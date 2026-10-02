@@ -475,22 +475,10 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             result += NoteListItem.Section("pinned", header.pinnedLabel, pinned.size)
             if (header.pinnedExpanded) pinned.forEach { result += NoteListItem.Note(it) }
         }
-        val groups = linkedMapOf(
-            header.todayLabel to mutableListOf<NoteCardProjection>(),
-            header.yesterdayLabel to mutableListOf(),
-            header.previous7DaysLabel to mutableListOf(),
-            header.previous30DaysLabel to mutableListOf(),
-            header.olderLabel to mutableListOf()
-        )
+        val groups = linkedMapOf<String, MutableList<NoteCardProjection>>()
         notes.filterNot { it.id in pinnedIds }.forEach { note ->
-            val key = when (RelativeTimeFormatter.daysAgo(note.createdAtMillis)) {
-                0L -> header.todayLabel
-                1L -> header.yesterdayLabel
-                in 2L..7L -> header.previous7DaysLabel
-                in 8L..30L -> header.previous30DaysLabel
-                else -> header.olderLabel
-            }
-            groups.getValue(key).add(note)
+            val key = RelativeTimeFormatter.relativeDateLabel(note.createdAtMillis)
+            groups.getOrPut(key) { mutableListOf() }.add(note)
         }
         groups.forEach { (title, items) ->
             if (items.isNotEmpty()) {
