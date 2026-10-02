@@ -66,11 +66,10 @@ internal data class NoteRecyclerColors(
 internal enum class NoteViewMode { LIST, GRID }
 
 internal data class NoteHeaderState(
-    val title: String,
-    val breadcrumb: String,
-    val subTopics: List<Topic>,
+    val avatarIcon: androidx.compose.ui.graphics.vector.ImageVector,
+    val myTopicsLabel: String,
+    val currentTopicLabel: String,
     val allNotesLabel: String,
-    val noteTabLabel: String,
     val topics: List<Topic>,
     val colors: androidx.compose.material3.ColorScheme,
     val typography: androidx.compose.material3.Typography,
@@ -90,7 +89,6 @@ internal data class NoteHeaderState(
     val onTopicSelected: (Long?) -> Unit,
     val onViewModeChanged: (NoteViewMode) -> Unit
 )
-
 internal data class NoteRecyclerCallbacks(
     val onToggleSelect: (Long) -> Unit,
     val onLongPress: (Long, Float) -> Unit,
@@ -200,59 +198,132 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
     }
 
     @Composable
-    private fun NoteHeaderContent(state: NoteHeaderState) {
-        var expanded by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
-        Surface(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-            shape = RoundedCornerShape(18.dp),
-            color = state.headerSurface,
-            contentColor = state.headerContent
+private fun NoteHeaderContent(state: NoteHeaderState) {
+    var expanded by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        shape = RoundedCornerShape(18.dp),
+        color = state.headerSurface,
+        contentColor = state.headerContent
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp)
+            // 1. Avatar — trang trí, không bấm
+            Surface(
+                shape = RoundedCornerShape(50),
+                color = state.tagSurface,
+                modifier = Modifier.size(36.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                        Surface(shape = RoundedCornerShape(50), color = state.tagSurface, modifier = Modifier.padding(end = 8.dp)) {
-                            Text("●", color = state.tagContent, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp))
-                        }
-                        androidx.compose.foundation.layout.Box(modifier = Modifier.weight(1f)) {
-                            TextButton(onClick = { expanded = true }) {
-                                Text(if (state.breadcrumb.isNotBlank()) state.breadcrumb else state.title, style = MaterialTheme.typography.labelLarge, maxLines = 1)
-                            }
-                            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                                DropdownMenuItem(text = { Text(state.allNotesLabel) }, onClick = { expanded = false; state.onTopicSelected(null) })
-                                state.topics.forEach { topic ->
-                                    DropdownMenuItem(text = { Text(topic.name) }, onClick = { expanded = false; state.onTopicSelected(topic.id) })
-                                }
-                            }
-                        }
-                    }
-                    TextButton(onClick = {
-                        state.onViewModeChanged(if (state.viewMode == NoteViewMode.LIST) NoteViewMode.GRID else NoteViewMode.LIST)
-                    }) {
-                        Text(if (state.viewMode == NoteViewMode.LIST) "▤" else "▦", style = MaterialTheme.typography.titleMedium)
-                    }
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = state.avatarIcon,
+                        contentDescription = null,
+                        tint = state.tagContent,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
-                if (state.subTopics.isNotEmpty()) {
-                    Row(modifier = Modifier.fillMaxWidth().padding(start = 42.dp, top = 2.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        state.subTopics.forEach { topic ->
-                            AssistChip(
-                                onClick = { state.onTopicSelected(topic.id) },
-                                label = { Text(topic.name, maxLines = 1) },
-                                shape = RoundedCornerShape(50),
-                                colors = AssistChipDefaults.assistChipColors(containerColor = state.tagSurface, labelColor = state.tagContent)
-                            )
-                        }
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // 2. "My topics" — bấm mở dropdown
+            Box {
+                TextButton(
+                    onClick = { expanded = true },
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = state.myTopicsLabel,
+                        style = MaterialTheme.typography.labelLarge,
+                        maxLines = 1
+                    )
+                }
+                DropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text(state.allNotesLabel) },
+                        onClick = { expanded = false; state.onTopicSelected(null) }
+                    )
+                    state.topics.forEach { topic ->
+                        DropdownMenuItem(
+                            text = { Text(topic.name) },
+                            onClick = { expanded = false; state.onTopicSelected(topic.id) }
+                        )
                     }
                 }
             }
+
+            // 3. Dấu "|" ngăn cách
+            Text(
+                text = "|",
+                style = MaterialTheme.typography.labelLarge,
+                color = state.headerContent.copy(alpha = 0.5f),
+                modifier = Modifier.padding(horizontal = 4.dp)
+            )
+
+            // 4. Tên topic đang chọn
+            Text(
+                text = state.currentTopicLabel,
+                style = MaterialTheme.typography.labelLarge,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // 5. Nút List view
+            ViewModeButton(
+                selected = state.viewMode == NoteViewMode.LIST,
+                icon = Icons.Default.List,
+                description = "List view",
+                onClick = { state.onViewModeChanged(NoteViewMode.LIST) }
+            )
+
+            // 6. Nút Grid view
+            ViewModeButton(
+                selected = state.viewMode == NoteViewMode.GRID,
+                icon = Icons.Default.GridView,
+                description = "Grid view",
+                onClick = { state.onViewModeChanged(NoteViewMode.GRID) }
+            )
         }
     }
+}
+
+@Composable
+private fun ViewModeButton(
+    selected: Boolean,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    description: String,
+    onClick: () -> Unit
+) {
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier
+            .size(40.dp)
+            .background(
+                color = if (selected) MaterialTheme.colorScheme.primaryContainer
+                else androidx.compose.ui.graphics.Color.Transparent,
+                shape = RoundedCornerShape(10.dp)
+            )
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = description,
+            tint = if (selected) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp)
+        )
+    }
+}
 
     private sealed class NoteListItem {
         data class Section(val id: String, val title: String, val count: Int) : NoteListItem()

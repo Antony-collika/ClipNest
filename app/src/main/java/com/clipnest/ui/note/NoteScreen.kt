@@ -117,8 +117,8 @@ fun NoteScreen(
     val noteCards by noteCardsFlow.collectAsState(initial = emptyList())
 
     val selectedTopic = topics.firstOrNull { it.id == selectedTopicId }
-    val topicBreadcrumb = buildTopicBreadcrumb(selectedTopic, topics)
-    val subTopics = topics.filter { it.parentId == selectedTopicId }
+    val currentTopicLabel = selectedTopic?.name
+    ?: androidx.compose.ui.res.stringResource(R.string.all_notes)
     val pinnedNoteIds by remember(selectedTopicId) {
         selectedTopicId?.let {
             noteDao.observePinnedNoteIdsForTopic(it, NoteTopicRole.USER_TAG)
@@ -249,11 +249,10 @@ fun NoteScreen(
                     noteTagContent = noteColors.tagContent.toArgb()
                 )
                 val headerState = NoteHeaderState(
-                    title = selectedTopic?.name ?: androidx.compose.ui.res.stringResource(R.string.all_notes),
-                    breadcrumb = topicBreadcrumb,
-                    subTopics = subTopics,
-                    allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
-                    noteTabLabel = androidx.compose.ui.res.stringResource(R.string.note_tab),
+                    avatarIcon = androidx.compose.material.icons.Icons.Default.Person,
+myTopicsLabel = androidx.compose.ui.res.stringResource(R.string.drawer_my_topics),
+currentTopicLabel = currentTopicLabel,
+allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
                     topics = topics,
                     colors = MaterialTheme.colorScheme,
                     typography = MaterialTheme.typography,
@@ -461,17 +460,6 @@ private fun SearchOverlay(
     }
 }
 
-private fun buildTopicBreadcrumb(selected: Topic?, topics: List<Topic>): String {
-    if (selected == null) return ""
-    val byId = topics.associateBy { it.id }
-    val path = mutableListOf<String>()
-    var current: Topic? = selected
-    while (current != null) {
-        path += current.name
-        current = current.parentId?.let(byId::get)
-    }
-    return path.asReversed().joinToString(" / ")
-}
 
 private fun originForTopic(topic: Topic?): EditorNoteOrigin? =
     topic?.let { EditorNoteOrigin(label = it.name, returnKey = "topic:" + it.id) }
