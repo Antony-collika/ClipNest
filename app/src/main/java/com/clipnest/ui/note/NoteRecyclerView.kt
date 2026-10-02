@@ -402,33 +402,39 @@ private fun ViewModeButton(
     }
 
     private class SectionViewHolder(private val view: TextView) : RecyclerView.ViewHolder(view) {
+        private var pinnedExpandedState = true
+
         fun bind(item: NoteListItem.Section, colors: NoteRecyclerColors, pinnedExpanded: Boolean, onPinnedToggle: ((Boolean) -> Unit)?) {
-            view.text = if (item.id == "pinned") "Pinned · ${item.count}" else item.title
-            view.setTextColor(if (item.id == "pinned") colors.pinned else colors.onSurface)
-            view.background = if (item.id == "pinned") GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dp(16).toFloat()
-                setColor(colors.notePinnedSurface)
-            } else null
-            view.elevation = if (item.id == "pinned") dp(2).toFloat() else 0f
-            view.setCompoundDrawablePadding(dp(8))
+            pinnedExpandedState = pinnedExpanded
+
             if (item.id == "pinned" && onPinnedToggle != null) {
-                val expanded = pinnedExpanded
+                view.text = "📌 ${item.title} · ${item.count} notes"
+                view.setTextColor(colors.onSurface)
+                view.setBackgroundColor(Color.TRANSPARENT)
+                view.elevation = 0f
+                view.setCompoundDrawablePadding(dp(8))
                 view.setCompoundDrawablesWithIntrinsicBounds(
-                    android.R.drawable.ic_menu_mylocation,
                     0,
-                    if (expanded) android.R.drawable.arrow_up_float else android.R.drawable.arrow_down_float,
+                    0,
+                    if (pinnedExpandedState) android.R.drawable.arrow_up_float else android.R.drawable.arrow_down_float,
                     0
                 )
-                view.text = "Pinned · ${item.count} notes"
                 view.contentDescription = item.title + " " + item.count
+                view.isClickable = true
+                view.isFocusable = true
                 view.setOnClickListener {
-                    view.tag = !expanded
-                    onPinnedToggle(!expanded)
+                    pinnedExpandedState = !pinnedExpandedState
+                    onPinnedToggle(pinnedExpandedState)
                 }
             } else {
+                view.text = item.title
+                view.setTextColor(colors.onSurface)
+                view.background = null
+                view.elevation = 0f
                 view.setCompoundDrawablesWithIntrinsicBounds(0, 0, 0, 0)
                 view.contentDescription = null
+                view.isClickable = false
+                view.isFocusable = false
                 view.setOnClickListener(null)
             }
         }
@@ -436,7 +442,6 @@ private fun ViewModeButton(
         private fun dp(value: Int): Int =
             (value * view.resources.displayMetrics.density).roundToInt()
     }
-
     private object ITEM_DIFF_CALLBACK : DiffUtil.ItemCallback<NoteListItem>() {
         override fun areItemsTheSame(oldItem: NoteListItem, newItem: NoteListItem): Boolean = when {
             oldItem is NoteListItem.Section && newItem is NoteListItem.Section -> oldItem.id == newItem.id
