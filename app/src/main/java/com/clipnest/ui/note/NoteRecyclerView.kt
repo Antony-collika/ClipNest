@@ -368,9 +368,9 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder =
             if (viewType == 0) SectionViewHolder(TextView(context).apply {
                 layoutParams = RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                setPadding(dp(8), dp(14), dp(8), dp(14))
+                setPadding(dp(8), dp(6), dp(8), dp(6))
                 setTypeface(Typeface.DEFAULT, Typeface.BOLD)
-                textSize = 18f
+                textSize = 14f
             }) else if (viewType == 2) GridNoteViewHolder(NoteGridView(context)) else NoteViewHolder(NoteRowView(context))
 
         override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
@@ -542,10 +542,10 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             val actions = LinearLayout(context).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; layoutParams = LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(40)) }
             checkbox = CheckBox(context).apply { layoutParams = LayoutParams(dp(40), dp(40)); minWidth = dp(40); minHeight = dp(40); contentDescription = context.getString(R.string.select_card) }
             editButton = ImageButton(context).apply { layoutParams = LayoutParams(dp(40), dp(40)); setPadding(dp(9), dp(9), dp(9), dp(9)); setImageResource(android.R.drawable.ic_menu_edit); background = null; contentDescription = context.getString(R.string.edit_note) }
-            actions.addView(checkbox); actions.addView(View(context), LinearLayout.LayoutParams(0, 1, 1f)); actions.addView(editButton); addView(actions)
-            title = TextView(context).apply { layoutParams = LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT); maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END; textSize = 16f; setTypeface(Typeface.DEFAULT, Typeface.BOLD) }; addView(title)
-            preview = TextView(context).apply { layoutParams = LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6) }; maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END; textSize = 14f }; addView(preview)
-            label = TextView(context).apply { layoutParams = LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6) }; maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END; textSize = 12f }; addView(label)
+            actions.addView(checkbox); actions.addView(View(context), LinearLayout.LayoutParams(0, 1, 1f)); actions.addView(editButton);
+            title = TextView(context).apply { layoutParams = LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT); maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END; textSize = 14f; setTypeface(Typeface.DEFAULT, Typeface.BOLD) }; addView(title)
+            preview = TextView(context).apply { layoutParams = LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6) }; maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END; textSize = 12f }; addView(preview)
+            label = TextView(context).apply { layoutParams = LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f).apply { topMargin = dp(6) }; maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END; textSize = 12f; gravity = Gravity.BOTTOM or Gravity.START }; addView(label);addView(actions)
         }
         fun bind(note: NoteCardProjection, selected: Boolean, colors: NoteRecyclerColors, onToggleSelect: () -> Unit, onLongPress: () -> Unit, onEdit: () -> Unit) {
             background = GradientDrawable().apply { shape = GradientDrawable.RECTANGLE; cornerRadius = dp(18).toFloat(); setColor(if (selected) colors.noteSelectedCard else colors.noteCard) }
@@ -690,7 +690,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
                 layoutParams = LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
                 maxLines = 1
                 ellipsize = android.text.TextUtils.TruncateAt.END
-                textSize = 16f
+                textSize = 14f
                 setTypeface(Typeface.DEFAULT, Typeface.BOLD)
             }
             contentColumn.addView(title)
@@ -709,7 +709,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
                 }
                 maxLines = 2
                 ellipsize = android.text.TextUtils.TruncateAt.END
-                textSize = 14f
+                textSize = 12f
             }
             contentColumn.addView(preview)
             contentColumn.addView(label)

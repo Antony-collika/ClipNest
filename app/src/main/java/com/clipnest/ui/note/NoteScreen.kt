@@ -1,5 +1,6 @@
 package com.clipnest.ui.note
 
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -314,24 +315,24 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
         }
 
         Surface(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(horizontal = 18.dp, vertical = 18.dp),
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(30.dp),
-            color = noteColors.dockSurface,
-            tonalElevation = 3.dp,
-            shadowElevation = 5.dp
-        ) {
+    modifier = Modifier
+        .align(Alignment.BottomCenter)
+        .padding(horizontal = 18.dp, vertical = 18.dp),
+    shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+    color = noteColors.dockSurface,
+    tonalElevation = 2.dp,
+    shadowElevation = 3.dp
+) {
             Row(
                 modifier = Modifier
-                    .heightIn(min = 60.dp)
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                    .height(48.dp)
+                    .padding(horizontal = 4.dp, vertical = 0.dp),
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(
                     onClick = onOpenMenu,
-                    modifier = Modifier.size(52.dp)
+                    modifier = Modifier.size(48.dp)
                 ) {
                     Icon(
                         Icons.Default.Menu,
@@ -340,34 +341,35 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
                 }
                 IconButton(
                     onClick = onOpenSearch,
-                    modifier = Modifier.size(52.dp)
+                    modifier = Modifier.size(48.dp)
                 ) {
                     Icon(
                         Icons.Default.Search,
                         contentDescription = androidx.compose.ui.res.stringResource(R.string.search_notes)
                     )
                 }
-                FloatingActionButton(
-                    onClick = { onCreateNote(origin, selectedTopicId) },
-                    modifier = Modifier
-                        .size(56.dp)
-                        .offset(y = (-4).dp),
-                    containerColor = if (isDark) Color(0xFF3F7657) else Color(0xFF174B39),
-                    contentColor = Color.White,
-                    elevation = androidx.compose.material3.FloatingActionButtonDefaults.elevation(
-                        defaultElevation = 8.dp,
-                        pressedElevation = 12.dp
-                    )
-                ) {
-                    Icon(
-                        Icons.Default.Edit,
-                        contentDescription = androidx.compose.ui.res.stringResource(R.string.new_note)
-                    )
-                }
+                VerticalDivider(
+    modifier = Modifier.height(20.dp),
+    color = MaterialTheme.colorScheme.outlineVariant
+)
+IconButton(
+    onClick = { onCreateNote(origin, selectedTopicId) },
+    modifier = Modifier.size(48.dp)
+) {
+    Icon(
+        Icons.Default.Edit,
+        contentDescription = androidx.compose.ui.res.stringResource(R.string.new_note),
+        tint = MaterialTheme.colorScheme.primary
+    )
+}
+VerticalDivider(
+    modifier = Modifier.height(20.dp),
+    color = MaterialTheme.colorScheme.outlineVariant
+)
                 Box {
                     IconButton(
                         onClick = { overflowExpanded = true },
-                        modifier = Modifier.size(52.dp)
+                        modifier = Modifier.size(48.dp)
                     ) {
                         Icon(
                             Icons.Default.MoreVert,
