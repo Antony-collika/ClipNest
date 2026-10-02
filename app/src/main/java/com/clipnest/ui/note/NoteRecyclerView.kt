@@ -389,7 +389,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
                 view.setBackgroundColor(Color.TRANSPARENT)
                 view.elevation = 0f
                 view.setCompoundDrawablePadding(dp(8))
-                view.setCompoundDrawables(null, null, ChevronDrawable(view.resources.displayMetrics.density, pinnedExpandedState, colors.onSurface), null)
+                view.setCompoundDrawablesWithIntrinsicBounds(null, null, ChevronDrawable(view.resources.displayMetrics.density, pinnedExpandedState, colors.onSurface), null)
                 view.contentDescription = item.title + " " + item.count
                 view.isClickable = true
                 view.isFocusable = true
