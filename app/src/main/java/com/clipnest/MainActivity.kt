@@ -832,9 +832,10 @@ private fun MainTopBar(
                     isNote || isVault || isEditor -> {
                         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             val tabTextColor = if (isNote) androidx.compose.ui.graphics.Color(0xFFF6F4EA) else MaterialTheme.colorScheme.onSurface
-                            MainTabSlot(selected = isNote, onClick = { onTabSelected(0) }, modifier = Modifier.weight(1f).testTag("main_tab_note")) { Text(stringResource(com.clipnest.R.string.note_tab), color = tabTextColor, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)) }
-                            MainTabSlot(selected = isVault, onClick = { onTabSelected(1) }, modifier = Modifier.weight(1f).testTag("main_tab_vault")) { Text(stringResource(com.clipnest.R.string.vault), color = tabTextColor, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)) }
-                            MainTabSlot(selected = isEditor, onClick = { onTabSelected(2) }, modifier = Modifier.weight(1f).testTag("main_tab_editor")) { Text(editorDocumentName, color = tabTextColor, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold), maxLines = 1) }
+                            val tabAccentColor = if (isNote) androidx.compose.ui.graphics.Color(0xFFDDE8B5) else MaterialTheme.colorScheme.primary
+                            MainTabSlot(selected = isNote, onClick = { onTabSelected(0) }, modifier = Modifier.weight(1f).testTag("main_tab_note"), selectedColor = tabAccentColor) { Text(stringResource(com.clipnest.R.string.note_tab), color = tabTextColor, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)) }
+                            MainTabSlot(selected = isVault, onClick = { onTabSelected(1) }, modifier = Modifier.weight(1f).testTag("main_tab_vault"), selectedColor = tabAccentColor) { Text(stringResource(com.clipnest.R.string.vault), color = tabTextColor, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)) }
+                            MainTabSlot(selected = isEditor, onClick = { onTabSelected(2) }, modifier = Modifier.weight(1f).testTag("main_tab_editor"), selectedColor = tabAccentColor) { Text(editorDocumentName, color = tabTextColor, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold), maxLines = 1) }
                         }
                     }
                     else -> Text(text = title, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), modifier = Modifier.padding(start = 16.dp).testTag("main_title"))
@@ -877,10 +878,16 @@ private fun MainTopBar(
     }
 
 @Composable
-private fun MainTabSlot(selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+private fun MainTabSlot(
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    selectedColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.primary,
+    content: @Composable () -> Unit
+) {
     Column(modifier = modifier.fillMaxHeight().clickable(onClick = onClick).padding(horizontal = 8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
         Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) { content() }
-        Box(modifier = Modifier.fillMaxWidth().height(2.dp).background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)))
+        Box(modifier = Modifier.fillMaxWidth().height(2.dp).background(if (selected) selectedColor else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)))
     }
 }
 
