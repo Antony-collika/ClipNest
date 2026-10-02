@@ -10,10 +10,6 @@ import android.graphics.drawable.Drawable
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
-import android.graphics.drawable.Drawable
-import android.graphics.Canvas
-import android.graphics.Paint
-import android.graphics.Path
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
