@@ -28,12 +28,12 @@ class RelativeTimeFormatterTest {
             )
 
         // Same week: day labels are not limited by the 3-day memory window.
-        val saturday = calendar(2026, 10, 3)
-        assertEquals("Hôm nay", label(saturday, 2026, 10, 3))
-        assertEquals("Hôm qua", label(saturday, 2026, 10, 2))
-        assertEquals("2 ngày trước", label(saturday, 2026, 10, 1))
-        assertEquals("3 ngày trước", label(saturday, 9, 30))
-        assertEquals("5 ngày trước", label(saturday, 2026, 9, 28))
+        val saturday = calendar(2026, 10, 10)
+        assertEquals("Hôm nay", label(saturday, 2026, 10, 10))
+        assertEquals("Hôm qua", label(saturday, 2026, 10, 9))
+        assertEquals("2 ngày trước", label(saturday, 2026, 10, 8))
+        assertEquals("3 ngày trước", label(saturday, 2026, 10, 7))
+        assertEquals("5 ngày trước", label(saturday, 2026, 10, 5))
 
         // Cross-week: only the first 3 days remain in the day-memory window.
         val tuesday = calendar(2026, 10, 6)
@@ -41,7 +41,8 @@ class RelativeTimeFormatterTest {
         assertEquals("Tuần trước", label(tuesday, 2026, 10, 2))
 
         // Older weeks in the same month use calendar-week distance.
-        assertEquals("2 tuần trước", label(tuesday, 2026, 9, 21))
+        val laterTuesday = calendar(2026, 10, 20)
+        assertEquals("2 tuần trước", label(laterTuesday, 2026, 10, 6))
 
         // Crossing into the previous month uses the month bucket consistently.
         assertEquals("Tháng trước", label(tuesday, 2026, 9, 30))
