@@ -9,22 +9,33 @@ object RelativeTimeFormatter {
 
     fun format(timestampMillis: Long): String = format(timestampMillis, "Hôm nay", "Hôm qua")
 
-    fun daysAgo(timestampMillis: Long): Long {
-        val now = Calendar.getInstance()
+    fun relativeDateLabel(timestampMillis: Long, nowMillis: Long = System.currentTimeMillis()): String {
+        val now = Calendar.getInstance().apply { timeInMillis = nowMillis }
         val target = Calendar.getInstance().apply { timeInMillis = timestampMillis }
-        val todayDate = java.time.LocalDate.of(
-            now.get(Calendar.YEAR),
-            now.get(Calendar.MONTH) + 1,
-            now.get(Calendar.DAY_OF_MONTH)
-        )
-        val targetDate = java.time.LocalDate.of(
-            target.get(Calendar.YEAR),
-            target.get(Calendar.MONTH) + 1,
-            target.get(Calendar.DAY_OF_MONTH)
-        )
-        return java.time.temporal.ChronoUnit.DAYS.between(targetDate, todayDate).coerceAtLeast(0L)
-    }
 
+        val today = java.time.LocalDate.of(now.get(Calendar.YEAR), now.get(Calendar.MONTH) + 1, now.get(Calendar.DAY_OF_MONTH))
+        val targetDate = java.time.LocalDate.of(target.get(Calendar.YEAR), target.get(Calendar.MONTH) + 1, target.get(Calendar.DAY_OF_MONTH))
+
+        if (targetDate == today) return "Hôm nay"
+        if (targetDate == today.minusDays(1)) return "Hôm qua"
+
+        val weekFields = java.time.temporal.WeekFields.of(Locale.getDefault())
+        val firstDayOfWeek = weekFields.firstDayOfWeek
+        val todayWeek = today.with(java.time.temporal.TemporalAdjusters.previousOrSame(firstDayOfWeek))
+        val targetWeek = targetDate.with(java.time.temporal.TemporalAdjusters.previousOrSame(firstDayOfWeek))
+        val weeksAgo = java.time.temporal.ChronoUnit.WEEKS.between(targetWeek, todayWeek)
+
+        if (weeksAgo == 1L) return "Tuần trước"
+        if (targetDate.year == today.year && targetDate.month == today.month && weeksAgo >= 2) {
+            return "${weeksAgo} tuần trước"
+        }
+
+        val monthsAgo = java.time.temporal.ChronoUnit.MONTHS.between(targetDate.withDayOfMonth(1), today.withDayOfMonth(1))
+        if (monthsAgo == 1L) return "Tháng trước"
+        if (targetDate.year == today.year && monthsAgo >= 2) return "${monthsAgo} tháng trước"
+
+        return "Tháng ${targetDate.monthValue} - ${targetDate.year}"
+    }
     fun format(timestampMillis: Long, todayLabel: String, yesterdayLabel: String): String {
         val now = Calendar.getInstance()
         val target = Calendar.getInstance().apply { timeInMillis = timestampMillis }
