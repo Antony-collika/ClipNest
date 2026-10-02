@@ -64,6 +64,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.clipnest.R
 import com.clipnest.data.model.NoteCardProjection
 import com.clipnest.data.model.Topic
+import com.clipnest.domain.RelativeTimeFormatter
 
 internal data class NoteRecyclerColors(
     val surface: Int,
@@ -260,7 +261,7 @@ private fun ViewModeIconButton(
     Box(
         modifier = Modifier
             .size(40.dp)
-            .clickable(onClick = onClick),
+            .clickable(interactionSource = null, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Icon(
@@ -481,16 +482,12 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             header.previous30DaysLabel to mutableListOf(),
             header.olderLabel to mutableListOf()
         )
-        val today = java.time.LocalDate.now()
         notes.filterNot { it.id in pinnedIds }.forEach { note ->
-            val date = java.time.Instant.ofEpochMilli(note.createdAtMillis)
-                .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
-            val days = java.time.temporal.ChronoUnit.DAYS.between(date, today)
-            val key = when {
-                days <= 0L -> header.todayLabel
-                days == 1L -> header.yesterdayLabel
-                days <= 7L -> header.previous7DaysLabel
-                days <= 30L -> header.previous30DaysLabel
+            val key = when (RelativeTimeFormatter.daysAgo(note.createdAtMillis)) {
+                0L -> header.todayLabel
+                1L -> header.yesterdayLabel
+                in 2L..7L -> header.previous7DaysLabel
+                in 8L..30L -> header.previous30DaysLabel
                 else -> header.olderLabel
             }
             groups.getValue(key).add(note)
