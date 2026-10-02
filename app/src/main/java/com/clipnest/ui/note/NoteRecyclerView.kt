@@ -330,10 +330,8 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             val grid = (layoutManager as? androidx.recyclerview.widget.GridLayoutManager)
                 ?: androidx.recyclerview.widget.GridLayoutManager(context, 2).also { layoutManager = it }
             grid.spanSizeLookup = object : androidx.recyclerview.widget.GridLayoutManager.SpanSizeLookup() {
-                override fun getSpanSize(position: Int): Int {
-                    if (position == 0) return 2
-                    return if (listAdapter.isFullSpanPosition(position - 1)) 2 else 1
-                }
+                override fun getSpanSize(position: Int): Int =
+                    if (listAdapter.isFullSpanPosition(position)) 2 else 1
             }
         } else if (layoutManager !is androidx.recyclerview.widget.LinearLayoutManager ||
             layoutManager is androidx.recyclerview.widget.GridLayoutManager) {
