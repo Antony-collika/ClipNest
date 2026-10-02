@@ -745,7 +745,7 @@ private fun MainTopBar(
     LaunchedEffect(isSearchOpen) {
         if (isSearchOpen) { searchFocusRequester.requestFocus(); keyboardController?.show() }
     }
-    Surface(color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth()) {
+    Surface(color = if (isNote) androidx.compose.ui.graphics.Color(0xFF174B39) else MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth().statusBarsPadding().height(if (isSearchOpen && isEditor) 104.dp else 52.dp).padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -830,9 +830,10 @@ private fun MainTopBar(
                     }
                     isNote || isVault || isEditor -> {
                         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            MainTabSlot(selected = isNote, onClick = { onTabSelected(0) }, modifier = Modifier.weight(1f).testTag("main_tab_note")) { Text(stringResource(com.clipnest.R.string.note_tab), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)) }
-                            MainTabSlot(selected = isVault, onClick = { onTabSelected(1) }, modifier = Modifier.weight(1f).testTag("main_tab_vault")) { Text(stringResource(com.clipnest.R.string.vault), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)) }
-                            MainTabSlot(selected = isEditor, onClick = { onTabSelected(2) }, modifier = Modifier.weight(1f).testTag("main_tab_editor")) { Text(editorDocumentName, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold), maxLines = 1) }
+                            val tabTextColor = if (isNote) androidx.compose.ui.graphics.Color(0xFFF6F4EA) else MaterialTheme.colorScheme.onSurface
+                            MainTabSlot(selected = isNote, onClick = { onTabSelected(0) }, modifier = Modifier.weight(1f).testTag("main_tab_note")) { Text(stringResource(com.clipnest.R.string.note_tab), color = tabTextColor, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)) }
+                            MainTabSlot(selected = isVault, onClick = { onTabSelected(1) }, modifier = Modifier.weight(1f).testTag("main_tab_vault")) { Text(stringResource(com.clipnest.R.string.vault), color = tabTextColor, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)) }
+                            MainTabSlot(selected = isEditor, onClick = { onTabSelected(2) }, modifier = Modifier.weight(1f).testTag("main_tab_editor")) { Text(editorDocumentName, color = tabTextColor, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold), maxLines = 1) }
                         }
                     }
                     else -> Text(text = title, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), modifier = Modifier.padding(start = 16.dp).testTag("main_title"))
