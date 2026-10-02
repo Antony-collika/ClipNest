@@ -822,6 +822,7 @@ private fun MainTopBar(
                                 Text(
                                     text = stringResource(com.clipnest.R.string.selected_count, selectedCount),
                                     style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                                    color = if (isNote) androidx.compose.ui.graphics.Color(0xFFF6F4EA) else MaterialTheme.colorScheme.onSurface,
                                     maxLines = 1,
                                     modifier = Modifier.testTag(if (isNote) "note_selected_count_text" else "vault_selected_count_text")
                                 )
