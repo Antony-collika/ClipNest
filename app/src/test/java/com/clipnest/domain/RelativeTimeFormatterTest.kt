@@ -44,9 +44,18 @@ class RelativeTimeFormatterTest {
         val laterTuesday = calendar(2026, 10, 20)
         assertEquals("2 tuần trước", label(laterTuesday, 2026, 10, 6))
 
-        // Crossing into the previous month uses the month bucket consistently.
+        // Month boundaries do not override recent calendar-day/week memory.
+        assertEquals("2 ngày trước", label(tuesday, 2026, 10, 4))
         assertEquals("Tháng trước", label(tuesday, 2026, 9, 30))
 
+        // Previous-month dates still use week memory while they are in the previous calendar week.
+        assertEquals("Tuần trước", label(tuesday, 2026, 9, 26))
+        assertEquals("Tuần trước", label(tuesday, 2026, 9, 21))
+
+        // Once the date falls into the week before last, the previous-month bucket wins.
+        assertEquals("Tháng trước", label(tuesday, 2026, 9, 20))
+
+        // Older months always use an explicit month/year label.
         // Older months always use an explicit month/year label.
         assertEquals("Tháng 8, 2026", label(tuesday, 2026, 8, 15))
         assertEquals("Tháng 9, 2025", label(tuesday, 2025, 9, 15))
@@ -61,3 +70,34 @@ class RelativeTimeFormatterTest {
         assertTrue(result.contains("Hôm qua"))
     }
 }
+    @Test
+    fun relativeDateLabel_usesLocalizedLabels() {
+        val today = calendar(2026, 10, 6)
+        val labels = RelativeDateLabels(
+            today = "Today",
+            yesterday = "Yesterday",
+            daysAgo = { count -> "$count days ago" },
+            lastWeek = "Last week",
+            weeksAgo = { count -> "$count weeks ago" },
+            lastMonth = "Last month",
+            monthYear = { month, year -> "Month $month, $year" }
+        )
+
+        assertEquals(
+            "Last week",
+            RelativeTimeFormatter.relativeDateLabel(
+                calendar(2026, 9, 26).timeInMillis,
+                today.timeInMillis,
+                labels
+            )
+        )
+        assertEquals(
+            "Last month",
+            RelativeTimeFormatter.relativeDateLabel(
+                calendar(2026, 9, 20).timeInMillis,
+                today.timeInMillis,
+                labels
+            )
+        )
+    }
+
