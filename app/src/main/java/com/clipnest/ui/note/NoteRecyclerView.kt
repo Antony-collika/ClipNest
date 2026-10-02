@@ -64,6 +64,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.clipnest.R
 import com.clipnest.data.model.NoteCardProjection
 import com.clipnest.data.model.Topic
+import com.clipnest.domain.RelativeDateLabels
 import com.clipnest.domain.RelativeTimeFormatter
 
 internal data class NoteRecyclerColors(
@@ -104,6 +105,7 @@ internal data class NoteHeaderState(
     val previous7DaysLabel: String,
     val previous30DaysLabel: String,
     val olderLabel: String,
+    val relativeDateLabels: RelativeDateLabels,
     val onTopicSelected: (Long?) -> Unit,
     val onViewModeChanged: (NoteViewMode) -> Unit
 )
@@ -477,7 +479,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
         }
         val groups = linkedMapOf<String, MutableList<NoteCardProjection>>()
         notes.filterNot { it.id in pinnedIds }.forEach { note ->
-            val key = RelativeTimeFormatter.relativeDateLabel(note.createdAtMillis)
+            val key = RelativeTimeFormatter.relativeDateLabel(note.createdAtMillis, labels = header.relativeDateLabels)
             groups.getOrPut(key) { mutableListOf() }.add(note)
         }
         groups.forEach { (title, items) ->
