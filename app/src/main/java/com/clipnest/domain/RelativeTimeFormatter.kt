@@ -10,11 +10,25 @@ import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
 import java.time.temporal.WeekFields
 
+data class RelativeDateLabels(
+    val today: String = "Hôm nay",
+    val yesterday: String = "Hôm qua",
+    val daysAgo: (Long) -> String = { "${it} ngày trước" },
+    val lastWeek: String = "Tuần trước",
+    val weeksAgo: (Long) -> String = { "${it} tuần trước" },
+    val lastMonth: String = "Tháng trước",
+    val monthYear: (Int, Int) -> String = { month, year -> "Tháng $month, $year" }
+)
+
 object RelativeTimeFormatter {
 
     fun format(timestampMillis: Long): String = format(timestampMillis, "Hôm nay", "Hôm qua")
 
-    fun relativeDateLabel(timestampMillis: Long, nowMillis: Long = System.currentTimeMillis()): String {
+    fun relativeDateLabel(
+        timestampMillis: Long,
+        nowMillis: Long = System.currentTimeMillis(),
+        labels: RelativeDateLabels = RelativeDateLabels()
+    ): String {
         val now = Calendar.getInstance().apply { timeInMillis = nowMillis }
         val target = Calendar.getInstance().apply { timeInMillis = timestampMillis }
 
@@ -29,8 +43,8 @@ object RelativeTimeFormatter {
             target.get(Calendar.DAY_OF_MONTH)
         )
 
-        if (targetDate == today) return "Hôm nay"
-        if (targetDate == today.minusDays(1)) return "Hôm qua"
+        if (targetDate == today) return labels.today
+        if (targetDate == today.minusDays(1)) return labels.yesterday
 
         val daysAgo = ChronoUnit.DAYS.between(targetDate, today)
         if (daysAgo > 0) {
@@ -39,17 +53,18 @@ object RelativeTimeFormatter {
             val targetWeek = targetDate.with(TemporalAdjusters.previousOrSame(firstDayOfWeek))
             val weeksAgo = ChronoUnit.WEEKS.between(targetWeek, todayWeek)
 
-            // Month boundaries take precedence over week labels.
-            if (YearMonth.from(targetDate) == YearMonth.from(today)) {
-                if (weeksAgo == 0L || daysAgo <= 3L) return "${daysAgo} ngày trước"
-                if (weeksAgo == 1L) return "Tuần trước"
-                if (weeksAgo >= 2L) return "${weeksAgo} tuần trước"
-            } else if (YearMonth.from(targetDate) == YearMonth.from(today).minusMonths(1)) {
-                return "Tháng trước"
+            // Recency takes precedence over month boundaries.
+            if (weeksAgo == 0L || daysAgo <= 3L) return labels.daysAgo(daysAgo)
+            if (weeksAgo == 1L) return labels.lastWeek
+            if (weeksAgo >= 2L) {
+                if (YearMonth.from(targetDate) == YearMonth.from(today).minusMonths(1)) {
+                    return labels.lastMonth
+                }
+                return labels.weeksAgo(weeksAgo)
             }
         }
 
-        return "Tháng ${targetDate.monthValue}, ${targetDate.year}"
+        return labels.monthYear(targetDate.monthValue, targetDate.year)
     }
 
     fun format(timestampMillis: Long, todayLabel: String, yesterdayLabel: String): String {
