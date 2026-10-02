@@ -185,6 +185,11 @@
     <string name="saved_current_file">Saved current file</string>
     <string name="today">Today</string>
     <string name="yesterday">Yesterday</string>
+    <string name="days_ago">%1$d days ago</string>
+    <string name="last_week">Last week</string>
+    <string name="weeks_ago">%1$d weeks ago</string>
+    <string name="last_month">Last month</string>
+    <string name="month_year">Month %1$d, %2$d</string>
     <string name="previous_7_days">Previous 7 Days</string>
     <string name="previous_30_days">Previous 30 Days</string>
     <string name="older">Older</string>
