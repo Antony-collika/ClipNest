@@ -194,20 +194,10 @@ internal fun NoteHeaderContent(state: NoteHeaderState, modifier: Modifier = Modi
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            // 5. Nút List view
+            // 5. Bộ chuyển List / Grid — chỉ một pill 80dp
             ViewModeButton(
-                selected = state.viewMode == NoteViewMode.LIST,
-                icon = Icons.Default.List,
-                description = "List view",
-                onClick = { state.onViewModeChanged(NoteViewMode.LIST) }
-            )
-
-            // 6. Nút Grid view
-            ViewModeButton(
-                selected = state.viewMode == NoteViewMode.GRID,
-                icon = Icons.Default.GridView,
-                description = "Grid view",
-                onClick = { state.onViewModeChanged(NoteViewMode.GRID) }
+                selected = state.viewMode,
+                onViewModeChanged = state.onViewModeChanged
             )
         }
     }
@@ -216,10 +206,8 @@ internal fun NoteHeaderContent(state: NoteHeaderState, modifier: Modifier = Modi
 
 @Composable
 private fun ViewModeButton(
-    selected: Boolean,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    description: String,
-    onClick: () -> Unit
+    selected: NoteViewMode,
+    onViewModeChanged: (NoteViewMode) -> Unit
 ) {
     Box(
         modifier = Modifier
@@ -230,11 +218,10 @@ private fun ViewModeButton(
             )
     ) {
         val selectedOffset by animateDpAsState(
-            targetValue = if (selected) 4.dp else 44.dp,
+            targetValue = if (selected == NoteViewMode.LIST) 4.dp else 44.dp,
             label = "view mode selection"
         )
 
-        // Selection background: nằm trên track và trượt giữa hai vị trí.
         Box(
             modifier = Modifier
                 .size(32.dp)
@@ -250,14 +237,14 @@ private fun ViewModeButton(
             ViewModeIconButton(
                 icon = Icons.Default.List,
                 description = "List view",
-                selected = selected,
-                onClick = onClick
+                selected = selected == NoteViewMode.LIST,
+                onClick = { onViewModeChanged(NoteViewMode.LIST) }
             )
             ViewModeIconButton(
                 icon = Icons.Default.GridView,
                 description = "Grid view",
-                selected = !selected,
-                onClick = { onClick() }
+                selected = selected == NoteViewMode.GRID,
+                onClick = { onViewModeChanged(NoteViewMode.GRID) }
             )
         }
     }
