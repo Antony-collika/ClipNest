@@ -182,38 +182,29 @@ fun NoteScreen(
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(92.dp)
+                .height(120.dp)
                 .align(Alignment.BottomCenter)
         ) {
             val backWave = Path().apply {
-                moveTo(0f, size.height * 0.35f)
-                cubicTo(size.width * 0.14f, size.height * 0.02f, size.width * 0.30f, size.height * 0.55f, size.width * 0.46f, size.height * 0.24f)
-                cubicTo(size.width * 0.63f, -size.height * 0.02f, size.width * 0.80f, size.height * 0.42f, size.width, size.height * 0.10f)
-                lineTo(size.width, size.height)
-                lineTo(0f, size.height)
-                close()
-            }
-            val middleWave = Path().apply {
-                moveTo(0f, size.height * 0.58f)
-                cubicTo(size.width * 0.18f, size.height * 0.20f, size.width * 0.34f, size.height * 0.68f, size.width * 0.52f, size.height * 0.42f)
-                cubicTo(size.width * 0.69f, size.height * 0.18f, size.width * 0.84f, size.height * 0.60f, size.width, size.height * 0.30f)
+                moveTo(0f, size.height * 0.24f)
+                cubicTo(size.width * 0.16f, size.height * 0.02f, size.width * 0.30f, size.height * 0.40f, size.width * 0.48f, size.height * 0.18f)
+                cubicTo(size.width * 0.66f, -size.height * 0.02f, size.width * 0.82f, size.height * 0.34f, size.width, size.height * 0.12f)
                 lineTo(size.width, size.height)
                 lineTo(0f, size.height)
                 close()
             }
             val frontWave = Path().apply {
-                moveTo(0f, size.height * 0.78f)
-                cubicTo(size.width * 0.16f, size.height * 0.52f, size.width * 0.31f, size.height * 0.90f, size.width * 0.49f, size.height * 0.62f)
-                cubicTo(size.width * 0.67f, size.height * 0.38f, size.width * 0.84f, size.height * 0.76f, size.width, size.height * 0.52f)
+                moveTo(0f, size.height * 0.42f)
+                cubicTo(size.width * 0.15f, size.height * 0.12f, size.width * 0.31f, size.height * 0.58f, size.width * 0.49f, size.height * 0.34f)
+                cubicTo(size.width * 0.67f, size.height * 0.10f, size.width * 0.83f, size.height * 0.50f, size.width, size.height * 0.28f)
                 lineTo(size.width, size.height)
                 lineTo(0f, size.height)
                 close()
             }
             val wavePrimary = noteColors.wavePrimary.copy(alpha = 0.10f)
-            val waveSecondary = noteColors.waveSecondary.copy(alpha = 0.045f)
+            val waveSecondary = noteColors.waveSecondary.copy(alpha = 0.055f)
             drawPath(backWave, waveSecondary)
-            drawPath(middleWave, wavePrimary.copy(alpha = 0.07f))
-            drawPath(frontWave, wavePrimary.copy(alpha = 0.10f))
+            drawPath(frontWave, wavePrimary)
         }
 
         Column(Modifier.fillMaxSize()) {
@@ -315,7 +306,7 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
                         },
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(start = 12.dp, end = 12.dp, top = 56.dp, bottom = 84.dp)
+                            .padding(start = 12.dp, end = 12.dp, top = 56.dp, bottom = 0.dp)
                     )
                     NoteHeaderContent(headerState)
                 }
