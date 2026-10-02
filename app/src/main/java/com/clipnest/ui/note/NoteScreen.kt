@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.viewinterop.AndroidView
 import com.clipnest.R
@@ -161,13 +162,23 @@ fun NoteScreen(
 
     val isDark = MaterialTheme.colorScheme.background.red < 0.5f
     val palette = LocalThemePalette.current
-    val noteColors = palette.noteColors(isDark)
+    val noteColors = palette.noteColors(isDark).copy(
+        card = if (isDark) Color(0xFF26372F) else Color(0xFFFFFCF5),
+        selectedCard = if (isDark) Color(0xFF355544) else Color(0xFFE4EFDF),
+        pinnedSurface = if (isDark) Color(0xFF2B3E33) else Color(0xFFF7F0E2),
+        tagSurface = if (isDark) Color(0xFF365447) else Color(0xFFDCEBE0),
+        tagContent = if (isDark) Color(0xFFD6E9D9) else Color(0xFF24523D),
+        headerSurface = if (isDark) Color(0xFF26372F) else Color(0xFFF6EEDD),
+        dockSurface = if (isDark) Color(0xFF1C2923) else Color(0xFFFFFFFF),
+        wavePrimary = if (isDark) Color(0xFF28563E) else Color(0xFF2F7653),
+        waveSecondary = if (isDark) Color(0xFF1B3B2C) else Color(0xFF9BBBA3)
+    )
 
     Box(modifier.fillMaxSize()) {
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(156.dp)
+                .height(92.dp)
                 .align(Alignment.BottomCenter)
         ) {
             val backWave = Path().apply {
@@ -291,7 +302,7 @@ fun NoteScreen(
                     },
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(start = 12.dp, end = 12.dp, top = 2.dp, bottom = 0.dp)
+                        .padding(start = 12.dp, end = 12.dp, top = 0.dp, bottom = 84.dp)
                 )
             }
         }
@@ -300,15 +311,15 @@ fun NoteScreen(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(horizontal = 18.dp, vertical = 18.dp),
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(30.dp),
             color = noteColors.dockSurface,
             tonalElevation = 3.dp,
             shadowElevation = 5.dp
         ) {
             Row(
                 modifier = Modifier
-                    .heightIn(min = 56.dp)
-                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                    .heightIn(min = 60.dp)
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -334,7 +345,9 @@ fun NoteScreen(
                     onClick = { onCreateNote(origin, selectedTopicId) },
                     modifier = Modifier
                         .size(56.dp)
-                        .offset(y = (-10).dp),
+                        .offset(y = (-4).dp),
+                    containerColor = if (isDark) Color(0xFF3F7657) else Color(0xFF174B39),
+                    contentColor = Color.White,
                     elevation = androidx.compose.material3.FloatingActionButtonDefaults.elevation(
                         defaultElevation = 8.dp,
                         pressedElevation = 12.dp
