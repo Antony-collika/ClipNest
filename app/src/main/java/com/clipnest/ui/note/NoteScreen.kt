@@ -214,6 +214,31 @@ fun NoteScreen(
         }
 
         Column(Modifier.fillMaxSize()) {
+                val headerState = NoteHeaderState(
+                    avatarIcon = androidx.compose.material.icons.Icons.Default.Person,
+myTopicsLabel = androidx.compose.ui.res.stringResource(R.string.drawer_my_topics),
+currentTopicLabel = currentTopicLabel,
+allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
+                    topics = topics,
+                    colors = MaterialTheme.colorScheme,
+                    typography = MaterialTheme.typography,
+                    headerSurface = noteColors.headerSurface,
+                    headerContent = MaterialTheme.colorScheme.onSurface,
+                    tagSurface = noteColors.tagSurface,
+                    tagContent = noteColors.tagContent,
+                    viewMode = viewMode,
+                    pinnedLabel = androidx.compose.ui.res.stringResource(R.string.pinned),
+                    pinnedExpanded = pinnedExpanded,
+                    onPinnedExpandedChanged = { pinnedExpanded = it },
+                    todayLabel = androidx.compose.ui.res.stringResource(R.string.today),
+                    yesterdayLabel = androidx.compose.ui.res.stringResource(R.string.yesterday),
+                    previous7DaysLabel = androidx.compose.ui.res.stringResource(R.string.previous_7_days),
+                    previous30DaysLabel = androidx.compose.ui.res.stringResource(R.string.previous_30_days),
+                    olderLabel = androidx.compose.ui.res.stringResource(R.string.older),
+                    onTopicSelected = { topicId -> selectedTopicId = topicId },
+                    onViewModeChanged = { viewMode = it }
+                )
+            NoteHeaderContent(headerState)
             if (isSearchOpen) {
                 SearchOverlay(
                     query = searchQuery,
@@ -249,30 +274,6 @@ fun NoteScreen(
                     noteTagSurface = noteColors.tagSurface.toArgb(),
                     noteTagContent = noteColors.tagContent.toArgb()
                 )
-                val headerState = NoteHeaderState(
-                    avatarIcon = androidx.compose.material.icons.Icons.Default.Person,
-myTopicsLabel = androidx.compose.ui.res.stringResource(R.string.drawer_my_topics),
-currentTopicLabel = currentTopicLabel,
-allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
-                    topics = topics,
-                    colors = MaterialTheme.colorScheme,
-                    typography = MaterialTheme.typography,
-                    headerSurface = noteColors.headerSurface,
-                    headerContent = MaterialTheme.colorScheme.onSurface,
-                    tagSurface = noteColors.tagSurface,
-                    tagContent = noteColors.tagContent,
-                    viewMode = viewMode,
-                    pinnedLabel = androidx.compose.ui.res.stringResource(R.string.pinned),
-                    pinnedExpanded = pinnedExpanded,
-                    onPinnedExpandedChanged = { pinnedExpanded = it },
-                    todayLabel = androidx.compose.ui.res.stringResource(R.string.today),
-                    yesterdayLabel = androidx.compose.ui.res.stringResource(R.string.yesterday),
-                    previous7DaysLabel = androidx.compose.ui.res.stringResource(R.string.previous_7_days),
-                    previous30DaysLabel = androidx.compose.ui.res.stringResource(R.string.previous_30_days),
-                    olderLabel = androidx.compose.ui.res.stringResource(R.string.older),
-                    onTopicSelected = { topicId -> selectedTopicId = topicId },
-                    onViewModeChanged = { viewMode = it }
-                )
                 AndroidView(
                     factory = { context -> NoteRecyclerView(context) },
                     update = { recyclerView ->
@@ -301,7 +302,8 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
                         )
                     },
                     modifier = Modifier
-                        .fillMaxSize()
+                        .fillMaxWidth()
+                        .weight(1f)
                         .padding(start = 12.dp, end = 12.dp, top = 0.dp, bottom = 84.dp)
                 )
             }
