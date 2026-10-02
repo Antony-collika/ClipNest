@@ -238,7 +238,6 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
                     onTopicSelected = { topicId -> selectedTopicId = topicId },
                     onViewModeChanged = { viewMode = it }
                 )
-            NoteHeaderContent(headerState)
             if (isSearchOpen) {
                 SearchOverlay(
                     query = searchQuery,
@@ -274,38 +273,40 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
                     noteTagSurface = noteColors.tagSurface.toArgb(),
                     noteTagContent = noteColors.tagContent.toArgb()
                 )
-                AndroidView(
-                    factory = { context -> NoteRecyclerView(context) },
-                    update = { recyclerView ->
-                        recyclerView.render(
-                            header = headerState,
-                            notes = noteCards,
-                            selectedIds = selectedNoteIds,
-                            pinnedIds = pinnedNoteIds.toSet(),
-                            colors = colors,
-                            callbacks = NoteRecyclerCallbacks(
-                                onToggleSelect = { id ->
-                                    onSelectionChanged(
-                                        selectedNoteIds.toMutableSet().also {
-                                            if (!it.add(id)) it.remove(id)
-                                        }
-                                    )
-                                },
-                                onLongPress = { id, anchorY ->
-                                    previewAnchorY = anchorY
-                                    previewNoteId = id
-                                },
-                                onEdit = { id ->
-                                    onOpenNote(id, origin)
-                                }
+                Box(Modifier.fillMaxWidth().weight(1f)) {
+                    AndroidView(
+                        factory = { context -> NoteRecyclerView(context) },
+                        update = { recyclerView ->
+                            recyclerView.render(
+                                header = headerState,
+                                notes = noteCards,
+                                selectedIds = selectedNoteIds,
+                                pinnedIds = pinnedNoteIds.toSet(),
+                                colors = colors,
+                                callbacks = NoteRecyclerCallbacks(
+                                    onToggleSelect = { id ->
+                                        onSelectionChanged(
+                                            selectedNoteIds.toMutableSet().also {
+                                                if (!it.add(id)) it.remove(id)
+                                            }
+                                        )
+                                    },
+                                    onLongPress = { id, anchorY ->
+                                        previewAnchorY = anchorY
+                                        previewNoteId = id
+                                    },
+                                    onEdit = { id ->
+                                        onOpenNote(id, origin)
+                                    }
+                                )
                             )
-                        )
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .padding(start = 12.dp, end = 12.dp, top = 0.dp, bottom = 84.dp)
-                )
+                        },
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(start = 12.dp, end = 12.dp, top = 56.dp, bottom = 84.dp)
+                    )
+                    NoteHeaderContent(headerState)
+                }
             }
         }
 
