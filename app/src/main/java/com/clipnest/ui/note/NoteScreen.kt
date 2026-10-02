@@ -70,6 +70,7 @@ import com.clipnest.data.local.TopicDao
 import com.clipnest.data.model.NoteCardProjection
 import com.clipnest.data.model.NoteTopicRole
 import com.clipnest.data.model.Topic
+import com.clipnest.domain.RelativeDateLabels
 import com.clipnest.domain.RelativeTimeFormatter
 import com.clipnest.domain.FtsSearchQuery
 import com.clipnest.ui.editor.EditorNoteOrigin
@@ -235,6 +236,15 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
                     previous7DaysLabel = androidx.compose.ui.res.stringResource(R.string.previous_7_days),
                     previous30DaysLabel = androidx.compose.ui.res.stringResource(R.string.previous_30_days),
                     olderLabel = androidx.compose.ui.res.stringResource(R.string.older),
+                    relativeDateLabels = RelativeDateLabels(
+                        today = androidx.compose.ui.res.stringResource(R.string.today),
+                        yesterday = androidx.compose.ui.res.stringResource(R.string.yesterday),
+                        daysAgo = { count -> androidx.compose.ui.res.stringResource(R.string.days_ago, count) },
+                        lastWeek = androidx.compose.ui.res.stringResource(R.string.last_week),
+                        weeksAgo = { count -> androidx.compose.ui.res.stringResource(R.string.weeks_ago, count) },
+                        lastMonth = androidx.compose.ui.res.stringResource(R.string.last_month),
+                        monthYear = { month, year -> androidx.compose.ui.res.stringResource(R.string.month_year, month, year) }
+                    ),
                     onTopicSelected = { topicId -> selectedTopicId = topicId },
                     onViewModeChanged = { viewMode = it }
                 )
