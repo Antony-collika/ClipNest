@@ -624,6 +624,18 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             val position = parent.getChildAdapterPosition(view)
             outRect.top = if (position == 0) spacing else 0
             outRect.bottom = if (position == 0) spacing / 2 else spacing
+
+            if (parent.layoutManager is androidx.recyclerview.widget.GridLayoutManager) {
+                val params = view.layoutParams as? androidx.recyclerview.widget.GridLayoutManager.LayoutParams
+                if (params != null && params.spanSize == 1) {
+                    val halfColumnSpacing = spacing / 2
+                    if (params.spanIndex == 0) {
+                        outRect.right = halfColumnSpacing
+                    } else {
+                        outRect.left = halfColumnSpacing
+                    }
+                }
+            }
         }
     }
 
