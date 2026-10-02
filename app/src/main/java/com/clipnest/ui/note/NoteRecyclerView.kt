@@ -106,11 +106,11 @@ internal data class NoteRecyclerCallbacks(
 )
 
 @Composable
-internal fun NoteHeaderContent(state: NoteHeaderState) {
+internal fun NoteHeaderContent(state: NoteHeaderState, modifier: Modifier = Modifier) {
     var expanded by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
 
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier,
         shape = androidx.compose.ui.graphics.RectangleShape,
         color = state.headerSurface,
         contentColor = state.headerContent
