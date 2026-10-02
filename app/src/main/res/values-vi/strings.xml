@@ -185,6 +185,11 @@
     <string name="saved_current_file">Đã lưu file hiện tại</string>
     <string name="today">Hôm nay</string>
     <string name="yesterday">Hôm qua</string>
+    <string name="days_ago">%1$d ngày trước</string>
+    <string name="last_week">Tuần trước</string>
+    <string name="weeks_ago">%1$d tuần trước</string>
+    <string name="last_month">Tháng trước</string>
+    <string name="month_year">Tháng %1$d, %2$d</string>
     <string name="selected">Đã chọn</string>
     <string name="not_selected">Chưa chọn</string>
     <string name="saved_to_vault">Đã lưu vào kho</string>
