@@ -23,7 +23,9 @@ import android.widget.CheckBox
 import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
@@ -218,21 +220,69 @@ private fun ViewModeButton(
     description: String,
     onClick: () -> Unit
 ) {
-    IconButton(
-        onClick = onClick,
+    Box(
+        modifier = Modifier
+            .size(width = 80.dp, height = 40.dp)
+            .background(
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                shape = RoundedCornerShape(12.dp)
+            )
+    ) {
+        val selectedOffset by animateDpAsState(
+            targetValue = if (selected) 4.dp else 44.dp,
+            label = "view mode selection"
+        )
+
+        // Selection background: nằm trên track và trượt giữa hai vị trí.
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .align(Alignment.CenterStart)
+                .offset(x = selectedOffset)
+                .background(
+                    color = MaterialTheme.colorScheme.surface,
+                    shape = RoundedCornerShape(9.dp)
+                )
+        )
+
+        Row(modifier = Modifier.fillMaxWidth()) {
+            ViewModeIconButton(
+                icon = Icons.Default.List,
+                description = "List view",
+                selected = selected,
+                onClick = onClick
+            )
+            ViewModeIconButton(
+                icon = Icons.Default.GridView,
+                description = "Grid view",
+                selected = !selected,
+                onClick = { onClick() }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ViewModeIconButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    description: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Box(
         modifier = Modifier
             .size(40.dp)
-            .background(
-                color = if (selected) MaterialTheme.colorScheme.primaryContainer
-                else androidx.compose.ui.graphics.Color.Transparent,
-                shape = RoundedCornerShape(10.dp)
-            )
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
     ) {
         Icon(
             imageVector = icon,
             contentDescription = description,
-            tint = if (selected) MaterialTheme.colorScheme.primary
-            else MaterialTheme.colorScheme.onSurfaceVariant,
+            tint = if (selected) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
             modifier = Modifier.size(20.dp)
         )
     }
