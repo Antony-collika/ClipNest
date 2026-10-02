@@ -368,7 +368,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder =
             if (viewType == 0) SectionViewHolder(TextView(context).apply {
                 layoutParams = RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                setPadding(dp(8), dp(6), dp(8), dp(6))
+                setPadding(dp(8), dp(0), dp(8), dp(0))
                 setTypeface(Typeface.DEFAULT, Typeface.BOLD)
                 textSize = 14f
             }) else if (viewType == 2) GridNoteViewHolder(NoteGridView(context)) else NoteViewHolder(NoteRowView(context))
