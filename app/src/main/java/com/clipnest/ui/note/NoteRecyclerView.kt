@@ -105,110 +105,8 @@ internal data class NoteRecyclerCallbacks(
     val onEdit: (Long) -> Unit
 )
 
-internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
-    private val headerAdapter = HeaderAdapter(context)
-    private val listAdapter = NoteAdapter(context)
-    private val concatAdapter = androidx.recyclerview.widget.ConcatAdapter(headerAdapter, listAdapter)
-    private var callbacks = NoteRecyclerCallbacks(
-        onToggleSelect = {},
-        onLongPress = { _, _ -> },
-        onEdit = {}
-    )
-    private var currentColors = NoteRecyclerColors(
-        surface = Color.WHITE,
-        onSurface = Color.BLACK,
-        onSurfaceVariant = Color.DKGRAY,
-        primary = Color.DKGRAY,
-        primaryContainer = Color.LTGRAY,
-        outlineVariant = Color.LTGRAY,
-        pinned = Color.DKGRAY,
-        noteCard = Color.WHITE,
-        noteSelectedCard = Color.LTGRAY,
-        notePinnedSurface = Color.LTGRAY,
-        noteTagSurface = Color.LTGRAY,
-        noteTagContent = Color.DKGRAY
-    )
-    private val spacingDecoration = NoteSpacingDecoration(dp(14))
-
-    init {
-        layoutManager = androidx.recyclerview.widget.LinearLayoutManager(context)
-        adapter = concatAdapter
-        setHasFixedSize(false)
-        clipToPadding = false
-        addItemDecoration(spacingDecoration)
-    }
-
-    fun render(
-        header: NoteHeaderState,
-        notes: List<NoteCardProjection>,
-        selectedIds: Set<Long>,
-        pinnedIds: Set<Long>,
-        colors: NoteRecyclerColors,
-        callbacks: NoteRecyclerCallbacks
-    ) {
-        this.callbacks = callbacks
-        val decorationChanged = currentColors.outlineVariant != colors.outlineVariant
-        currentColors = colors
-        if (decorationChanged) {
-            spacingDecoration.setSpacingColor(colors.outlineVariant)
-            invalidateItemDecorations()
-        }
-
-        headerAdapter.setState(header)
-        if (header.viewMode == NoteViewMode.GRID) {
-            val grid = (layoutManager as? androidx.recyclerview.widget.GridLayoutManager)
-                ?: androidx.recyclerview.widget.GridLayoutManager(context, 2).also { layoutManager = it }
-            grid.spanSizeLookup = object : androidx.recyclerview.widget.GridLayoutManager.SpanSizeLookup() {
-                override fun getSpanSize(position: Int): Int {
-                    if (position == 0) return 2
-                    return if (listAdapter.isFullSpanPosition(position - 1)) 2 else 1
-                }
-            }
-        } else if (layoutManager !is androidx.recyclerview.widget.LinearLayoutManager ||
-            layoutManager is androidx.recyclerview.widget.GridLayoutManager) {
-            layoutManager = androidx.recyclerview.widget.LinearLayoutManager(context)
-        }
-        listAdapter.setVisualState(selectedIds, pinnedIds, colors)
-        listAdapter.setSectionState(header, notes)
-        val items = buildListItems(notes, pinnedIds.toSet(), header)
-        listAdapter.replace(items, notes, header)
-    }
-
-    private inner class HeaderAdapter(private val context: Context) : RecyclerView.Adapter<HeaderViewHolder>() {
-        private var state: NoteHeaderState? = null
-        init { setHasStableIds(true) }
-        override fun getItemCount(): Int = 1
-        override fun getItemId(position: Int): Long = Long.MIN_VALUE
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): HeaderViewHolder =
-            HeaderViewHolder(ComposeView(context).apply {
-                layoutParams = RecyclerView.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-                )
-                setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
-            })
-        override fun onBindViewHolder(holder: HeaderViewHolder, position: Int) {
-            state?.let { holder.bind(it) }
-        }
-        fun setState(value: NoteHeaderState) {
-            if (state == value) return
-            state = value
-            if (itemCount == 1) notifyItemChanged(0)
-        }
-    }
-
-    private inner class HeaderViewHolder(private val composeView: ComposeView) : RecyclerView.ViewHolder(composeView) {
-        fun bind(state: NoteHeaderState) {
-            composeView.setContent {
-                MaterialTheme(colorScheme = state.colors, typography = state.typography) {
-                    NoteHeaderContent(state)
-                }
-            }
-        }
-    }
-
-    @Composable
-private fun NoteHeaderContent(state: NoteHeaderState) {
+@Composable
+internal fun NoteHeaderContent(state: NoteHeaderState) {
     var expanded by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
 
     Surface(
@@ -308,6 +206,7 @@ private fun NoteHeaderContent(state: NoteHeaderState) {
     }
 }
 
+
 @Composable
 private fun ViewModeButton(
     selected: Boolean,
@@ -334,6 +233,72 @@ private fun ViewModeButton(
         )
     }
 }
+
+internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
+    private val listAdapter = NoteAdapter(context)
+    private var callbacks = NoteRecyclerCallbacks(
+        onToggleSelect = {},
+        onLongPress = { _, _ -> },
+        onEdit = {}
+    )
+    private var currentColors = NoteRecyclerColors(
+        surface = Color.WHITE,
+        onSurface = Color.BLACK,
+        onSurfaceVariant = Color.DKGRAY,
+        primary = Color.DKGRAY,
+        primaryContainer = Color.LTGRAY,
+        outlineVariant = Color.LTGRAY,
+        pinned = Color.DKGRAY,
+        noteCard = Color.WHITE,
+        noteSelectedCard = Color.LTGRAY,
+        notePinnedSurface = Color.LTGRAY,
+        noteTagSurface = Color.LTGRAY,
+        noteTagContent = Color.DKGRAY
+    )
+    private val spacingDecoration = NoteSpacingDecoration(dp(14))
+
+    init {
+        layoutManager = androidx.recyclerview.widget.LinearLayoutManager(context)
+        adapter = listAdapter
+        setHasFixedSize(false)
+        clipToPadding = false
+        addItemDecoration(spacingDecoration)
+    }
+
+    fun render(
+        header: NoteHeaderState,
+        notes: List<NoteCardProjection>,
+        selectedIds: Set<Long>,
+        pinnedIds: Set<Long>,
+        colors: NoteRecyclerColors,
+        callbacks: NoteRecyclerCallbacks
+    ) {
+        this.callbacks = callbacks
+        val decorationChanged = currentColors.outlineVariant != colors.outlineVariant
+        currentColors = colors
+        if (decorationChanged) {
+            spacingDecoration.setSpacingColor(colors.outlineVariant)
+            invalidateItemDecorations()
+        }
+
+        if (header.viewMode == NoteViewMode.GRID) {
+            val grid = (layoutManager as? androidx.recyclerview.widget.GridLayoutManager)
+                ?: androidx.recyclerview.widget.GridLayoutManager(context, 2).also { layoutManager = it }
+            grid.spanSizeLookup = object : androidx.recyclerview.widget.GridLayoutManager.SpanSizeLookup() {
+                override fun getSpanSize(position: Int): Int {
+                    if (position == 0) return 2
+                    return if (listAdapter.isFullSpanPosition(position - 1)) 2 else 1
+                }
+            }
+        } else if (layoutManager !is androidx.recyclerview.widget.LinearLayoutManager ||
+            layoutManager is androidx.recyclerview.widget.GridLayoutManager) {
+            layoutManager = androidx.recyclerview.widget.LinearLayoutManager(context)
+        }
+        listAdapter.setVisualState(selectedIds, pinnedIds, colors)
+        listAdapter.setSectionState(header, notes)
+        val items = buildListItems(notes, pinnedIds.toSet(), header)
+        listAdapter.replace(items, notes, header)
+    }
 
     private sealed class NoteListItem {
         data class Section(val id: String, val title: String, val count: Int) : NoteListItem()
