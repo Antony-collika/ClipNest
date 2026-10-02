@@ -46,7 +46,7 @@ class RelativeTimeFormatterTest {
 
         // Month boundaries do not override recent calendar-day/week memory.
         assertEquals("2 ngày trước", label(tuesday, 2026, 10, 4))
-        assertEquals("Tháng trước", label(tuesday, 2026, 9, 30))
+        assertEquals("Tuần trước", label(tuesday, 2026, 9, 30))
 
         // Previous-month dates still use week memory while they are in the previous calendar week.
         assertEquals("Tuần trước", label(tuesday, 2026, 9, 26))
@@ -72,7 +72,7 @@ class RelativeTimeFormatterTest {
 }
     @Test
     fun relativeDateLabel_usesLocalizedLabels() {
-        val today = calendar(2026, 10, 6)
+        val today = calendar(2026, 10, 2)
         val labels = RelativeDateLabels(
             today = "Today",
             yesterday = "Yesterday",
