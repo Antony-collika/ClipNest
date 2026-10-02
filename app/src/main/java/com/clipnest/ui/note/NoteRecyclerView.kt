@@ -6,6 +6,10 @@ import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.Drawable
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Path
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
@@ -378,12 +382,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
                 view.setBackgroundColor(Color.TRANSPARENT)
                 view.elevation = 0f
                 view.setCompoundDrawablePadding(dp(8))
-                view.setCompoundDrawablesWithIntrinsicBounds(
-                    0,
-                    0,
-                    if (pinnedExpandedState) android.R.drawable.arrow_up_float else android.R.drawable.arrow_down_float,
-                    0
-                )
+                view.setCompoundDrawables(null, null, ChevronDrawable(view.resources.displayMetrics.density, pinnedExpandedState, colors.onSurface), null)
                 view.contentDescription = item.title + " " + item.count
                 view.isClickable = true
                 view.isFocusable = true
@@ -413,7 +412,14 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             oldItem is NoteListItem.Note && newItem is NoteListItem.Note -> oldItem.value.id == newItem.value.id
             else -> false
         }
-        override fun areContentsTheSame(oldItem: NoteListItem, newItem: NoteListItem): Boolean = oldItem == newItem
+        override fun areContentsTheSame(oldItem: NoteListItem, newItem: NoteListItem): Boolean = when {
+            oldItem is NoteListItem.Section && newItem is NoteListItem.Section ->
+                oldItem.id == newItem.id && oldItem.title == newItem.title && oldItem.count == newItem.count
+            else -> oldItem == newItem
+        }
+
+        override fun getChangePayload(oldItem: NoteListItem, newItem: NoteListItem): Any? =
+            if (oldItem is NoteListItem.Section && newItem is NoteListItem.Section && oldItem.id == "pinned") PAYLOAD_STATE else null
     }
 
     private fun buildListItems(notes: List<NoteCardProjection>, pinnedIds: Set<Long>, header: NoteHeaderState): List<NoteListItem> {
@@ -533,6 +539,43 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
         private fun dp(value: Int): Int = (value * density + 0.5f).toInt()
     }
 
+    private class ChevronDrawable(
+        private val density: Float,
+        private val expanded: Boolean,
+        color: Int
+    ) : Drawable() {
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = 2f * density
+            strokeCap = Paint.Cap.ROUND
+            strokeJoin = Paint.Join.ROUND
+            setColor(color)
+        }
+
+        override fun draw(canvas: Canvas) {
+            val w = bounds.width().toFloat()
+            val h = bounds.height().toFloat()
+            val path = Path().apply {
+                if (expanded) {
+                    moveTo(w * 0.2f, h * 0.62f)
+                    lineTo(w * 0.5f, h * 0.38f)
+                    lineTo(w * 0.8f, h * 0.62f)
+                } else {
+                    moveTo(w * 0.2f, h * 0.38f)
+                    lineTo(w * 0.5f, h * 0.62f)
+                    lineTo(w * 0.8f, h * 0.38f)
+                }
+            }
+            canvas.drawPath(path, paint)
+        }
+
+        override fun setAlpha(alpha: Int) { paint.alpha = alpha }
+        override fun setColorFilter(colorFilter: android.graphics.ColorFilter?) { paint.colorFilter = colorFilter }
+        override fun getOpacity(): Int = android.graphics.PixelFormat.TRANSLUCENT
+        override fun getIntrinsicWidth(): Int = (20 * density).roundToInt()
+        override fun getIntrinsicHeight(): Int = (20 * density).roundToInt()
+    }
+
     private class NoteSpacingDecoration(
         private val spacing: Int
     ) : ItemDecoration() {
@@ -548,7 +591,9 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             parent: RecyclerView,
             state: State
         ) {
-            outRect.bottom = if (parent.getChildAdapterPosition(view) == 0) spacing / 2 else spacing
+            val position = parent.getChildAdapterPosition(view)
+            outRect.top = if (position == 0) spacing else 0
+            outRect.bottom = if (position == 0) spacing / 2 else spacing
         }
     }
 
