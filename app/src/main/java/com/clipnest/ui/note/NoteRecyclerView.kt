@@ -54,6 +54,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
@@ -238,7 +239,7 @@ private fun ViewModeButton(
             modifier = Modifier
                 .size(32.dp)
                 .align(Alignment.CenterStart)
-                .offset(x = selectedOffset)
+                .offset { IntOffset(selectedOffset.roundToPx(), 0) }
                 .background(
                     color = MaterialTheme.colorScheme.surface,
                     shape = RoundedCornerShape(9.dp)
