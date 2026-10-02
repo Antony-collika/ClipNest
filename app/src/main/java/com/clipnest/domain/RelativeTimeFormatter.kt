@@ -57,10 +57,15 @@ object RelativeTimeFormatter {
             if (weeksAgo == 0L || daysAgo <= 3L) return labels.daysAgo(daysAgo)
             if (weeksAgo == 1L) return labels.lastWeek
             if (weeksAgo >= 2L) {
-                if (YearMonth.from(targetDate) == YearMonth.from(today).minusMonths(1)) {
+                val targetMonth = YearMonth.from(targetDate)
+                val currentMonth = YearMonth.from(today)
+                if (targetMonth == currentMonth) {
+                    return labels.weeksAgo(weeksAgo)
+                }
+                if (targetMonth == currentMonth.minusMonths(1)) {
                     return labels.lastMonth
                 }
-                return labels.weeksAgo(weeksAgo)
+                return labels.monthYear(targetDate.monthValue, targetDate.year)
             }
         }
 
