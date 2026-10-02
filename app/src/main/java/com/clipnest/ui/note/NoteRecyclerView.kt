@@ -352,9 +352,16 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
 
         fun setSectionState(header: NoteHeaderState, notes: List<NoteCardProjection>) {
             val modeChanged = currentHeader?.viewMode != null && currentHeader?.viewMode != header.viewMode
+            val pinnedStateChanged = currentHeader?.pinnedExpanded != null &&
+                currentHeader?.pinnedExpanded != header.pinnedExpanded
             currentHeader = header
             pinnedToggle = header.onPinnedExpandedChanged
-            if (modeChanged) notifyDataSetChanged()
+            if (modeChanged) {
+                notifyDataSetChanged()
+            } else if (pinnedStateChanged) {
+                val pinnedPosition = currentList.indexOfFirst { it is NoteListItem.Section && it.id == "pinned" }
+                if (pinnedPosition >= 0) notifyItemChanged(pinnedPosition)
+            }
         }
 
         fun replace(value: List<NoteListItem>, source: List<NoteCardProjection>, header: NoteHeaderState) {
