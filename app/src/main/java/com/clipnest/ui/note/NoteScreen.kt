@@ -52,6 +52,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
@@ -103,6 +104,7 @@ fun NoteScreen(
     var previewAnchorY by remember { mutableStateOf(0f) }
     var previewContent by remember { mutableStateOf<String?>(null) }
     var overflowExpanded by rememberSaveable { mutableStateOf(false) }
+    val context = LocalContext.current
 
     val topics by topicDao.observeAllTopics().collectAsState(initial = emptyList())
     val normalizedSearchQuery = searchQuery.trim()
@@ -239,11 +241,11 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
                     relativeDateLabels = RelativeDateLabels(
                         today = androidx.compose.ui.res.stringResource(R.string.today),
                         yesterday = androidx.compose.ui.res.stringResource(R.string.yesterday),
-                        daysAgo = { count -> androidx.compose.ui.res.stringResource(R.string.days_ago, count) },
+                        daysAgo = { count -> context.getString(R.string.days_ago, count) },
                         lastWeek = androidx.compose.ui.res.stringResource(R.string.last_week),
-                        weeksAgo = { count -> androidx.compose.ui.res.stringResource(R.string.weeks_ago, count) },
+                        weeksAgo = { count -> context.getString(R.string.weeks_ago, count) },
                         lastMonth = androidx.compose.ui.res.stringResource(R.string.last_month),
-                        monthYear = { month, year -> androidx.compose.ui.res.stringResource(R.string.month_year, month, year) }
+                        monthYear = { month, year -> context.getString(R.string.month_year, month, year) }
                     ),
                     onTopicSelected = { topicId -> selectedTopicId = topicId },
                     onViewModeChanged = { viewMode = it }
