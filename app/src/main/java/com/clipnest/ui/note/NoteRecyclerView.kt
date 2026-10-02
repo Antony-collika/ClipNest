@@ -29,6 +29,8 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -207,61 +209,47 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             contentColor = state.headerContent
         ) {
             Column(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp)
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp)
             ) {
-            if (state.breadcrumb.isNotBlank()) {
-                Text(
-                    text = state.breadcrumb,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = state.headerContent.copy(alpha = 0.72f),
-                    modifier = Modifier.padding(bottom = 4.dp)
-                )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                androidx.compose.foundation.layout.Box {
-                    TextButton(onClick = { expanded = true }) { Text(state.title, style = MaterialTheme.typography.titleLarge) }
-                    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                        DropdownMenuItem(
-                            text = { Text(state.allNotesLabel) },
-                            onClick = { expanded = false; state.onTopicSelected(null) }
-                        )
-                        state.topics.forEach { topic ->
-                            DropdownMenuItem(
-                                text = { Text(topic.name) },
-                                onClick = { expanded = false; state.onTopicSelected(topic.id) }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        Surface(shape = RoundedCornerShape(50), color = state.tagSurface, modifier = Modifier.padding(end = 8.dp)) {
+                            Text("●", color = state.tagContent, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp))
+                        }
+                        androidx.compose.foundation.layout.Box(modifier = Modifier.weight(1f)) {
+                            TextButton(onClick = { expanded = true }) {
+                                Text(if (state.breadcrumb.isNotBlank()) state.breadcrumb else state.title, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+                            }
+                            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                                DropdownMenuItem(text = { Text(state.allNotesLabel) }, onClick = { expanded = false; state.onTopicSelected(null) })
+                                state.topics.forEach { topic ->
+                                    DropdownMenuItem(text = { Text(topic.name) }, onClick = { expanded = false; state.onTopicSelected(topic.id) })
+                                }
+                            }
+                        }
+                    }
+                    TextButton(onClick = {
+                        state.onViewModeChanged(if (state.viewMode == NoteViewMode.LIST) NoteViewMode.GRID else NoteViewMode.LIST)
+                    }) {
+                        Text(if (state.viewMode == NoteViewMode.LIST) "▤" else "▦", style = MaterialTheme.typography.titleMedium)
+                    }
+                }
+                if (state.subTopics.isNotEmpty()) {
+                    Row(modifier = Modifier.fillMaxWidth().padding(start = 42.dp, top = 2.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        state.subTopics.forEach { topic ->
+                            AssistChip(
+                                onClick = { state.onTopicSelected(topic.id) },
+                                label = { Text(topic.name, maxLines = 1) },
+                                shape = RoundedCornerShape(50),
+                                colors = AssistChipDefaults.assistChipColors(containerColor = state.tagSurface, labelColor = state.tagContent)
                             )
                         }
                     }
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = {
-                        state.onViewModeChanged(
-                            if (state.viewMode == NoteViewMode.LIST) NoteViewMode.GRID else NoteViewMode.LIST
-                        )
-                    }) {
-                        Text(if (state.viewMode == NoteViewMode.LIST) androidx.compose.ui.res.stringResource(R.string.note_grid_view) else androidx.compose.ui.res.stringResource(R.string.note_list_view))
-                    }
-                    Text(text = state.noteTabLabel, style = MaterialTheme.typography.labelLarge, color = state.headerContent.copy(alpha = 0.72f))
-                }
-            }
-            if (state.subTopics.isNotEmpty()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    state.subTopics.forEach { topic ->
-                        TextButton(onClick = { state.onTopicSelected(topic.id) }) {
-                            Surface(shape = RoundedCornerShape(10.dp), color = state.tagSurface, contentColor = state.tagContent) {
-                                Text(topic.name, maxLines = 1, modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp))
-                            }
-                        }
-                    }
-                }
-            }
             }
         }
     }
@@ -334,21 +322,24 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
 
     private class SectionViewHolder(private val view: TextView) : RecyclerView.ViewHolder(view) {
         fun bind(item: NoteListItem.Section, colors: NoteRecyclerColors, pinnedExpanded: Boolean, onPinnedToggle: ((Boolean) -> Unit)?) {
-            view.text = item.title + " · " + item.count
+            view.text = if (item.id == "pinned") "Pinned · ${item.count}" else item.title
             view.setTextColor(if (item.id == "pinned") colors.pinned else colors.onSurface)
             view.background = if (item.id == "pinned") GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dp(16).toFloat()
                 setColor(colors.notePinnedSurface)
             } else null
-            view.setCompoundDrawablePadding(dp(6))
+            view.elevation = if (item.id == "pinned") dp(2).toFloat() else 0f
+            view.setCompoundDrawablePadding(dp(8))
             if (item.id == "pinned" && onPinnedToggle != null) {
                 val expanded = pinnedExpanded
                 view.setCompoundDrawablesWithIntrinsicBounds(
-                    if (expanded) android.R.drawable.arrow_down_float else 0,
-                    0, 0, 0
+                    android.R.drawable.ic_menu_mylocation,
+                    0,
+                    if (expanded) android.R.drawable.arrow_up_float else android.R.drawable.arrow_down_float,
+                    0
                 )
-                view.text = if (expanded) item.title + " · " + item.count else "› " + item.title + " · " + item.count
+                view.text = "Pinned · ${item.count} notes"
                 view.contentDescription = item.title + " " + item.count
                 view.setOnClickListener {
                     view.tag = !expanded
@@ -471,6 +462,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
         }
         fun bind(note: NoteCardProjection, selected: Boolean, colors: NoteRecyclerColors, onToggleSelect: () -> Unit, onLongPress: () -> Unit, onEdit: () -> Unit) {
             background = GradientDrawable().apply { shape = GradientDrawable.RECTANGLE; cornerRadius = dp(18).toFloat(); setColor(if (selected) colors.noteSelectedCard else colors.noteCard) }
+            elevation = dp(2).toFloat()
             checkbox.buttonTintList = ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(colors.primary, colors.onSurfaceVariant)); checkbox.isChecked = selected; checkbox.setOnClickListener { onToggleSelect() }
             title.text = note.title.ifBlank { context.getString(R.string.untitled) }; title.setTextColor(colors.onSurface)
             preview.text = note.preview.ifBlank { context.getString(R.string.untitled) }; preview.setTextColor(colors.onSurfaceVariant)
@@ -607,6 +599,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             this.colors = colors
             selectedState = selected
             setBackgroundDrawable(backgroundFor(colors, selected))
+            elevation = dp(2).toFloat()
 
             checkbox.buttonTintList = ColorStateList(
                 arrayOf(
