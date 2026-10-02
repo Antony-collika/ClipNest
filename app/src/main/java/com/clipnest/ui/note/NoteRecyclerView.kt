@@ -583,37 +583,6 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
         override fun getIntrinsicHeight(): Int = (20 * density).roundToInt()
     }
 
-    private class ChevronDrawable(
-        private val density: Float,
-        private val expanded: Boolean,
-        color: Int
-    ) : Drawable() {
-        private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.STROKE
-            strokeWidth = 2f * density
-            strokeCap = Paint.Cap.ROUND
-            strokeJoin = Paint.Join.ROUND
-            setColor(color)
-        }
-        override fun draw(canvas: Canvas) {
-            val w = bounds.width().toFloat()
-            val h = bounds.height().toFloat()
-            val path = Path().apply {
-                if (expanded) {
-                    moveTo(w * 0.2f, h * 0.62f); lineTo(w * 0.5f, h * 0.38f); lineTo(w * 0.8f, h * 0.62f)
-                } else {
-                    moveTo(w * 0.2f, h * 0.38f); lineTo(w * 0.5f, h * 0.62f); lineTo(w * 0.8f, h * 0.38f)
-                }
-            }
-            canvas.drawPath(path, paint)
-        }
-        override fun setAlpha(alpha: Int) { paint.alpha = alpha }
-        override fun setColorFilter(colorFilter: android.graphics.ColorFilter?) { paint.colorFilter = colorFilter }
-        override fun getOpacity(): Int = android.graphics.PixelFormat.TRANSLUCENT
-        override fun getIntrinsicWidth(): Int = (20 * density).roundToInt()
-        override fun getIntrinsicHeight(): Int = (20 * density).roundToInt()
-    }
-
     private class NoteSpacingDecoration(
         private val spacing: Int
     ) : ItemDecoration() {
