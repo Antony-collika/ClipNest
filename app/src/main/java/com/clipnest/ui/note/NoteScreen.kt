@@ -50,7 +50,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.zIndex
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -239,6 +238,7 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
                     onTopicSelected = { topicId -> selectedTopicId = topicId },
                     onViewModeChanged = { viewMode = it }
                 )
+            NoteHeaderContent(headerState)
             if (isSearchOpen) {
                 SearchOverlay(
                     query = searchQuery,
@@ -307,12 +307,6 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
                         .padding(start = 12.dp, end = 12.dp, top = 0.dp, bottom = 84.dp)
                 )
             }
-            NoteHeaderContent(
-                headerState,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .zIndex(1f)
-            )
         }
 
         Surface(
