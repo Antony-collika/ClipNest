@@ -73,16 +73,17 @@ val ForestThemePalette = ThemePalette(
         surfaceVariant = Color(0xFFE8DED0), onSurfaceVariant = Color(0xFF5A6660),
         outline = Color(0xFF6F7A73), outlineVariant = Color(0xFFDBE8E0)
     ),
-    semanticColors = ThemeSemanticColors(Color(0xFF1C3B2B),
-    Color(0xFFD97706)),
-    Color(0xFFFBBF24)),
+    semanticColors = ThemeSemanticColors(Color(0xFF1C3B2B), Color(0xFFD97706)),
     waveTop = Color(0xFF2A523C),
     waveMid = Color(0xFF142E21),
     waveBottom = Color(0xFF0B1A13),
     dockBg = Color(0xFFFFFFFF),
     dockIconColor = Color(0xFF2B332E),
     fabBg = Color(0xFF1C3B2B),
-    fabIconColor = Color(0xFFFFFFFF)
+    fabIconColor = Color(0xFFFFFFFF),
+    breadcrumb = Color(0xFF2A523C),
+    sectionText = Color(0xFF5A6660),
+    dockDivider = Color(0xFFDBE8E0)
 )
 
 // ─────────────────────────────────────────────
@@ -101,16 +102,17 @@ val NordThemePalette = ThemePalette(
         surfaceVariant = Color(0xFFE5E9F0), onSurfaceVariant = Color(0xFF4C566A),
         outline = Color(0xFF7B8794), outlineVariant = Color(0xFFD8DEE9)
     ),
-    semanticColors = ThemeSemanticColors(Color(0xFF2E3440),
-    Color(0xFFB45309)),
-    Color(0xFFEBCB8B)),
+    semanticColors = ThemeSemanticColors(Color(0xFF2E3440), Color(0xFFB45309)),
     waveTop = Color(0xFF81A1C1),
     waveMid = Color(0xFF5E81AC),
     waveBottom = Color(0xFF2E3440),
     dockBg = Color(0xFFFFFFFF),
     dockIconColor = Color(0xFF2E3440),
     fabBg = Color(0xFF5E81AC),
-    fabIconColor = Color(0xFFFFFFFF)
+    fabIconColor = Color(0xFFFFFFFF),
+    breadcrumb = Color(0xFF5E81AC),
+    sectionText = Color(0xFF4C566A),
+    dockDivider = Color(0xFFD8DEE9)
 )
 
 // ─────────────────────────────────────────────
@@ -129,16 +131,17 @@ val SnowSapphireThemePalette = ThemePalette(
         surfaceVariant = Color.White, onSurfaceVariant = Color(0xFF0369A1),
         outline = Color(0xFF64748B), outlineVariant = Color(0xFFBAE6FD)
     ),
-    semanticColors = ThemeSemanticColors(Color(0xFF1E3A8A),
-    Color(0xFFB45309)),
-    Color(0xFFFBBF24)),
+    semanticColors = ThemeSemanticColors(Color(0xFF1E3A8A), Color(0xFFB45309)),
     waveTop = Color(0xFF38BDF8),
     waveMid = Color(0xFF0284C7),
     waveBottom = Color(0xFF1E3A8A),
     dockBg = Color(0xFFFFFFFF),
     dockIconColor = Color(0xFF1E3A8A),
     fabBg = Color(0xFF0284C7),
-    fabIconColor = Color(0xFFFFFFFF)
+    fabIconColor = Color(0xFFFFFFFF),
+    breadcrumb = Color(0xFF0284C7),
+    sectionText = Color(0xFF0369A1),
+    dockDivider = Color(0xFFBAE6FD)
 )
 
 // ─────────────────────────────────────────────
@@ -157,16 +160,17 @@ val SakuraThemePalette = ThemePalette(
         surfaceVariant = Color(0xFFFCE7F3), onSurfaceVariant = Color(0xFF9D174D),
         outline = Color(0xFF9CA3AF), outlineVariant = Color(0xFFFBCFE8)
     ),
-    semanticColors = ThemeSemanticColors(Color(0xFF831843),
-    Color(0xFFD97706)),
-    Color(0xFFFBBF24)),
+    semanticColors = ThemeSemanticColors(Color(0xFF831843), Color(0xFFD97706)),
     waveTop = Color(0xFFF472B6),
     waveMid = Color(0xFFDB2777),
     waveBottom = Color(0xFF831843),
     dockBg = Color(0xFFFFFFFF),
     dockIconColor = Color(0xFF831843),
     fabBg = Color(0xFFDB2777),
-    fabIconColor = Color(0xFFFFFFFF)
+    fabIconColor = Color(0xFFFFFFFF),
+    breadcrumb = Color(0xFFDB2777),
+    sectionText = Color(0xFF9D174D),
+    dockDivider = Color(0xFFFBCFE8)
 )
 
 // ─────────────────────────────────────────────
@@ -185,16 +189,17 @@ val LavenderThemePalette = ThemePalette(
         surfaceVariant = Color(0xFFEDE9FE), onSurfaceVariant = Color(0xFF6D28D9),
         outline = Color(0xFF9CA3AF), outlineVariant = Color(0xFFDDD6FE)
     ),
-    semanticColors = ThemeSemanticColors(Color(0xFF4C1D95),
-    Color(0xFFD97706)),
-    Color(0xFFFBBF24)),
+    semanticColors = ThemeSemanticColors(Color(0xFF4C1D95), Color(0xFFD97706)),
     waveTop = Color(0xFFA78BFA),
     waveMid = Color(0xFF7C3AED),
     waveBottom = Color(0xFF4C1D95),
     dockBg = Color(0xFFFFFFFF),
     dockIconColor = Color(0xFF4C1D95),
     fabBg = Color(0xFF7C3AED),
-    fabIconColor = Color(0xFFFFFFFF)
+    fabIconColor = Color(0xFFFFFFFF),
+    breadcrumb = Color(0xFF7C3AED),
+    sectionText = Color(0xFF6D28D9),
+    dockDivider = Color(0xFFDDD6FE)
 )
 
 // ─────────────────────────────────────────────
@@ -213,16 +218,17 @@ val LightBasicThemePalette = ThemePalette(
         surfaceVariant = Color(0xFFF3F4F6), onSurfaceVariant = Color(0xFF4B5563),
         outline = Color(0xFF9CA3AF), outlineVariant = Color(0xFFE5E7EB)
     ),
-    semanticColors = ThemeSemanticColors(Color(0xFF374151),
-    Color(0xFFD97706)),
-    Color(0xFFFBBF24)),
+    semanticColors = ThemeSemanticColors(Color(0xFF374151), Color(0xFFD97706)),
     waveTop = Color(0xFF9CA3AF),
     waveMid = Color(0xFF6B7280),
     waveBottom = Color(0xFF374151),
     dockBg = Color(0xFFFFFFFF),
     dockIconColor = Color(0xFF374151),
     fabBg = Color(0xFF374151),
-    fabIconColor = Color(0xFFFFFFFF)
+    fabIconColor = Color(0xFFFFFFFF),
+    breadcrumb = Color(0xFF6B7280),
+    sectionText = Color(0xFF4B5563),
+    dockDivider = Color(0xFFE5E7EB)
 )
 
 // ─────────────────────────────────────────────
@@ -241,16 +247,17 @@ val BasicDarkThemePalette = ThemePalette(
         surfaceVariant = Color(0xFF374151), onSurfaceVariant = Color(0xFFCBD5E1),
         outline = Color(0xFF6B7280), outlineVariant = Color(0xFF374151)
     ),
-    semanticColors = ThemeSemanticColors(Color(0xFFF9FAFB),
-    Color(0xFFD97706)),
-    Color(0xFFFBBF24)),
+    semanticColors = ThemeSemanticColors(Color(0xFFF9FAFB), Color(0xFFFBBF24)),
     waveTop = Color(0xFF4B5563),
     waveMid = Color(0xFF374151),
     waveBottom = Color(0xFF111827),
     dockBg = Color(0xFFF9FAFB),
     dockIconColor = Color(0xFF111827),
     fabBg = Color(0xFFF9FAFB),
-    fabIconColor = Color(0xFF111827)
+    fabIconColor = Color(0xFF111827),
+    breadcrumb = Color(0xFF94A3B8),
+    sectionText = Color(0xFFCBD5E1),
+    dockDivider = Color(0xFF6B7280)
 )
 
 // ─────────────────────────────────────────────
@@ -269,16 +276,17 @@ val DeepOceanThemePalette = ThemePalette(
         surfaceVariant = Color(0xFF1E4976), onSurfaceVariant = Color(0xFF90CAF9),
         outline = Color(0xFF64B5F6), outlineVariant = Color(0xFF1E4976)
     ),
-    semanticColors = ThemeSemanticColors(Color(0xFF38BDF8),
-    Color(0xFFD97706)),
-    Color(0xFFFBBF24)),
+    semanticColors = ThemeSemanticColors(Color(0xFF38BDF8), Color(0xFFFBBF24)),
     waveTop = Color(0xFF1E6FA8),
     waveMid = Color(0xFF14507A),
     waveBottom = Color(0xFF0A1929),
     dockBg = Color(0xFFE3F2FD),
     dockIconColor = Color(0xFF0A1929),
     fabBg = Color(0xFF38BDF8),
-    fabIconColor = Color(0xFF0A1929)
+    fabIconColor = Color(0xFF0A1929),
+    breadcrumb = Color(0xFF38BDF8),
+    sectionText = Color(0xFF90CAF9),
+    dockDivider = Color(0xFF64B5F6)
 )
 
 // ─────────────────────────────────────────────
@@ -297,16 +305,17 @@ val CoffeeThemePalette = ThemePalette(
         surfaceVariant = Color(0xFF6B4630), onSurfaceVariant = Color(0xFFD4A574),
         outline = Color(0xFFB08968), outlineVariant = Color(0xFF6B4630)
     ),
-    semanticColors = ThemeSemanticColors(Color(0xFFE8A87C),
-    Color(0xFFD97706)),
-    Color(0xFFFBBF24)),
+    semanticColors = ThemeSemanticColors(Color(0xFFE8A87C), Color(0xFFFBBF24)),
     waveTop = Color(0xFFA0522D),
     waveMid = Color(0xFF7A3B1F),
     waveBottom = Color(0xFF2B1A12),
     dockBg = Color(0xFFF5E6D3),
     dockIconColor = Color(0xFF2B1A12),
     fabBg = Color(0xFFE8A87C),
-    fabIconColor = Color(0xFF2B1A12)
+    fabIconColor = Color(0xFF2B1A12),
+    breadcrumb = Color(0xFFE8A87C),
+    sectionText = Color(0xFFD4A574),
+    dockDivider = Color(0xFFB08968)
 )
 
 // ─────────────────────────────────────────────
@@ -325,16 +334,17 @@ val ObsidianThemePalette = ThemePalette(
         surfaceVariant = Color(0xFF4C2E6E), onSurfaceVariant = Color(0xFFC4B5FD),
         outline = Color(0xFFA78BFA), outlineVariant = Color(0xFF4C2E6E)
     ),
-    semanticColors = ThemeSemanticColors(Color(0xFFA78BFA),
-    Color(0xFFD97706)),
-    Color(0xFFFBBF24)),
+    semanticColors = ThemeSemanticColors(Color(0xFFA78BFA), Color(0xFFFBBF24)),
     waveTop = Color(0xFF7C3AED),
     waveMid = Color(0xFF5B21B6),
     waveBottom = Color(0xFF1A0F2E),
     dockBg = Color(0xFFEDE9FE),
     dockIconColor = Color(0xFF1A0F2E),
     fabBg = Color(0xFFA78BFA),
-    fabIconColor = Color(0xFF1A0F2E)
+    fabIconColor = Color(0xFF1A0F2E),
+    breadcrumb = Color(0xFFA78BFA),
+    sectionText = Color(0xFFC4B5FD),
+    dockDivider = Color(0xFFA78BFA)
 )
 
 fun themePaletteFor(preset: ThemePreset): ThemePalette = when (preset) {
