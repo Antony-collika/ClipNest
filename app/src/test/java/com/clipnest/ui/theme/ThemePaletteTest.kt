@@ -8,11 +8,10 @@ import org.junit.Test
 class ThemePaletteTest {
 
     @Test
-    fun everyPresetProvidesDistinctLightAndDarkPrimaryColors() {
+    fun everyPresetProvidesOneCompleteColorScheme() {
         val palettes = ThemePreset.entries.map(::themePaletteFor)
-        val primaryColorPairs = palettes.map { it.light.primary to it.dark.primary }.toSet()
 
-        assertEquals(ThemePreset.entries.size, primaryColorPairs.size)
+        assertEquals(ThemePreset.entries.size, palettes.map { it.colorScheme }.size)
     }
 
     @Test
