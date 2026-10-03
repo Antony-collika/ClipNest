@@ -13,16 +13,16 @@ import kotlinx.coroutines.flow.map
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
 enum class ThemePreset {
-    LIGHT,
-    DARK,
-    MIDNIGHT_BLUE,
     FOREST,
-    LAVENDER,
     NORD,
-    SOLARIZED,
-    SOFT_PAPER_CREAM,
-    MIDNIGHT_OLED,
-    SAGE_SLATE
+    SNOW_SAPPHIRE,
+    SAKURA,
+    LAVENDER,
+    LIGHT_BASIC,
+    BASIC_DARK,
+    DEEP_OCEAN,
+    COFFEE,
+    OBSIDIAN
 }
 
 enum class EditorTextSize(val sp: Int, val lineHeightSp: Int) {
@@ -59,7 +59,7 @@ data class UserSettings(
     val language: AppLanguage = AppLanguage.ENGLISH,
     val showPinnedFirst: Boolean = false,
     val isSensitivePreviewMasked: Boolean = true,
-    val themePreset: ThemePreset = ThemePreset.LIGHT,
+    val themePreset: ThemePreset = ThemePreset.FOREST,
     val editorTextSize: EditorTextSize = EditorTextSize.DEFAULT,
     val viewerTextSize: ViewerTextSize = ViewerTextSize.DEFAULT,
     val notificationEnabled: Boolean = true,
@@ -96,8 +96,8 @@ class SettingsDataStore(private val context: Context) {
             AppLanguage.valueOf(preferences[PreferencesKeys.LANGUAGE] ?: AppLanguage.ENGLISH.name)
         }.getOrDefault(AppLanguage.ENGLISH)
         val themePreset = runCatching {
-            ThemePreset.valueOf(preferences[PreferencesKeys.THEME_PRESET] ?: ThemePreset.LIGHT.name)
-        }.getOrDefault(ThemePreset.LIGHT)
+            ThemePreset.valueOf(preferences[PreferencesKeys.THEME_PRESET] ?: ThemePreset.FOREST.name)
+        }.getOrDefault(ThemePreset.FOREST)
         val editorTextSize = runCatching {
             EditorTextSize.valueOf(preferences[PreferencesKeys.EDITOR_TEXT_SIZE] ?: EditorTextSize.DEFAULT.name)
         }.getOrDefault(EditorTextSize.DEFAULT)
