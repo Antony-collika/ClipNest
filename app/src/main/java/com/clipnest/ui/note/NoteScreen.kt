@@ -63,7 +63,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.viewinterop.AndroidView
 import com.clipnest.R
@@ -167,17 +166,7 @@ fun NoteScreen(
 
     val isDark = MaterialTheme.colorScheme.background.red < 0.5f
     val palette = LocalThemePalette.current
-    val noteColors = palette.noteColors(isDark).copy(
-        card = if (isDark) Color(0xFF26372F) else Color(0xFFFFFCF5),
-        selectedCard = if (isDark) Color(0xFF355544) else Color(0xFFE4EFDF),
-        pinnedSurface = if (isDark) Color(0xFF2B3E33) else Color(0xFFF7F0E2),
-        tagSurface = if (isDark) Color(0xFF365447) else Color(0xFFDCEBE0),
-        tagContent = if (isDark) Color(0xFFD6E9D9) else Color(0xFF24523D),
-        headerSurface = if (isDark) Color(0xFF26372F) else Color(0xFFF6EEDD),
-        dockSurface = if (isDark) Color(0xFF1C2923) else Color(0xFFFFFFFF),
-        wavePrimary = if (isDark) Color(0xFF28563E) else Color(0xFF2F7653),
-        waveSecondary = if (isDark) Color(0xFF1B3B2C) else Color(0xFF9BBBA3)
-    )
+    val noteColors = palette.noteColors(isDark)
 
     Box(modifier.fillMaxSize()) {
         Canvas(
