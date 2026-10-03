@@ -7,11 +7,13 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import com.clipnest.data.local.ThemePreset
 
+// Semantic colors represent note states rather than visual surfaces.
 data class ThemeSemanticColors(
     val pinned: Color,
     val sensitive: Color
 )
 
+// Note-specific colors expose the visual tokens consumed by note-related UI.
 data class ThemeNoteColors(
     val card: Color,
     val selectedCard: Color,
@@ -25,41 +27,68 @@ data class ThemeNoteColors(
     val waveSecondary: Color
 )
 
+// A complete visual palette for one app theme.
+// Keep theme-specific color decisions here so UI screens do not hard-code HEX colors.
 data class ThemePalette(
+    // Material color system: app background, text, surfaces, primary/secondary accents, and outlines.
     val colorScheme: ColorScheme,
+
+    // Semantic states: pinned and sensitive content.
     val semanticColors: ThemeSemanticColors,
+
+    // Decorative wave layers, from the upper layer to the bottom layer.
     val waveTop: Color,
     val waveMid: Color,
     val waveBottom: Color,
+
+    // Floating dock: background, icon color, and divider.
     val dockBg: Color,
     val dockIconColor: Color,
+    val dockDivider: Color,
+
+    // Floating action button: background and icon color.
     val fabBg: Color,
     val fabIconColor: Color,
+
+    // Text hierarchy outside cards.
     val breadcrumb: Color,
-    val sectionText: Color,
-    val dockDivider: Color
+    val sectionText: Color
 ) {
+    // Maps the palette into the colors used by note UI components.
+    // Some values currently derive from Material ColorScheme tokens.
     fun noteColors(): ThemeNoteColors {
         return ThemeNoteColors(
+            // Note card surface.
             card = when {
                 colorScheme.background == Color(0xFFFFFFFF) -> Color(0xFFF8FAFC)
                 colorScheme.background.red > 0.6f -> Color.White
                 else -> colorScheme.surfaceVariant
             },
+
+            // Selected note card surface.
             selectedCard = colorScheme.primaryContainer.copy(alpha = 0.72f),
+
+            // Subtle background used to indicate a pinned note.
             pinnedSurface = semanticColors.pinned.copy(alpha = 0.10f),
+
+            // Label/tag background and content color.
             tagSurface = colorScheme.secondaryContainer.copy(alpha = 0.88f),
             tagContent = colorScheme.onSecondaryContainer,
+
+            // Top bar surface and the content drawn on it.
             headerSurface = colorScheme.primary,
             headerContent = colorScheme.onPrimary,
+
+            // Dock and decorative wave colors exposed to note UI.
             dockSurface = dockBg,
             wavePrimary = waveTop,
             waveSecondary = waveMid
         )
     }
 }
+
 // ─────────────────────────────────────────────
-// 1. FOREST (Default) — Ấm áp, tự nhiên, cổ điển
+// 1. FOREST (Default) — Warm, natural, classic
 // ─────────────────────────────────────────────
 val ForestThemePalette = ThemePalette(
     colorScheme = lightColorScheme(
@@ -88,7 +117,7 @@ val ForestThemePalette = ThemePalette(
 )
 
 // ─────────────────────────────────────────────
-// 2. NORD — Xám xanh Bắc Âu lạnh, tối giản
+// 2. NORD — Cool Scandinavian gray-blue, minimal
 // ─────────────────────────────────────────────
 val NordThemePalette = ThemePalette(
     colorScheme = lightColorScheme(
@@ -117,7 +146,7 @@ val NordThemePalette = ThemePalette(
 )
 
 // ─────────────────────────────────────────────
-// 3. SNOW / SAPPHIRE — Tuyết trong + xanh sapphire
+// 3. SNOW / SAPPHIRE — Clear snow + sapphire blue
 // ─────────────────────────────────────────────
 val SnowSapphireThemePalette = ThemePalette(
     colorScheme = lightColorScheme(
@@ -146,7 +175,7 @@ val SnowSapphireThemePalette = ThemePalette(
 )
 
 // ─────────────────────────────────────────────
-// 4. SAKURA — Hoa anh đào nhẹ nhàng, tinh tế
+// 4. SAKURA — Soft, refined cherry blossom
 // ─────────────────────────────────────────────
 val SakuraThemePalette = ThemePalette(
     colorScheme = lightColorScheme(
@@ -175,7 +204,7 @@ val SakuraThemePalette = ThemePalette(
 )
 
 // ─────────────────────────────────────────────
-// 5. LAVENDER — Tím hoa oải hương, thư thái
+// 5. LAVENDER — Calm lavender purple
 // ─────────────────────────────────────────────
 val LavenderThemePalette = ThemePalette(
     colorScheme = lightColorScheme(
@@ -204,7 +233,7 @@ val LavenderThemePalette = ThemePalette(
 )
 
 // ─────────────────────────────────────────────
-// 6. LIGHT BASIC — Trắng đen truyền thống, tối giản
+// 6. LIGHT BASIC — Traditional light, minimal
 // ─────────────────────────────────────────────
 val LightBasicThemePalette = ThemePalette(
     colorScheme = lightColorScheme(
@@ -233,7 +262,7 @@ val LightBasicThemePalette = ThemePalette(
 )
 
 // ─────────────────────────────────────────────
-// 7. BASIC DARK — Xám đen truyền thống, tối giản
+// 7. BASIC DARK — Traditional dark gray, minimal
 // ─────────────────────────────────────────────
 val BasicDarkThemePalette = ThemePalette(
     colorScheme = darkColorScheme(
@@ -262,7 +291,7 @@ val BasicDarkThemePalette = ThemePalette(
 )
 
 // ─────────────────────────────────────────────
-// 8. DEEP OCEAN — Đại dương sâu, xanh navy huyền bí
+// 8. DEEP OCEAN — Deep navy ocean, mysterious
 // ─────────────────────────────────────────────
 val DeepOceanThemePalette = ThemePalette(
     colorScheme = darkColorScheme(
@@ -291,7 +320,7 @@ val DeepOceanThemePalette = ThemePalette(
 )
 
 // ─────────────────────────────────────────────
-// 9. COFFEE — Cà phê ấm nóng, hổ phách trầm lắng
+// 9. COFFEE — Warm coffee brown, amber accents
 // ─────────────────────────────────────────────
 val CoffeeThemePalette = ThemePalette(
     colorScheme = darkColorScheme(
@@ -320,7 +349,7 @@ val CoffeeThemePalette = ThemePalette(
 )
 
 // ─────────────────────────────────────────────
-// 10. OBSIDIAN — Đá obsidian đen tím, huyền bí sang trọng
+// 10. OBSIDIAN — Dark violet obsidian, mysterious and refined
 // ─────────────────────────────────────────────
 val ObsidianThemePalette = ThemePalette(
     colorScheme = darkColorScheme(
