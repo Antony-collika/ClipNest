@@ -32,24 +32,19 @@ data class ThemeNoteColors(
 data class ThemePalette(
     // Material color system: app background, text, surfaces, primary/secondary accents, and outlines.
     val colorScheme: ColorScheme,
-
     // Semantic states: pinned and sensitive content.
     val semanticColors: ThemeSemanticColors,
-
     // Decorative wave layers, from the upper layer to the bottom layer.
     val waveTop: Color,
     val waveMid: Color,
     val waveBottom: Color,
-
     // Floating dock: background, icon color, and divider.
     val dockBg: Color,
     val dockIconColor: Color,
     val dockDivider: Color,
-
     // Floating action button: background and icon color.
     val fabBg: Color,
     val fabIconColor: Color,
-
     // Text hierarchy outside cards.
     val breadcrumb: Color,
     val sectionText: Color
@@ -64,21 +59,16 @@ data class ThemePalette(
                 colorScheme.background.red > 0.6f -> Color.White
                 else -> colorScheme.surfaceVariant
             },
-
             // Selected note card surface.
             selectedCard = colorScheme.primaryContainer.copy(alpha = 0.72f),
-
             // Subtle background used to indicate a pinned note.
             pinnedSurface = semanticColors.pinned.copy(alpha = 0.10f),
-
             // Label/tag background and content color.
             tagSurface = colorScheme.secondaryContainer.copy(alpha = 0.88f),
             tagContent = colorScheme.onSecondaryContainer,
-
             // Top bar surface and the content drawn on it.
             headerSurface = colorScheme.primary,
             headerContent = colorScheme.onPrimary,
-
             // Dock and decorative wave colors exposed to note UI.
             dockSurface = dockBg,
             wavePrimary = waveTop,
@@ -179,9 +169,9 @@ val SnowSapphireThemePalette = ThemePalette(
 // ─────────────────────────────────────────────
 val SakuraThemePalette = ThemePalette(
     colorScheme = lightColorScheme(
-        primary = Color(0xFF831843), onPrimary = Color.White,
+        primary = Color(0xFF9D174D), onPrimary = Color.White,
         primaryContainer = Color(0xFFFBCFE8), onPrimaryContainer = Color(0xFF500724),
-        secondary = Color(0xFF9D174D), onSecondary = Color.White,
+        secondary = Color(0xFF831843), onSecondary = Color.White,
         secondaryContainer = Color(0xFFFBCFE8), onSecondaryContainer = Color(0xFF500724),
         tertiary = Color(0xFFDB2777), onTertiary = Color.White,
         tertiaryContainer = Color(0xFFFCE7F3), onTertiaryContainer = Color(0xFF500724),
@@ -208,9 +198,9 @@ val SakuraThemePalette = ThemePalette(
 // ─────────────────────────────────────────────
 val LavenderThemePalette = ThemePalette(
     colorScheme = lightColorScheme(
-        primary = Color(0xFF4C1D95), onPrimary = Color.White,
+        primary = Color(0xFF6D28D9), onPrimary = Color.White,
         primaryContainer = Color(0xFFDDD6FE), onPrimaryContainer = Color(0xFF2E1065),
-        secondary = Color(0xFF6D28D9), onSecondary = Color.White,
+        secondary = Color(0xFF4C1D95), onSecondary = Color.White,
         secondaryContainer = Color(0xFFDDD6FE), onSecondaryContainer = Color(0xFF2E1065),
         tertiary = Color(0xFF7C3AED), onTertiary = Color.White,
         tertiaryContainer = Color(0xFFEDE9FE), onTertiaryContainer = Color(0xFF2E1065),
@@ -266,7 +256,7 @@ val LightBasicThemePalette = ThemePalette(
 // ─────────────────────────────────────────────
 val BasicDarkThemePalette = ThemePalette(
     colorScheme = darkColorScheme(
-        primary = Color(0xFFF9FAFB), onPrimary = Color(0xFF111827),
+        primary = Color(0xFF111827), onPrimary = Color(0xFFF9FAFB),
         primaryContainer = Color(0xFF374151), onPrimaryContainer = Color(0xFFF9FAFB),
         secondary = Color(0xFFCBD5E1), onSecondary = Color(0xFF111827),
         secondaryContainer = Color(0xFF374151), onSecondaryContainer = Color(0xFFF9FAFB),
@@ -283,8 +273,8 @@ val BasicDarkThemePalette = ThemePalette(
     waveBottom = Color(0xFF111827),
     dockBg = Color(0xFFF9FAFB),
     dockIconColor = Color(0xFF111827),
-    fabBg = Color(0xFFF9FAFB),
-    fabIconColor = Color(0xFF111827),
+    fabBg = Color(0xFF111827),
+    fabIconColor = Color(0xFFF9FAFB),
     breadcrumb = Color(0xFF94A3B8),
     sectionText = Color(0xFFCBD5E1),
     dockDivider = Color(0xFF6B7280)
@@ -295,7 +285,7 @@ val BasicDarkThemePalette = ThemePalette(
 // ─────────────────────────────────────────────
 val DeepOceanThemePalette = ThemePalette(
     colorScheme = darkColorScheme(
-        primary = Color(0xFF64B5F6), onPrimary = Color(0xFF0A1929),
+        primary = Color(0xFF0A1929), onPrimary = Color(0xFFE3F2FD),
         primaryContainer = Color(0xFF14507A), onPrimaryContainer = Color(0xFFE3F2FD),
         secondary = Color(0xFF90CAF9), onSecondary = Color(0xFF0A1929),
         secondaryContainer = Color(0xFF1E4976), onSecondaryContainer = Color(0xFFE3F2FD),
@@ -324,7 +314,7 @@ val DeepOceanThemePalette = ThemePalette(
 // ─────────────────────────────────────────────
 val CoffeeThemePalette = ThemePalette(
     colorScheme = darkColorScheme(
-        primary = Color(0xFFE8A87C), onPrimary = Color(0xFF2B1A12),
+        primary = Color(0xFF2B1A12), onPrimary = Color(0xFFF5E6D3),
         primaryContainer = Color(0xFF7A3B1F), onPrimaryContainer = Color(0xFFF5E6D3),
         secondary = Color(0xFFD4A574), onSecondary = Color(0xFF2B1A12),
         secondaryContainer = Color(0xFF6B4630), onSecondaryContainer = Color(0xFFF5E6D3),
@@ -353,7 +343,7 @@ val CoffeeThemePalette = ThemePalette(
 // ─────────────────────────────────────────────
 val ObsidianThemePalette = ThemePalette(
     colorScheme = darkColorScheme(
-        primary = Color(0xFFA78BFA), onPrimary = Color(0xFF1A0F2E),
+        primary = Color(0xFF1A0F2E), onPrimary = Color(0xFFEDE9FE),
         primaryContainer = Color(0xFF5B21B6), onPrimaryContainer = Color(0xFFEDE9FE),
         secondary = Color(0xFFC4B5FD), onSecondary = Color(0xFF1A0F2E),
         secondaryContainer = Color(0xFF4C2E6E), onSecondaryContainer = Color(0xFFEDE9FE),
