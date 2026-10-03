@@ -158,7 +158,6 @@ private fun VaultCardList(
     onToggleRevealSensitive: (Long) -> Unit,
     onReorder: (List<Long>) -> Unit
 ) {
-    val isDark = MaterialTheme.colorScheme.background.red < 0.5f
     val semanticColors = LocalThemePalette.current.semanticColors(isDark)
     val colors = VaultRecyclerColors(
         surface = MaterialTheme.colorScheme.surface.toArgb(),
