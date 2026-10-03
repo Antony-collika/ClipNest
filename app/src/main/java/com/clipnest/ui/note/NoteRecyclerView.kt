@@ -79,7 +79,11 @@ internal data class NoteRecyclerColors(
     val noteSelectedCard: Int,
     val notePinnedSurface: Int,
     val noteTagSurface: Int,
-    val noteTagContent: Int
+    val noteTagContent: Int,
+    val sectionText: Int,
+    val noteTitle: Int,
+    val notePreview: Int,
+    val noteActionIcon: Int
 )
 
 internal enum class NoteViewMode { LIST, GRID }
@@ -94,6 +98,8 @@ internal data class NoteHeaderState(
     val typography: androidx.compose.material3.Typography,
     val headerSurface: androidx.compose.ui.graphics.Color,
     val headerContent: androidx.compose.ui.graphics.Color,
+    val breadcrumb: androidx.compose.ui.graphics.Color,
+    val sectionText: androidx.compose.ui.graphics.Color,
     val tagSurface: androidx.compose.ui.graphics.Color,
     val tagContent: androidx.compose.ui.graphics.Color,
     val viewMode: NoteViewMode,
@@ -182,7 +188,7 @@ internal fun NoteHeaderContent(state: NoteHeaderState, modifier: Modifier = Modi
             Text(
                 text = "|",
                 style = MaterialTheme.typography.labelLarge,
-                color = state.headerContent.copy(alpha = 0.5f),
+                color = state.breadcrumb.copy(alpha = 0.5f),
                 modifier = Modifier.padding(horizontal = 4.dp)
             )
 
@@ -216,7 +222,7 @@ private fun ViewModeButton(
         modifier = Modifier
             .size(width = 80.dp, height = 40.dp)
             .background(
-                color = MaterialTheme.colorScheme.surfaceVariant,
+                color = state.tagSurface,
                 shape = RoundedCornerShape(12.dp)
             )
     ) {
@@ -424,7 +430,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
 
             if (item.id == "pinned" && onPinnedToggle != null) {
                 view.text = "📌 ${item.title} · ${item.count} notes"
-                view.setTextColor(colors.onSurface)
+                view.setTextColor(colors.sectionText)
                 view.setBackgroundColor(Color.TRANSPARENT)
                 view.elevation = 0f
                 view.setCompoundDrawablePadding(dp(8))
@@ -551,8 +557,8 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             background = GradientDrawable().apply { shape = GradientDrawable.RECTANGLE; cornerRadius = dp(18).toFloat(); setColor(if (selected) colors.noteSelectedCard else colors.noteCard) }
             elevation = dp(2).toFloat()
             checkbox.buttonTintList = ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(colors.primary, colors.onSurfaceVariant)); checkbox.isChecked = selected; checkbox.setOnClickListener { onToggleSelect() }
-            title.text = note.title.ifBlank { context.getString(R.string.untitled) }; title.setTextColor(colors.onSurface)
-            preview.text = note.preview.ifBlank { context.getString(R.string.untitled) }; preview.setTextColor(colors.onSurfaceVariant)
+            title.text = note.title.ifBlank { context.getString(R.string.untitled) }; title.setTextColor(colors.noteTitle)
+            preview.text = note.preview.ifBlank { context.getString(R.string.untitled) }; preview.setTextColor(colors.notePreview)
             label.text = note.topicLabels
             label.visibility = if (note.topicLabels.isBlank()) GONE else VISIBLE
             label.setTextColor(colors.noteTagContent)
@@ -562,7 +568,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
                 setColor(colors.noteTagSurface)
             }
             label.setPadding(dp(8), dp(3), dp(8), dp(3))
-            editButton.imageTintList = ColorStateList.valueOf(colors.onSurfaceVariant); editButton.setOnClickListener { onEdit() }
+            editButton.imageTintList = ColorStateList.valueOf(colors.noteActionIcon); editButton.setOnClickListener { onEdit() }
             setOnClickListener { onToggleSelect() }; setOnLongClickListener { onLongPress(); true }
         }
         private fun withAlpha(color: Int, alpha: Int): Int = (color and 0x00FFFFFF) or ((alpha.coerceIn(0, 255)) shl 24)
