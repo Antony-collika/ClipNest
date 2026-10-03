@@ -207,6 +207,8 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
                     typography = MaterialTheme.typography,
                     headerSurface = noteColors.headerSurface,
                     headerContent = noteColors.headerContent,
+                    breadcrumb = noteColors.breadcrumb,
+                    sectionText = noteColors.sectionText,
                     tagSurface = noteColors.tagSurface,
                     tagContent = noteColors.tagContent,
                     viewMode = viewMode,
@@ -246,7 +248,7 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
                         } else {
                             androidx.compose.ui.res.stringResource(R.string.no_search_results)
                         },
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = noteColors.emptyStateText
                     )
                 }
             } else {
@@ -263,7 +265,11 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
                     noteSelectedCard = noteColors.selectedCard.toArgb(),
                     notePinnedSurface = noteColors.pinnedSurface.toArgb(),
                     noteTagSurface = noteColors.tagSurface.toArgb(),
-                    noteTagContent = noteColors.tagContent.toArgb()
+                    noteTagContent = noteColors.tagContent.toArgb(),
+                    sectionText = noteColors.sectionText.toArgb(),
+                    noteTitle = noteColors.noteTitle.toArgb(),
+                    notePreview = noteColors.notePreview.toArgb(),
+                    noteActionIcon = noteColors.noteActionIcon.toArgb()
                 )
                 Box(Modifier.fillMaxWidth().weight(1f)) {
                     AndroidView(
@@ -324,7 +330,8 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
                 ) {
                     Icon(
                         Icons.Default.Menu,
-                        contentDescription = androidx.compose.ui.res.stringResource(R.string.menu)
+                        contentDescription = androidx.compose.ui.res.stringResource(R.string.menu),
+                        tint = noteColors.dockIcon
                     )
                 }
                 IconButton(
@@ -333,7 +340,8 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
                 ) {
                     Icon(
                         Icons.Default.Search,
-                        contentDescription = androidx.compose.ui.res.stringResource(R.string.search_notes)
+                        contentDescription = androidx.compose.ui.res.stringResource(R.string.search_notes),
+                        tint = noteColors.dockIcon
                     )
                 }
                 VerticalDivider(
@@ -347,7 +355,7 @@ IconButton(
     Icon(
         Icons.Default.Edit,
         contentDescription = androidx.compose.ui.res.stringResource(R.string.new_note),
-        tint = MaterialTheme.colorScheme.primary
+        tint = noteColors.dockIcon
     )
 }
 VerticalDivider(
@@ -361,7 +369,8 @@ VerticalDivider(
                     ) {
                         Icon(
                             Icons.Default.MoreVert,
-                            contentDescription = androidx.compose.ui.res.stringResource(R.string.more_options)
+                            contentDescription = androidx.compose.ui.res.stringResource(R.string.more_options),
+                            tint = noteColors.dockIcon
                         )
                     }
                     DropdownMenu(
@@ -427,18 +436,18 @@ private fun SearchOverlay(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        colors = CardDefaults.cardColors(containerColor = LocalThemePalette.current.noteColors().searchSurface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Default.Search, contentDescription = androidx.compose.ui.res.stringResource(R.string.search_notes))
+            Icon(Icons.Default.Search, contentDescription = androidx.compose.ui.res.stringResource(R.string.search_notes), tint = LocalThemePalette.current.noteColors().searchContent)
             androidx.compose.material3.TextField(
                 value = query,
                 onValueChange = onQueryChange,
-                placeholder = { Text(androidx.compose.ui.res.stringResource(R.string.search_notes)) },
+                placeholder = { Text(androidx.compose.ui.res.stringResource(R.string.search_notes), color = LocalThemePalette.current.noteColors().searchHint) },
                 singleLine = true,
                 modifier = Modifier.weight(1f),
                 colors = androidx.compose.material3.TextFieldDefaults.colors(
@@ -446,12 +455,15 @@ private fun SearchOverlay(
                     unfocusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
                     disabledContainerColor = androidx.compose.ui.graphics.Color.Transparent,
                     errorContainerColor = androidx.compose.ui.graphics.Color.Transparent,
+                    focusedTextColor = LocalThemePalette.current.noteColors().searchContent,
+                    unfocusedTextColor = LocalThemePalette.current.noteColors().searchContent,
+                    cursorColor = LocalThemePalette.current.noteColors().breadcrumb,
                     focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
                     unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent
                 )
             )
             IconButton(onClick = onClose) {
-                Icon(Icons.Default.Clear, contentDescription = androidx.compose.ui.res.stringResource(R.string.close_search))
+                Icon(Icons.Default.Clear, contentDescription = androidx.compose.ui.res.stringResource(R.string.close_search), tint = LocalThemePalette.current.noteColors().searchContent)
             }
         }
     }
@@ -523,7 +535,7 @@ private fun NotePreviewPopup(
         ) {
             Card(
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                colors = CardDefaults.cardColors(containerColor = LocalThemePalette.current.noteColors().popupSurface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
                 modifier = Modifier.width(popupWidth)
             ) {
@@ -554,7 +566,8 @@ private fun NotePreviewPopup(
                         ) {
                             Icon(
                                 Icons.Default.Clear,
-                                contentDescription = androidx.compose.ui.res.stringResource(R.string.close_preview)
+                                contentDescription = androidx.compose.ui.res.stringResource(R.string.close_preview),
+                                tint = LocalThemePalette.current.noteColors().popupContent
                             )
                         }
                     }
@@ -576,7 +589,7 @@ private fun NotePreviewPopup(
                             Text(
                                 text = note.topicLabels,
                                 style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.primary,
+                                color = LocalThemePalette.current.noteColors().tagContent,
                                 modifier = Modifier.padding(top = 6.dp)
                             )
                         }
@@ -602,7 +615,7 @@ private fun NotePreviewPopup(
                                 androidx.compose.ui.res.stringResource(R.string.yesterday)
                             ),
                             style = MaterialTheme.typography.labelSmall.copy(
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = LocalThemePalette.current.noteColors().popupSecondary
                             ),
                             modifier = Modifier.weight(1f)
                         )
