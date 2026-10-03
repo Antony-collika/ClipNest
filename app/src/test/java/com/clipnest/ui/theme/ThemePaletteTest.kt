@@ -16,11 +16,13 @@ class ThemePaletteTest {
     }
 
     @Test
-    fun lightIsTheDefaultReferencePaletteAndOtherPresetsDiffer() {
-        assertEquals(LightThemePalette, themePaletteFor(ThemePreset.LIGHT))
-        assertNotEquals(LightThemePalette, themePaletteFor(ThemePreset.DARK))
-        assertNotEquals(LightThemePalette, themePaletteFor(ThemePreset.MIDNIGHT_BLUE))
-        assertNotEquals(LightThemePalette, themePaletteFor(ThemePreset.FOREST))
-        assertNotEquals(LightThemePalette, themePaletteFor(ThemePreset.LAVENDER))
+    fun forestIsTheDefaultReferencePaletteAndOtherPresetsDiffer() {
+        assertEquals(ForestThemePalette, themePaletteFor(ThemePreset.FOREST))
+
+        ThemePreset.entries
+            .filterNot { it == ThemePreset.FOREST }
+            .forEach { preset ->
+                assertNotEquals(ForestThemePalette, themePaletteFor(preset))
+            }
     }
 }
