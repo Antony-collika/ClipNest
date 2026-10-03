@@ -222,7 +222,7 @@ private fun ViewModeButton(
         modifier = Modifier
             .size(width = 80.dp, height = 40.dp)
             .background(
-                color = state.tagSurface,
+                color = MaterialTheme.colorScheme.surfaceVariant,
                 shape = RoundedCornerShape(12.dp)
             )
     ) {
@@ -304,7 +304,11 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
         noteSelectedCard = Color.LTGRAY,
         notePinnedSurface = Color.LTGRAY,
         noteTagSurface = Color.LTGRAY,
-        noteTagContent = Color.DKGRAY
+        noteTagContent = Color.DKGRAY,
+        sectionText = Color.DKGRAY,
+        noteTitle = Color.BLACK,
+        notePreview = Color.DKGRAY,
+        noteActionIcon = Color.DKGRAY
     )
     private val spacingDecoration = NoteSpacingDecoration(dp(14))
 
