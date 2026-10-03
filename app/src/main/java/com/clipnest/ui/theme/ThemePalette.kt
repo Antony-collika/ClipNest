@@ -95,8 +95,8 @@ val ForestThemePalette = ThemePalette(
     ),
     semanticColors = ThemeSemanticColors(Color(0xFF1C3B2B), Color(0xFFD97706)),
     waveTop = Color(0xFF2A523C),
-    waveMid = Color(0xFF142E21),
-    waveBottom = Color(0xFF0B1A13),
+    waveMid = Color(0xFF0F2219),
+    waveBottom = Color(0xFF070E0A),
     dockBg = Color(0xFFFFFFFF),
     dockIconColor = Color(0xFF2B332E),
     fabBg = Color(0xFF1C3B2B),
@@ -123,7 +123,7 @@ val NordThemePalette = ThemePalette(
         outline = Color(0xFF7B8794), outlineVariant = Color(0xFFD8DEE9)
     ),
     semanticColors = ThemeSemanticColors(Color(0xFF2E3440), Color(0xFFB45309)),
-    waveTop = Color(0xFF81A1C1),
+    waveTop = Color(0xFF88C0D0),
     waveMid = Color(0xFF5E81AC),
     waveBottom = Color(0xFF2E3440),
     dockBg = Color(0xFFFFFFFF),
@@ -273,8 +273,8 @@ val BasicDarkThemePalette = ThemePalette(
     waveBottom = Color(0xFF111827),
     dockBg = Color(0xFFF9FAFB),
     dockIconColor = Color(0xFF111827),
-    fabBg = Color(0xFF111827),
-    fabIconColor = Color(0xFFF9FAFB),
+    fabBg = Color(0xFFF9FAFB),
+    fabIconColor = Color(0xFF111827),
     breadcrumb = Color(0xFF94A3B8),
     sectionText = Color(0xFFCBD5E1),
     dockDivider = Color(0xFF6B7280)
@@ -297,8 +297,8 @@ val DeepOceanThemePalette = ThemePalette(
         outline = Color(0xFF64B5F6), outlineVariant = Color(0xFF1E4976)
     ),
     semanticColors = ThemeSemanticColors(Color(0xFF38BDF8), Color(0xFFFBBF24)),
-    waveTop = Color(0xFF1E6FA8),
-    waveMid = Color(0xFF14507A),
+    waveTop = Color(0xFF1565C0),
+    waveMid = Color(0xFF0D47A1),
     waveBottom = Color(0xFF0A1929),
     dockBg = Color(0xFFE3F2FD),
     dockIconColor = Color(0xFF0A1929),
@@ -355,7 +355,7 @@ val ObsidianThemePalette = ThemePalette(
         outline = Color(0xFFA78BFA), outlineVariant = Color(0xFF4C2E6E)
     ),
     semanticColors = ThemeSemanticColors(Color(0xFFA78BFA), Color(0xFFFBBF24)),
-    waveTop = Color(0xFF7C3AED),
+    waveTop = Color(0xFF8B5CF6),
     waveMid = Color(0xFF5B21B6),
     waveBottom = Color(0xFF1A0F2E),
     dockBg = Color(0xFFEDE9FE),
@@ -364,7 +364,7 @@ val ObsidianThemePalette = ThemePalette(
     fabIconColor = Color(0xFF1A0F2E),
     breadcrumb = Color(0xFFA78BFA),
     sectionText = Color(0xFFC4B5FD),
-    dockDivider = Color(0xFFA78BFA)
+    dockDivider = Color(0xFFDDD6FE)
 )
 
 fun themePaletteFor(preset: ThemePreset): ThemePalette = when (preset) {
