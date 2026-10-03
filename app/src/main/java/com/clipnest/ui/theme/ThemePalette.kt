@@ -50,7 +50,7 @@ data class ThemePalette(
             pinnedSurface = semantic.pinned.copy(alpha = 0.10f),
             tagSurface = scheme.secondaryContainer.copy(alpha = 0.88f),
             tagContent = scheme.onSecondaryContainer,
-            headerSurface = scheme.surfaceVariant.copy(alpha = 0.46f),
+            headerSurface = scheme.surface,
             dockSurface = dockBg,
             wavePrimary = waveTop,
             waveSecondary = waveMid
@@ -149,7 +149,7 @@ val SnowSapphireThemePalette = ThemePalette(
         tertiaryContainer = Color(0xFFE0F2FE), onTertiaryContainer = Color(0xFF0C4A6E),
         background = Color(0xFFF0F9FF), onBackground = Color(0xFF0C4A6E),
         surface = Color(0xFFF0F9FF), onSurface = Color(0xFF0C4A6E),
-        surfaceVariant = Color(0xFFE0F2FE), onSurfaceVariant = Color(0xFF0369A1),
+        surfaceVariant = Color.White, onSurfaceVariant = Color(0xFF0369A1),
         outline = Color(0xFF64748B), outlineVariant = Color(0xFFBAE6FD)
     ),
     dark = darkColorScheme(
