@@ -104,6 +104,7 @@ import com.clipnest.ui.trash.TrashScreen
 import com.clipnest.ui.settings.SettingsViewModel
 import com.clipnest.ui.settings.SettingsViewModelFactory
 import com.clipnest.ui.theme.ClipNestTheme
+import com.clipnest.ui.theme.LocalThemePalette
 import com.clipnest.ui.vault.BackupPasswordDialog
 import com.clipnest.ui.vault.VaultScreen
 import com.clipnest.ui.vault.VaultViewModel
@@ -745,7 +746,7 @@ private fun MainTopBar(
     LaunchedEffect(isSearchOpen) {
         if (isSearchOpen) { searchFocusRequester.requestFocus(); keyboardController?.show() }
     }
-    Surface(color = if (isNote) androidx.compose.ui.graphics.Color(0xFF174B39) else MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth()) {
+    Surface(color = if (isNote) LocalThemePalette.current.noteColors().headerSurface else MaterialTheme.colorScheme.surface, contentColor = if (isNote) LocalThemePalette.current.noteColors().headerContent else MaterialTheme.colorScheme.onSurface, modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth().statusBarsPadding().height(if (isSearchOpen && isEditor) 104.dp else 52.dp).padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -822,7 +823,7 @@ private fun MainTopBar(
                                 Text(
                                     text = stringResource(com.clipnest.R.string.selected_count, selectedCount),
                                     style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                                    color = if (isNote) androidx.compose.ui.graphics.Color(0xFFF6F4EA) else MaterialTheme.colorScheme.onSurface,
+                                    color = if (isNote) LocalThemePalette.current.noteColors().headerContent else MaterialTheme.colorScheme.onSurface,
                                     maxLines = 1,
                                     modifier = Modifier.testTag(if (isNote) "note_selected_count_text" else "vault_selected_count_text")
                                 )
