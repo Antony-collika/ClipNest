@@ -368,16 +368,16 @@ private fun SettingsSectionHeader(title: String, icon: androidx.compose.ui.graph
 
 @Composable
 private fun themePresetLabel(preset: ThemePreset): String = when (preset) {
-    ThemePreset.LIGHT -> stringResource(com.clipnest.R.string.theme_light)
-    ThemePreset.DARK -> stringResource(com.clipnest.R.string.theme_dark)
-    ThemePreset.MIDNIGHT_BLUE -> stringResource(com.clipnest.R.string.theme_midnight_blue)
     ThemePreset.FOREST -> stringResource(com.clipnest.R.string.theme_forest)
-    ThemePreset.LAVENDER -> stringResource(com.clipnest.R.string.theme_lavender)
     ThemePreset.NORD -> stringResource(com.clipnest.R.string.theme_nord)
-    ThemePreset.SOLARIZED -> stringResource(com.clipnest.R.string.theme_solarized)
-    ThemePreset.SOFT_PAPER_CREAM -> stringResource(com.clipnest.R.string.theme_soft_paper_cream)
-    ThemePreset.MIDNIGHT_OLED -> stringResource(com.clipnest.R.string.theme_midnight_oled)
-    ThemePreset.SAGE_SLATE -> stringResource(com.clipnest.R.string.theme_sage_slate)
+    ThemePreset.SNOW_SAPPHIRE -> stringResource(com.clipnest.R.string.theme_snow_sapphire)
+    ThemePreset.SAKURA -> stringResource(com.clipnest.R.string.theme_sakura)
+    ThemePreset.LAVENDER -> stringResource(com.clipnest.R.string.theme_lavender)
+    ThemePreset.LIGHT_BASIC -> stringResource(com.clipnest.R.string.theme_light_basic)
+    ThemePreset.BASIC_DARK -> stringResource(com.clipnest.R.string.theme_basic_dark)
+    ThemePreset.DEEP_OCEAN -> stringResource(com.clipnest.R.string.theme_deep_ocean)
+    ThemePreset.COFFEE -> stringResource(com.clipnest.R.string.theme_coffee)
+    ThemePreset.OBSIDIAN -> stringResource(com.clipnest.R.string.theme_obsidian)
 }
 
 @Composable
