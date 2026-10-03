@@ -164,9 +164,8 @@ fun NoteScreen(
     val origin = originForTopic(selectedTopic)
     val previewNote = noteCards.firstOrNull { it.id == previewNoteId }
 
-    val isDark = MaterialTheme.colorScheme.background.red < 0.5f
     val palette = LocalThemePalette.current
-    val noteColors = palette.noteColors(isDark)
+    val noteColors = palette.noteColors()
 
     Box(modifier.fillMaxSize()) {
         Canvas(
@@ -207,7 +206,7 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
                     colors = MaterialTheme.colorScheme,
                     typography = MaterialTheme.typography,
                     headerSurface = noteColors.headerSurface,
-                    headerContent = MaterialTheme.colorScheme.onSurface,
+                    headerContent = noteColors.headerContent,
                     tagSurface = noteColors.tagSurface,
                     tagContent = noteColors.tagContent,
                     viewMode = viewMode,
@@ -251,7 +250,7 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
                     )
                 }
             } else {
-                val semanticColors = palette.semanticColors(isDark)
+                val semanticColors = palette.semanticColors
                 val colors = NoteRecyclerColors(
                     surface = MaterialTheme.colorScheme.surface.toArgb(),
                     onSurface = MaterialTheme.colorScheme.onSurface.toArgb(),
@@ -339,7 +338,7 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
                 }
                 VerticalDivider(
     modifier = Modifier.height(20.dp),
-    color = MaterialTheme.colorScheme.outlineVariant
+    color = palette.dockDivider
 )
 IconButton(
     onClick = { onCreateNote(origin, selectedTopicId) },
@@ -353,7 +352,7 @@ IconButton(
 }
 VerticalDivider(
     modifier = Modifier.height(20.dp),
-    color = MaterialTheme.colorScheme.outlineVariant
+    color = palette.dockDivider
 )
                 Box {
                     IconButton(
@@ -559,7 +558,7 @@ private fun NotePreviewPopup(
                             )
                         }
                     }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    HorizontalDivider(color = palette.dockDivider.copy(alpha = 0.5f))
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -589,7 +588,7 @@ private fun NotePreviewPopup(
                             modifier = Modifier.padding(top = 12.dp)
                         )
                     }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    HorizontalDivider(color = palette.dockDivider.copy(alpha = 0.5f))
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
