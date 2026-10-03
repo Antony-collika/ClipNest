@@ -135,7 +135,6 @@ fun ClipboardCardItem(
     val isSensitive = card.isSensitive
     val isMasked = isSensitive && isMaskingEnabled && !isSensitiveRevealed
 
-    val isDark = MaterialTheme.colorScheme.background.red < 0.5f
     val semanticColors = LocalThemePalette.current.semanticColors(isDark)
     val pinnedColor = semanticColors.pinned
     val sensitiveColor = semanticColors.sensitive
@@ -1111,7 +1110,7 @@ fun ClipboardPreviewPopup(
     }
     val popupWidth = minOf(360.dp, (configuration.screenWidthDp - 24).dp)
     val isMasked = card.isSensitive && isMaskingEnabled && !isSensitiveRevealed
-    val semanticColors = LocalThemePalette.current.semanticColors(MaterialTheme.colorScheme.background.red < 0.5f)
+    val semanticColors = LocalThemePalette.current.semanticColors
     val sensitiveColor = semanticColors.sensitive
 
     fun dismissAnimated() {
