@@ -41,7 +41,7 @@ interface NoteDao {
         LEFT JOIN topics t ON t.id = r.topicId
         WHERE n.isDeleted = 0 AND n.isArchived = 0
         GROUP BY n.id
-        ORDER BY n.updatedAtMillis DESC
+        ORDER BY n.createdAtMillis DESC
     """)
     fun observeActiveNoteCards(): Flow<List<NoteCardProjection>>
 
@@ -55,7 +55,7 @@ interface NoteDao {
         WHERE n.isDeleted = 0 AND n.isArchived = 0
           AND n.id IN (SELECT rowid FROM notes_fts WHERE notes_fts MATCH :ftsQuery)
         GROUP BY n.id
-        ORDER BY n.updatedAtMillis DESC
+        ORDER BY n.createdAtMillis DESC
     """)
     fun searchActiveNoteCards(ftsQuery: String): Flow<List<NoteCardProjection>>
 
@@ -69,7 +69,7 @@ interface NoteDao {
         LEFT JOIN topics t ON t.id = tagRef.topicId
         WHERE n.isDeleted = 0 AND n.isArchived = 0
         GROUP BY n.id
-        ORDER BY n.updatedAtMillis DESC
+        ORDER BY n.createdAtMillis DESC
     """)
     fun observeActiveNotesByTopic(topicId: Long, origin: String): Flow<List<NoteCardProjection>>
 
@@ -79,14 +79,13 @@ interface NoteDao {
         FROM notes n
         INNER JOIN note_topic_cross_ref selectedRef
             ON selectedRef.noteId = n.id AND selectedRef.topicId = :topicId
-        INNER JOIN topics selectedTopic
-            ON selectedTopic.id = selectedRef.topicId AND selectedTopic.origin = :origin
+        INNER JOIN topics selectedTopic ON selectedTopic.id = selectedRef.topicId AND selectedTopic.origin = :origin
         LEFT JOIN note_topic_cross_ref r
             ON r.noteId = n.id AND r.role = 'USER_TAG'
         LEFT JOIN topics t ON t.id = r.topicId
         WHERE n.isDeleted = 0 AND n.isArchived = 0
         GROUP BY n.id
-        ORDER BY n.updatedAtMillis DESC
+        ORDER BY n.createdAtMillis DESC
     """)
     fun observeActiveNoteCardsByTopic(topicId: Long, origin: String): Flow<List<NoteCardProjection>>
 
@@ -104,7 +103,7 @@ interface NoteDao {
         WHERE selectedTopic.origin = :origin
           AND (selectedTopic.id = :topicId OR selectedTopic.parentId = :topicId)
           AND n.isDeleted = 0 AND n.isArchived = 0
-        ORDER BY n.updatedAtMillis DESC
+        ORDER BY n.createdAtMillis DESC
     """)
     fun observeActiveNoteCardsByTopicTree(topicId: Long, origin: String): Flow<List<NoteCardProjection>>
 
@@ -124,7 +123,8 @@ interface NoteDao {
           AND (selectedTopic.id = :topicId OR selectedTopic.parentId = :topicId)
           AND n.isDeleted = 0 AND n.isArchived = 0
           AND n.id IN (SELECT rowid FROM notes_fts WHERE notes_fts MATCH :ftsQuery)
-        ORDER BY n.updatedAtMillis DESC
+        GROUP BY n.id
+        ORDER BY n.createdAtMillis DESC
     """)
     fun searchActiveNoteCardsByTopicTree(topicId: Long, origin: String, ftsQuery: String): Flow<List<NoteCardProjection>>
 
