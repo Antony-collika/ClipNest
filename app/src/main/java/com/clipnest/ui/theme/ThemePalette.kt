@@ -24,7 +24,22 @@ data class ThemeNoteColors(
     val headerContent: Color,
     val dockSurface: Color,
     val wavePrimary: Color,
-    val waveSecondary: Color
+    val waveSecondary: Color,
+    val breadcrumb: Color,
+    val sectionText: Color,
+    val noteTitle: Color,
+    val notePreview: Color,
+    val noteActionIcon: Color,
+    val emptyStateText: Color,
+    val searchSurface: Color,
+    val searchContent: Color,
+    val searchHint: Color,
+    val popupSurface: Color,
+    val popupContent: Color,
+    val popupSecondary: Color,
+    val menuSurface: Color,
+    val menuContent: Color,
+    val dockIcon: Color
 )
 
 // A complete visual palette for one app theme.
@@ -72,7 +87,22 @@ data class ThemePalette(
             // Dock and decorative wave colors exposed to note UI.
             dockSurface = dockBg,
             wavePrimary = waveTop,
-            waveSecondary = waveMid
+            waveSecondary = waveMid,
+            breadcrumb = breadcrumb,
+            sectionText = sectionText,
+            noteTitle = colorScheme.onSurface,
+            notePreview = colorScheme.onSurfaceVariant,
+            noteActionIcon = dockIconColor,
+            emptyStateText = colorScheme.onSurfaceVariant,
+            searchSurface = colorScheme.surfaceVariant,
+            searchContent = colorScheme.onSurface,
+            searchHint = colorScheme.onSurfaceVariant,
+            popupSurface = colorScheme.surface,
+            popupContent = colorScheme.onSurface,
+            popupSecondary = colorScheme.onSurfaceVariant,
+            menuSurface = colorScheme.surface,
+            menuContent = colorScheme.onSurface,
+            dockIcon = dockIconColor
         )
     }
 }
