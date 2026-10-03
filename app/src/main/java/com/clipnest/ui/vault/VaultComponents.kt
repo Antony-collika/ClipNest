@@ -135,7 +135,7 @@ fun ClipboardCardItem(
     val isSensitive = card.isSensitive
     val isMasked = isSensitive && isMaskingEnabled && !isSensitiveRevealed
 
-    val semanticColors = LocalThemePalette.current.semanticColors(isDark)
+    val semanticColors = LocalThemePalette.current.semanticColors
     val pinnedColor = semanticColors.pinned
     val sensitiveColor = semanticColors.sensitive
 
