@@ -6,15 +6,15 @@ import androidx.compose.runtime.CompositionLocalProvider
 import com.clipnest.data.local.ThemePreset
 
 private val darkPresetThemes = setOf(
-    ThemePreset.DARK,
-    ThemePreset.MIDNIGHT_BLUE,
-    ThemePreset.NORD,
-    ThemePreset.MIDNIGHT_OLED
+    ThemePreset.BASIC_DARK,
+    ThemePreset.DEEP_OCEAN,
+    ThemePreset.COFFEE,
+    ThemePreset.OBSIDIAN
 )
 
 @Composable
 fun ClipNestTheme(
-    themePreset: ThemePreset = ThemePreset.LIGHT,
+    themePreset: ThemePreset = ThemePreset.FOREST,
     content: @Composable () -> Unit
 ) {
     val palette = themePaletteFor(themePreset)
