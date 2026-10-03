@@ -588,7 +588,7 @@ private fun NotePreviewPopup(
                             modifier = Modifier.padding(top = 12.dp)
                         )
                     }
-                    HorizontalDivider(color = palette.dockDivider.copy(alpha = 0.5f))
+                    HorizontalDivider(color = LocalThemePalette.current.dockDivider.copy(alpha = 0.5f))
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
