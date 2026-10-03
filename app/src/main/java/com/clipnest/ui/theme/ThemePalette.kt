@@ -19,6 +19,7 @@ data class ThemeNoteColors(
     val tagSurface: Color,
     val tagContent: Color,
     val headerSurface: Color,
+    val headerContent: Color,
     val dockSurface: Color,
     val wavePrimary: Color,
     val waveSecondary: Color
