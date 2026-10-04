@@ -415,7 +415,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             if (item.id == "pinned" && onPinnedToggle != null) {
                 view.text = "📌 ${item.title} · ${item.count} notes"
                 view.setTextColor(colors.noteSectionTitle)
-                view.setBackgroundColor(Color.TRANSPARENT)
+                view.background = null
                 view.elevation = 0f
                 view.setCompoundDrawablePadding(dp(8))
                 view.setCompoundDrawablesWithIntrinsicBounds(null, null, ChevronDrawable(view.resources.displayMetrics.density, pinnedExpandedState, colors.noteSectionChevron), null)
@@ -599,12 +599,6 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
     private class NoteSpacingDecoration(
         private val spacing: Int
     ) : ItemDecoration() {
-        private var spacingColor: Int = Color.TRANSPARENT
-
-        fun setSpacingColor(color: Int) {
-            spacingColor = color
-        }
-
         override fun getItemOffsets(
             outRect: android.graphics.Rect,
             view: View,
@@ -734,13 +728,13 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
                     intArrayOf(android.R.attr.state_checked),
                     intArrayOf()
                 ),
-                intArrayOf(colors.primary, colors.onSurfaceVariant)
+                intArrayOf(colors.noteCardSelectionChecked, colors.notePreviewText)
             )
             checkbox.setOnClickListener { onToggleSelect() }
             checkbox.isChecked = selected
 
             title.text = note.title.ifBlank { context.getString(R.string.untitled) }
-            title.setTextColor(colors.onSurface)
+            title.setTextColor(colors.noteTitle)
 
             label.text = note.topicLabels
             label.visibility = if (note.topicLabels.isBlank()) GONE else VISIBLE
@@ -748,14 +742,14 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             label.background = if (note.topicLabels.isBlank()) null else GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dp(9).toFloat()
-                setColor(colors.noteTagSurface)
+                setColor(colors.noteTagBackground)
             }
             label.setPadding(dp(8), dp(3), dp(8), dp(3))
 
             preview.text = note.preview.ifBlank { context.getString(R.string.untitled) }
-            preview.setTextColor(colors.onSurfaceVariant)
+            preview.setTextColor(colors.notePreviewText)
 
-            editButton.imageTintList = ColorStateList.valueOf(colors.onSurfaceVariant)
+            editButton.imageTintList = ColorStateList.valueOf(colors.noteActionIcon)
             editButton.setOnClickListener { onEdit() }
 
             setOnClickListener {
@@ -802,7 +796,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             return GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dp(18).toFloat()
-                setColor(if (isSelected) colors.noteSelectedCard else colors.noteCard)
+                setColor(if (isSelected) colors.noteCardSelectedBackground else colors.noteCardBackground)
             }
         }
 
