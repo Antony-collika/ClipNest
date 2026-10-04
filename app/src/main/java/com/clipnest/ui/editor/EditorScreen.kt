@@ -136,7 +136,7 @@ fun EditorScreen(
     val topicSuggestions by viewModel.topicSuggestions.collectAsStateWithLifecycle()
     val isDark = MaterialTheme.colorScheme.background.red < 0.5f
     val editorTextColor = noteColors.breadcrumb.toArgb()
-    val editorBackgroundColor = noteColors.headerSurface
+    val editorBackgroundColor = noteColors.headerSurface.toArgb()
     val previewBackground = if (isDark) Color(0xFF2B2B2B) else Color(0xFFF6F6F6)
     val previewTextColor = if (isDark) Color(0xFFF4F4F4) else Color(0xFF171717)
     val previewMutedColor = if (isDark) Color(0xFFCACACA) else Color(0xFF5E5E5E)
