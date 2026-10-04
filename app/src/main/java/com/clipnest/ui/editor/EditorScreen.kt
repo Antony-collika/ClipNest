@@ -239,7 +239,7 @@ fun EditorScreen(
                     factory = {
                         NativeEditorView(it).apply {
                             setEditorTextSize(editorTextSize)
-                            setEditorTextColor(editorTextColor)
+                            setEditorTextColor(editorTextColor.toArgb())
                             nativeEditorView = this
                             viewModel.bindNativeEditor(this)
                             caretInTitle = isCaretInTitle()
