@@ -81,9 +81,9 @@ internal data class NoteRecyclerColors(
     val noteTagSurface: Int,
     val noteTagContent: Int,
     val sectionText: Int,
-    val noteTitle: Int,
-    val notePreview: Int,
-    val noteActionIcon: Int
+    val cardTitle: Int,
+    val cardPreview: Int,
+    val cardActionIcon: Int
 )
 
 internal enum class NoteViewMode { LIST, GRID }
@@ -318,9 +318,9 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
         noteTagSurface = Color.LTGRAY,
         noteTagContent = Color.DKGRAY,
         sectionText = Color.DKGRAY,
-        noteTitle = Color.BLACK,
-        notePreview = Color.DKGRAY,
-        noteActionIcon = Color.DKGRAY
+        cardTitle = Color.BLACK,
+        cardPreview = Color.DKGRAY,
+        cardActionIcon = Color.DKGRAY
     )
     private val spacingDecoration = NoteSpacingDecoration(dp(14))
 
@@ -573,8 +573,8 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             background = GradientDrawable().apply { shape = GradientDrawable.RECTANGLE; cornerRadius = dp(18).toFloat(); setColor(if (selected) colors.noteSelectedCard else colors.noteCard) }
             elevation = dp(2).toFloat()
             checkbox.buttonTintList = ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(colors.primary, colors.onSurfaceVariant)); checkbox.isChecked = selected; checkbox.setOnClickListener { onToggleSelect() }
-            title.text = note.title.ifBlank { context.getString(R.string.untitled) }; title.setTextColor(colors.noteTitle)
-            preview.text = note.preview.ifBlank { context.getString(R.string.untitled) }; preview.setTextColor(colors.notePreview)
+            title.text = note.title.ifBlank { context.getString(R.string.untitled) }; title.setTextColor(colors.cardTitle)
+            preview.text = note.preview.ifBlank { context.getString(R.string.untitled) }; preview.setTextColor(colors.cardPreview)
             label.text = note.topicLabels
             label.visibility = if (note.topicLabels.isBlank()) GONE else VISIBLE
             label.setTextColor(colors.noteTagContent)
@@ -584,7 +584,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
                 setColor(colors.noteTagSurface)
             }
             label.setPadding(dp(8), dp(3), dp(8), dp(3))
-            editButton.imageTintList = ColorStateList.valueOf(colors.noteActionIcon); editButton.setOnClickListener { onEdit() }
+            editButton.imageTintList = ColorStateList.valueOf(colors.cardActionIcon); editButton.setOnClickListener { onEdit() }
             setOnClickListener { onToggleSelect() }; setOnLongClickListener { onLongPress(); true }
         }
         private fun withAlpha(color: Int, alpha: Int): Int = (color and 0x00FFFFFF) or ((alpha.coerceIn(0, 255)) shl 24)
@@ -772,7 +772,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             checkbox.isChecked = selected
 
             title.text = note.title.ifBlank { context.getString(R.string.untitled) }
-            title.setTextColor(colors.noteTitle)
+            title.setTextColor(colors.cardTitle)
 
             label.text = note.topicLabels
             label.visibility = if (note.topicLabels.isBlank()) GONE else VISIBLE
@@ -785,9 +785,9 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             label.setPadding(dp(8), dp(3), dp(8), dp(3))
 
             preview.text = note.preview.ifBlank { context.getString(R.string.untitled) }
-            preview.setTextColor(colors.notePreview)
+            preview.setTextColor(colors.cardPreview)
 
-            editButton.imageTintList = ColorStateList.valueOf(colors.noteActionIcon)
+            editButton.imageTintList = ColorStateList.valueOf(colors.cardActionIcon)
             editButton.setOnClickListener { onEdit() }
 
             setOnClickListener {
