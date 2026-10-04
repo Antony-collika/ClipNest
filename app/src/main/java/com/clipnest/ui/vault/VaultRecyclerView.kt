@@ -305,7 +305,7 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
         private val dividerHeight: Int
     ) : ItemDecoration() {
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-        private var dividerColor: Int = Color.TRANSPARENT
+        private var dividerColor: Int? = null
 
         fun setDividerColor(color: Int) {
             dividerColor = color
@@ -322,7 +322,7 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
 
         override fun onDraw(canvas: Canvas, parent: RecyclerView, state: State) {
             val adapter = parent.adapter as? VaultAdapter ?: return
-            paint.color = dividerColor
+            paint.color = dividerColor ?: return
             for (index in 0 until parent.childCount) {
                 val child = parent.getChildAt(index)
                 val position = parent.getChildAdapterPosition(child)
