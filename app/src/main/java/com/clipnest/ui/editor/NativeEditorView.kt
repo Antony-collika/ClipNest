@@ -524,7 +524,7 @@ class NativeEditorView @JvmOverloads constructor(
         (context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager)?.hideSoftInputFromWindow(windowToken, 0)
     }
 
-    fun setEditorTextColor(color: Int) {
+    fun setEditorBackgroundColor(color: Int) {\n        setBackgroundColor(color)\n    }\n\n    fun setEditorTextColor(color: Int) {
         if (appliedEditorTextColor == color) return
         appliedEditorTextColor = color
         setTextColor(color)
