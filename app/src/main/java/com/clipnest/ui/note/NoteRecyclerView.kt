@@ -312,7 +312,6 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
         val decorationChanged = ::currentColors.isInitialized && currentColors.noteListDivider != colors.noteListDivider
         currentColors = colors
         if (decorationChanged) {
-            spacingDecoration.setSpacingColor(colors.noteListDivider)
             invalidateItemDecorations()
         }
 
