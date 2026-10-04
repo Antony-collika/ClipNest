@@ -799,10 +799,6 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             }
         }
 
-        private fun withAlpha(color: Int, alpha: Int): Int {
-            return (color and 0x00FFFFFF) or ((alpha.coerceIn(0, 255)) shl 24)
-        }
-
     private fun dp(value: Int): Int = (value * density + 0.5f).toInt()
     }
 
