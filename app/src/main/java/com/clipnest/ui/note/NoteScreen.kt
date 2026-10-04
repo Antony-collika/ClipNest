@@ -190,8 +190,8 @@ fun NoteScreen(
                 lineTo(0f, size.height)
                 close()
             }
-            val wavePrimary = noteColors.wavePrimary.copy(alpha = 0.10f)
-            val waveSecondary = noteColors.waveSecondary.copy(alpha = 0.055f)
+            val wavePrimary = palette.noteWavePrimary
+            val waveSecondary = palette.noteWaveSecondary
             drawPath(backWave, waveSecondary)
             drawPath(frontWave, wavePrimary)
         }
@@ -254,22 +254,19 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
             } else {
                 val semanticColors = palette.semanticColors
                 val colors = NoteRecyclerColors(
-                    surface = MaterialTheme.colorScheme.surface.toArgb(),
-                    onSurface = MaterialTheme.colorScheme.onSurface.toArgb(),
-                    onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant.toArgb(),
-                    primary = MaterialTheme.colorScheme.primary.toArgb(),
-                    primaryContainer = MaterialTheme.colorScheme.primaryContainer.toArgb(),
-                    outlineVariant = MaterialTheme.colorScheme.outlineVariant.toArgb(),
-                    pinned = semanticColors.pinned.toArgb(),
-                    noteCard = noteColors.card.toArgb(),
-                    noteSelectedCard = noteColors.selectedCard.toArgb(),
-                    notePinnedSurface = noteColors.pinnedSurface.toArgb(),
-                    noteTagSurface = noteColors.tagSurface.toArgb(),
-                    noteTagContent = noteColors.tagContent.toArgb(),
-                    sectionText = noteColors.sectionText.toArgb(),
-                    noteTitle = noteColors.noteTitle.toArgb(),
-                    notePreview = noteColors.notePreview.toArgb(),
-                    noteActionIcon = noteColors.noteActionIcon.toArgb()
+                    noteCardBackground = palette.noteCardBackground.toArgb(),
+                    noteCardSelectedBackground = palette.noteCardSelectedBackground.toArgb(),
+                    noteTagBackground = palette.noteTagBackground.toArgb(),
+                    noteTagContent = palette.noteTagText.toArgb(),
+                    noteSectionTitle = palette.noteSectionTitle.toArgb(),
+                    noteSectionChevron = palette.noteSectionChevron.toArgb(),
+                    noteCardSelectionChecked = palette.noteActionIcon.toArgb(),
+                    noteCardSelectionUnchecked = palette.notePreviewText.toArgb(),
+                    noteListDivider = palette.noteListDivider.toArgb(),
+                    pinnedIndicator = palette.pinnedIndicator.toArgb(),
+                    noteTitle = palette.noteTitle.toArgb(),
+                    notePreviewText = palette.notePreviewText.toArgb(),
+                    noteActionIcon = palette.noteActionIcon.toArgb()
                 )
                 Box(Modifier.fillMaxWidth().weight(1f)) {
                     AndroidView(
