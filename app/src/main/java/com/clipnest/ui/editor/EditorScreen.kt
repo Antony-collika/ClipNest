@@ -460,7 +460,7 @@ private fun MarkdownPreviewDialog(html: String, headings: List<MarkdownHeading>,
                                 }
                             }
                         } else {
-                            if (html.isNotBlank()) MarkdownPreviewWebView(html, surfaceColor, pendingHeadingIndex) { loadedHtml -> readyHtml = loadedHtml }
+                            if (html.isNotBlank()) MarkdownPreviewWebView(html, surfaceColor, LocalThemePalette.current.editorMarkdownPreviewOutline.toArgb(), LocalThemePalette.current.editorMarkdownPreviewPrimary.toArgb(), pendingHeadingIndex) { loadedHtml -> readyHtml = loadedHtml }
                             MarkdownPreviewLoadingOverlay(!ready, backgroundColor, contentColor)
                         }
                     }
