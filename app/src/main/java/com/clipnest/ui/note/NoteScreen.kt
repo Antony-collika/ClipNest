@@ -568,7 +568,7 @@ private fun NotePreviewPopup(
                             )
                         }
                     }
-                    HorizontalDivider(color = LocalThemePalette.current.dockDivider.copy(alpha = 0.5f))
+                    HorizontalDivider(color = LocalThemePalette.current.dockDivider)
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
