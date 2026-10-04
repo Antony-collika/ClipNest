@@ -62,25 +62,28 @@ data class ThemePalette(
     val fabIconColor: Color,
     // Text hierarchy outside cards.
     val breadcrumb: Color,
-    val sectionText: Color
+    val sectionText: Color,
+    // Note screen colors are independently configurable and do not derive from other palette colors.
+    val noteCardBg: Color,
+    val noteSelectedCardBg: Color,
+    val noteTitleColor: Color,
+    val notePreviewColor: Color,
+    val noteLabelColor: Color,
+    val noteActionIconColor: Color
 ) {
     // Maps the palette into the colors used by note UI components.
     // Some values currently derive from Material ColorScheme tokens.
     fun noteColors(): ThemeNoteColors {
         return ThemeNoteColors(
             // Note card surface.
-            card = when {
-                colorScheme.background == Color(0xFFFFFFFF) -> Color(0xFFF8FAFC)
-                colorScheme.background.red > 0.6f -> Color.White
-                else -> colorScheme.surfaceVariant
-            },
+            card = noteCardBg,
             // Selected note card surface.
-            selectedCard = colorScheme.primaryContainer.copy(alpha = 0.72f),
+            selectedCard = noteSelectedCardBg,
             // Subtle background used to indicate a pinned note.
             pinnedSurface = semanticColors.pinned.copy(alpha = 0.10f),
             // Label/tag background and content color.
             tagSurface = colorScheme.secondaryContainer.copy(alpha = 0.88f),
-            tagContent = colorScheme.onSecondaryContainer,
+            tagContent = noteLabelColor,
             // Top bar surface and the content drawn on it.
             headerSurface = colorScheme.primary,
             headerContent = colorScheme.onPrimary,
@@ -90,9 +93,9 @@ data class ThemePalette(
             waveSecondary = waveMid,
             breadcrumb = breadcrumb,
             sectionText = sectionText,
-            noteTitle = colorScheme.onSurface,
-            notePreview = colorScheme.onSurfaceVariant,
-            noteActionIcon = dockIconColor,
+            noteTitle = noteTitleColor,
+            notePreview = notePreviewColor,
+            noteActionIcon = noteActionIconColor,
             emptyStateText = colorScheme.onSurfaceVariant,
             searchSurface = colorScheme.surfaceVariant,
             searchContent = colorScheme.onSurface,
@@ -133,6 +136,12 @@ val ForestThemePalette = ThemePalette(
     fabIconColor = Color(0xFFFFFFFF),
     breadcrumb = Color(0xFF2A523C),
     sectionText = Color(0xFF5A6660),
+    noteCardBg = Color(0xFFE8DED0),
+    noteSelectedCardBg = Color(0xFFD2E4D9),
+    noteTitleColor = Color(0xFF1A231E),
+    notePreviewColor = Color(0xFF5A6660),
+    noteLabelColor = Color(0xFF1C3B2B),
+    noteActionIconColor = Color(0xFF2B332E),
     dockDivider = Color(0xFFDBE8E0)
 )
 
@@ -162,6 +171,12 @@ val NordThemePalette = ThemePalette(
     fabIconColor = Color(0xFFFFFFFF),
     breadcrumb = Color(0xFF5E81AC),
     sectionText = Color(0xFF4C566A),
+    noteCardBg = Color(0xFFE5E9F0),
+    noteSelectedCardBg = Color(0xFFD8DEE9),
+    noteTitleColor = Color(0xFF2E3440),
+    notePreviewColor = Color(0xFF4C566A),
+    noteLabelColor = Color(0xFF2E3440),
+    noteActionIconColor = Color(0xFF2E3440),
     dockDivider = Color(0xFFD8DEE9)
 )
 
@@ -191,6 +206,12 @@ val SnowSapphireThemePalette = ThemePalette(
     fabIconColor = Color(0xFFFFFFFF),
     breadcrumb = Color(0xFF0284C7),
     sectionText = Color(0xFF0369A1),
+    noteCardBg = Color(0xFFFFFFFF),
+    noteSelectedCardBg = Color(0xFFBAE6FD),
+    noteTitleColor = Color(0xFF0C4A6E),
+    notePreviewColor = Color(0xFF0369A1),
+    noteLabelColor = Color(0xFF0C4A6E),
+    noteActionIconColor = Color(0xFF1E3A8A),
     dockDivider = Color(0xFFBAE6FD)
 )
 
@@ -220,6 +241,12 @@ val SakuraThemePalette = ThemePalette(
     fabIconColor = Color(0xFFFFFFFF),
     breadcrumb = Color(0xFFDB2777),
     sectionText = Color(0xFF9D174D),
+    noteCardBg = Color(0xFFFCE7F3),
+    noteSelectedCardBg = Color(0xFFFBCFE8),
+    noteTitleColor = Color(0xFF500724),
+    notePreviewColor = Color(0xFF9D174D),
+    noteLabelColor = Color(0xFF500724),
+    noteActionIconColor = Color(0xFF831843),
     dockDivider = Color(0xFFFBCFE8)
 )
 
@@ -249,6 +276,12 @@ val LavenderThemePalette = ThemePalette(
     fabIconColor = Color(0xFFFFFFFF),
     breadcrumb = Color(0xFF7C3AED),
     sectionText = Color(0xFF6D28D9),
+    noteCardBg = Color(0xFFEDE9FE),
+    noteSelectedCardBg = Color(0xFFDDD6FE),
+    noteTitleColor = Color(0xFF2E1065),
+    notePreviewColor = Color(0xFF6D28D9),
+    noteLabelColor = Color(0xFF2E1065),
+    noteActionIconColor = Color(0xFF4C1D95),
     dockDivider = Color(0xFFDDD6FE)
 )
 
@@ -278,6 +311,12 @@ val LightBasicThemePalette = ThemePalette(
     fabIconColor = Color(0xFFFFFFFF),
     breadcrumb = Color(0xFF6B7280),
     sectionText = Color(0xFF4B5563),
+    noteCardBg = Color(0xFFF8FAFC),
+    noteSelectedCardBg = Color(0xFFE5E7EB),
+    noteTitleColor = Color(0xFF111827),
+    notePreviewColor = Color(0xFF4B5563),
+    noteLabelColor = Color(0xFF111827),
+    noteActionIconColor = Color(0xFF374151),
     dockDivider = Color(0xFFE5E7EB)
 )
 
@@ -307,6 +346,12 @@ val BasicDarkThemePalette = ThemePalette(
     fabIconColor = Color(0xFF111827),
     breadcrumb = Color(0xFF94A3B8),
     sectionText = Color(0xFFCBD5E1),
+    noteCardBg = Color(0xFF374151),
+    noteSelectedCardBg = Color(0xFF374151),
+    noteTitleColor = Color(0xFFF9FAFB),
+    notePreviewColor = Color(0xFFCBD5E1),
+    noteLabelColor = Color(0xFFF9FAFB),
+    noteActionIconColor = Color(0xFF111827),
     dockDivider = Color(0xFF6B7280)
 )
 
@@ -336,6 +381,12 @@ val DeepOceanThemePalette = ThemePalette(
     fabIconColor = Color(0xFF0A1929),
     breadcrumb = Color(0xFF38BDF8),
     sectionText = Color(0xFF90CAF9),
+    noteCardBg = Color(0xFF1E4976),
+    noteSelectedCardBg = Color(0xFF14507A),
+    noteTitleColor = Color(0xFFE3F2FD),
+    notePreviewColor = Color(0xFF90CAF9),
+    noteLabelColor = Color(0xFFE3F2FD),
+    noteActionIconColor = Color(0xFF0A1929),
     dockDivider = Color(0xFF64B5F6)
 )
 
@@ -365,6 +416,12 @@ val CoffeeThemePalette = ThemePalette(
     fabIconColor = Color(0xFF2B1A12),
     breadcrumb = Color(0xFFE8A87C),
     sectionText = Color(0xFFD4A574),
+    noteCardBg = Color(0xFF6B4630),
+    noteSelectedCardBg = Color(0xFF7A3B1F),
+    noteTitleColor = Color(0xFFF5E6D3),
+    notePreviewColor = Color(0xFFD4A574),
+    noteLabelColor = Color(0xFFF5E6D3),
+    noteActionIconColor = Color(0xFF2B1A12),
     dockDivider = Color(0xFFB08968)
 )
 
@@ -394,6 +451,12 @@ val ObsidianThemePalette = ThemePalette(
     fabIconColor = Color(0xFF1A0F2E),
     breadcrumb = Color(0xFFA78BFA),
     sectionText = Color(0xFFC4B5FD),
+    noteCardBg = Color(0xFF4C2E6E),
+    noteSelectedCardBg = Color(0xFF5B21B6),
+    noteTitleColor = Color(0xFFEDE9FE),
+    notePreviewColor = Color(0xFFC4B5FD),
+    noteLabelColor = Color(0xFFEDE9FE),
+    noteActionIconColor = Color(0xFF1A0F2E),
     dockDivider = Color(0xFFDDD6FE)
 )
 
