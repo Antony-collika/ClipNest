@@ -20,33 +20,61 @@ data class ThemePalette(
     // ============================================================
     // Background of an individual note card.
     val noteCardBackground: Color,
+    // Color used for note card selected background.
     val noteCardSelectedBackground: Color,
+    // Color used for note card pinned background.
     val noteCardPinnedBackground: Color,
+    // Color used for note tag background.
     val noteTagBackground: Color,
+    // Color used for note tag text.
     val noteTagText: Color,
+    // Color used for note header background.
     val noteHeaderBackground: Color,
+    // Color used for note header content.
     val noteHeaderContent: Color,
+    // Color used for note breadcrumb text.
     val noteBreadcrumbText: Color,
+    // Color used for note breadcrumb divider.
     val noteBreadcrumbDivider: Color,
+    // Color used for note section title.
     val noteSectionTitle: Color,
+    // Color used for note title.
     val noteTitle: Color,
+    // Color used for note preview text.
     val notePreviewText: Color,
+    // Color used for note action icon.
     val noteActionIcon: Color,
+    // Color used for note empty state text.
     val noteEmptyStateText: Color,
+    // Color used for note search background.
     val noteSearchBackground: Color,
+    // Color used for note search content.
     val noteSearchContent: Color,
+    // Color used for note search hint.
     val noteSearchHint: Color,
+    // Color used for note popup background.
     val notePopupBackground: Color,
+    // Color used for note popup content.
     val notePopupContent: Color,
+    // Color used for note popup secondary text.
     val notePopupSecondaryText: Color,
+    // Color used for note popup divider.
     val notePopupDivider: Color,
+    // Color used for note view mode background.
     val noteViewModeBackground: Color,
+    // Color used for note view mode selected background.
     val noteViewModeSelectedBackground: Color,
+    // Color used for note view mode selected icon.
     val noteViewModeSelectedIcon: Color,
+    // Color used for note view mode unselected icon.
     val noteViewModeUnselectedIcon: Color,
+    // Color used for note section chevron.
     val noteSectionChevron: Color,
+    // Color used for note list divider.
     val noteListDivider: Color,
+    // Color used for note wave primary.
     val noteWavePrimary: Color,
+    // Color used for note wave secondary.
     val noteWaveSecondary: Color,
 
     // ============================================================
@@ -54,11 +82,17 @@ data class ThemePalette(
     // ============================================================
     // Background of the shared bottom navigation dock.
     val dockBackground: Color,
+    // Color used for dock icon.
     val dockIcon: Color,
+    // Color used for dock divider.
     val dockDivider: Color,
+    // Color used for fab background.
     val fabBackground: Color,
+    // Color used for fab icon.
     val fabIcon: Color,
+    // Color used for main tab text.
     val mainTabText: Color,
+    // Color used for main tab selected indicator.
     val mainTabSelectedIndicator: Color,
 
     // ============================================================
@@ -66,6 +100,7 @@ data class ThemePalette(
     // ============================================================
     // Color of the pinned state indicator.
     val pinnedIndicator: Color,
+    // Color used for sensitive indicator.
     val sensitiveIndicator: Color,
 
     // ============================================================
@@ -73,20 +108,35 @@ data class ThemePalette(
     // ============================================================
     // Text color of the native editor.
     val editorText: Color,
+    // Color used for editor markdown preview background.
     val editorMarkdownPreviewBackground: Color,
+    // Color used for editor markdown preview text.
     val editorMarkdownPreviewText: Color,
+    // Color used for editor markdown preview muted text.
     val editorMarkdownPreviewMutedText: Color,
+    // Color used for editor markdown preview surface variant.
     val editorMarkdownPreviewSurfaceVariant: Color,
+    // Color used for editor markdown preview outline.
     val editorMarkdownPreviewOutline: Color,
+    // Color used for editor markdown preview outline variant.
     val editorMarkdownPreviewOutlineVariant: Color,
+    // Color used for editor markdown preview primary.
     val editorMarkdownPreviewPrimary: Color,
+    // Color used for editor markdown preview code background.
     val editorMarkdownPreviewCodeBackground: Color,
+    // CSS color-scheme mode for the Markdown preview renderer; not a component Color.
     val editorMarkdownPreviewColorScheme: String,
+    // Color used for editor toolbar background.
     val editorToolbarBackground: Color,
+    // Color used for editor toolbar icon.
     val editorToolbarIcon: Color,
+    // Color used for editor toolbar disabled icon.
     val editorToolbarDisabledIcon: Color,
+    // Color used for editor markdown preview divider.
     val editorMarkdownPreviewDivider: Color,
+    // Color used for editor markdown preview shimmer base.
     val editorMarkdownPreviewShimmerBase: Color,
+    // Color used for editor markdown preview shimmer highlight.
     val editorMarkdownPreviewShimmerHighlight: Color,
 
     // ============================================================
@@ -94,18 +144,31 @@ data class ThemePalette(
     // ============================================================
     // Background of an individual vault clipboard card.
     val vaultClipboardCardBackground: Color,
+    // Color used for vault clipboard card selected background.
     val vaultClipboardCardSelectedBackground: Color,
+    // Color used for vault clipboard card pressed background.
     val vaultClipboardCardPressedBackground: Color,
+    // Color used for vault clipboard card dragging background.
     val vaultClipboardCardDraggingBackground: Color,
+    // Color used for vault clipboard preview text.
     val vaultClipboardPreviewText: Color,
+    // Color used for vault clipboard meta text.
     val vaultClipboardMetaText: Color,
+    // Color used for vault action icon.
     val vaultActionIcon: Color,
+    // Color used for vault checkbox checked.
     val vaultCheckboxChecked: Color,
+    // Color used for vault checkbox unchecked.
     val vaultCheckboxUnchecked: Color,
+    // Color used for vault drag handle.
     val vaultDragHandle: Color,
+    // Color used for vault drag handle active.
     val vaultDragHandleActive: Color,
+    // Color used for vault empty state icon.
     val vaultEmptyStateIcon: Color,
+    // Color used for vault group divider.
     val vaultGroupDivider: Color,
+    // Color used for vault popup divider.
     val vaultPopupDivider: Color,
 
     // ============================================================
@@ -113,11 +176,17 @@ data class ThemePalette(
     // ============================================================
     // Background of an unselected share option.
     val shareOptionBackground: Color,
+    // Color used for share option selected background.
     val shareOptionSelectedBackground: Color,
+    // Color used for share option selected border.
     val shareOptionSelectedBorder: Color,
+    // Color used for share option accent.
     val shareOptionAccent: Color,
+    // Color used for share option unselected accent.
     val shareOptionUnselectedAccent: Color,
+    // Color used for share option text.
     val shareOptionText: Color,
+    // Color used for share option hint.
     val shareOptionHint: Color,
 
     // ============================================================
@@ -125,7 +194,9 @@ data class ThemePalette(
     // ============================================================
     // Title text color of a settings group.
     val settingsGroupTitle: Color,
+    // Color used for settings group icon.
     val settingsGroupIcon: Color,
+    // Color used for settings privacy card background.
     val settingsPrivacyCardBackground: Color,
     // Background of the first-run education callout.
     val firstRunCalloutBackground: Color
