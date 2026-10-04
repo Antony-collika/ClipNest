@@ -19,6 +19,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -55,6 +56,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -67,6 +71,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
@@ -440,6 +445,10 @@ fun MainAppContent(
     var noteVisibleIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var noteSearchOpen by remember { mutableStateOf(false) }
     var noteSearchQuery by remember { mutableStateOf("") }
+    var noteOrigin by remember { mutableStateOf<com.clipnest.ui.editor.EditorNoteOrigin?>(null) }
+    var noteViewMode by remember { mutableStateOf(com.clipnest.ui.note.NoteViewMode.LIST) }
+    var notePinnedExpanded by remember { mutableStateOf(true) }
+    var dockOverflowExpanded by remember { mutableStateOf(false) }
     val noteDao = remember { AppDatabase.getInstance(context).noteDao() }
     val allNoteSelected = noteVisibleIds.isNotEmpty() && noteSelectedIds.containsAll(noteVisibleIds)
     val notePinnedIds by remember(noteSelectedTopicId) {
