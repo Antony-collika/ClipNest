@@ -17,7 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
+import androidx.compose.ui.Modifier\nimport androidx.compose.ui.draw.clip\nimport androidx.compose.foundation.background\nimport androidx.compose.foundation.shape.RoundedCornerShape\nimport com.clipnest.ui.theme.LocalThemePalette
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -57,7 +57,7 @@ fun EditorNoteBreadcrumbBar(
                     Icon(
                         Icons.Default.ArrowBack,
                         contentDescription = stringResource(com.clipnest.R.string.back),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        tint = noteColors.breadcrumb
                     )
                 }
             } else {
@@ -70,7 +70,7 @@ fun EditorNoteBreadcrumbBar(
                     else -> stringResource(com.clipnest.R.string.note_breadcrumb_default)
                 },
                 style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = noteColors.breadcrumb,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -82,7 +82,7 @@ fun EditorNoteBreadcrumbBar(
             Icon(
                 if (mode == EditorMode.NOTE) Icons.Default.Save else Icons.Default.Save,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
+                tint = noteColors.breadcrumb,
                 modifier = Modifier.padding(end = 4.dp)
             )
             Text(
@@ -90,7 +90,7 @@ fun EditorNoteBreadcrumbBar(
                     stringResource(com.clipnest.R.string.save_file)
                 else
                     stringResource(com.clipnest.R.string.save_to_note),
-                color = MaterialTheme.colorScheme.primary
+                color = noteColors.breadcrumb
             )
         }
     }
