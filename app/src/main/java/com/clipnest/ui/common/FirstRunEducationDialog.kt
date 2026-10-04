@@ -1,5 +1,6 @@
 package com.clipnest.ui.common
 
+import com.clipnest.ui.theme.LocalThemePalette
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -59,7 +60,7 @@ fun FirstRunEducationDialog(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Surface(
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    color = LocalThemePalette.current.firstRunCalloutBackground,
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
