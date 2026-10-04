@@ -138,8 +138,8 @@ internal fun NoteHeaderContent(state: NoteHeaderState, modifier: Modifier = Modi
     Surface(
         modifier = modifier,
         shape = androidx.compose.ui.graphics.RectangleShape,
-        color = palette.noteHeaderBackground,
-        contentColor = palette.noteHeaderContent
+        color = palette.noteBreadcrumbBackground,
+        contentColor = palette.noteBreadcrumbText
     ) {
         Row(
             modifier = Modifier
@@ -157,7 +157,7 @@ internal fun NoteHeaderContent(state: NoteHeaderState, modifier: Modifier = Modi
                     Icon(
                         imageVector = state.avatarIcon,
                         contentDescription = null,
-                        tint = palette.noteSectionTitle,
+                        tint = palette.noteBreadcrumbText,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -174,7 +174,7 @@ internal fun NoteHeaderContent(state: NoteHeaderState, modifier: Modifier = Modi
                     Text(
                         text = state.myTopicsLabel,
                         style = MaterialTheme.typography.labelLarge,
-                        color = palette.noteSectionTitle,
+                        color = palette.noteBreadcrumbText,
                         maxLines = 1
                     )
                 }
@@ -199,7 +199,7 @@ internal fun NoteHeaderContent(state: NoteHeaderState, modifier: Modifier = Modi
             Text(
                 text = "|",
                 style = MaterialTheme.typography.labelLarge,
-                color = palette.noteSectionTitle,
+                color = palette.noteBreadcrumbDivider,
                 modifier = Modifier.padding(horizontal = 4.dp)
             )
 
@@ -207,7 +207,7 @@ internal fun NoteHeaderContent(state: NoteHeaderState, modifier: Modifier = Modi
             Text(
                 text = state.currentTopicLabel,
                 style = MaterialTheme.typography.labelLarge,
-                color = palette.noteSectionTitle,
+                color = palette.noteBreadcrumbText,
                 maxLines = 1,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f)
