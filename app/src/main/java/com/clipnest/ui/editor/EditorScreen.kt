@@ -63,7 +63,7 @@ import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.clipnest.data.local.EditorTextSize
-import com.clipnest.data.local.ViewerTextSize
+import com.clipnest.data.local.ViewerTextSize\nimport com.clipnest.ui.theme.LocalThemePalette
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
