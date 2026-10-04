@@ -7,285 +7,779 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import com.clipnest.data.local.ThemePreset
 
-// Semantic colors represent note states rather than visual surfaces.
-data class ThemeSemanticColors(
-    val pinned: Color,
-    val sensitive: Color
-)
-
-// Note-specific colors expose the visual tokens consumed by note-related UI.
-data class ThemeNoteColors(
-    val card: Color,
-    val selectedCard: Color,
-    val pinnedSurface: Color,
-    val tagSurface: Color,
-    val tagContent: Color,
-    val headerSurface: Color,
-    val headerContent: Color,
-    val dockSurface: Color,
-    val wavePrimary: Color,
-    val waveSecondary: Color,
-    val breadcrumb: Color,
-    val sectionText: Color,
-    val noteTitle: Color,
-    val notePreview: Color,
-    val noteActionIcon: Color,
-    val emptyStateText: Color,
-    val searchSurface: Color,
-    val searchContent: Color,
-    val searchHint: Color,
-    val popupSurface: Color,
-    val popupContent: Color,
-    val popupSecondary: Color,
-    val menuSurface: Color,
-    val menuContent: Color,
-    val dockIcon: Color
-)
-
-// A complete visual palette for one app theme.
-// Keep theme-specific color decisions here so UI screens do not hard-code HEX colors.
+/**
+ * Central source of all ClipNest theme colors.
+ * ColorScheme retains generic Material 3 roles; component-specific colors are
+ * explicit ThemePalette properties so their HEX values are visible here.
+ */
 data class ThemePalette(
-    // Material color system: app background, text, surfaces, primary/secondary accents, and outlines.
     val colorScheme: ColorScheme,
-    // Semantic states: pinned and sensitive content.
-    val semanticColors: ThemeSemanticColors,
-    // Decorative wave layers, from the upper layer to the bottom layer.
-    val waveTop: Color,
-    val waveMid: Color,
-    val waveBottom: Color,
-    // Floating dock: background, icon color, and divider.
-    val dockBg: Color,
-    val dockIconColor: Color,
-    val dockDivider: Color,
-    // Floating action button: background and icon color.
-    val fabBg: Color,
-    val fabIconColor: Color,
-    // Text hierarchy outside cards.
-    val breadcrumb: Color,
-    val sectionText: Color
-) {
-    // Maps the palette into the colors used by note UI components.
-    // Some values currently derive from Material ColorScheme tokens.
-    fun noteColors(): ThemeNoteColors {
-        return ThemeNoteColors(
-            // Note card surface.
-            card = when {
-                colorScheme.background == Color(0xFFFFFFFF) -> Color(0xFFF8FAFC)
-                colorScheme.background.red > 0.6f -> Color.White
-                else -> colorScheme.surfaceVariant
-            },
-            // Selected note card surface.
-            selectedCard = colorScheme.primaryContainer.copy(alpha = 0.72f),
-            // Subtle background used to indicate a pinned note.
-            pinnedSurface = semanticColors.pinned.copy(alpha = 0.10f),
-            // Label/tag background and content color.
-            tagSurface = colorScheme.secondaryContainer.copy(alpha = 0.88f),
-            tagContent = colorScheme.onSecondaryContainer,
-            // Top bar surface and the content drawn on it.
-            headerSurface = colorScheme.primary,
-            headerContent = colorScheme.onPrimary,
-            // Dock and decorative wave colors exposed to note UI.
-            dockSurface = dockBg,
-            wavePrimary = waveTop,
-            waveSecondary = waveMid,
-            breadcrumb = breadcrumb,
-            sectionText = sectionText,
-            noteTitle = colorScheme.onSurface,
-            notePreview = colorScheme.onSurfaceVariant,
-            noteActionIcon = dockIconColor,
-            emptyStateText = colorScheme.onSurfaceVariant,
-            searchSurface = colorScheme.surfaceVariant,
-            searchContent = colorScheme.onSurface,
-            searchHint = colorScheme.onSurfaceVariant,
-            popupSurface = colorScheme.surface,
-            popupContent = colorScheme.onSurface,
-            popupSecondary = colorScheme.onSurfaceVariant,
-            menuSurface = colorScheme.surface,
-            menuContent = colorScheme.onSurface,
-            dockIcon = dockIconColor
-        )
-    }
-}
 
-// ─────────────────────────────────────────────
-// 1. FOREST (Default) — Warm, natural, classic
-// ─────────────────────────────────────────────
+    // ============================================================
+    // NOTE SCREEN
+    // ============================================================
+    val noteCardBackground: Color,
+    val noteCardSelectedBackground: Color,
+    val noteCardPinnedBackground: Color,
+    val noteTagBackground: Color,
+    val noteTagText: Color,
+    val noteHeaderBackground: Color,
+    val noteHeaderContent: Color,
+    val noteBreadcrumbText: Color,
+    val noteBreadcrumbDivider: Color,
+    val noteSectionTitle: Color,
+    val noteTitle: Color,
+    val notePreviewText: Color,
+    val noteActionIcon: Color,
+    val noteEmptyStateText: Color,
+    val noteSearchBackground: Color,
+    val noteSearchContent: Color,
+    val noteSearchHint: Color,
+    val notePopupBackground: Color,
+    val notePopupContent: Color,
+    val notePopupSecondaryText: Color,
+    val notePopupDivider: Color,
+    val noteViewModeBackground: Color,
+    val noteViewModeSelectedBackground: Color,
+    val noteViewModeSelectedIcon: Color,
+    val noteViewModeUnselectedIcon: Color,
+    val noteSectionChevron: Color,
+    val noteListDivider: Color,
+    val noteWavePrimary: Color,
+    val noteWaveSecondary: Color,
+
+    // ============================================================
+    // SHARED NAVIGATION
+    // ============================================================
+    val dockBackground: Color,
+    val dockIcon: Color,
+    val dockDivider: Color,
+    val fabBackground: Color,
+    val fabIcon: Color,
+    val mainNoteTabText: Color,
+    val mainNoteTabSelectedIndicator: Color,
+
+    // ============================================================
+    // SEMANTIC STATES
+    // ============================================================
+    val pinnedIndicator: Color,
+    val sensitiveIndicator: Color,
+
+    // ============================================================
+    // EDITOR
+    // ============================================================
+    val editorText: Color,
+    val editorMarkdownPreviewBackground: Color,
+    val editorMarkdownPreviewText: Color,
+    val editorMarkdownPreviewMutedText: Color,
+    val editorMarkdownPreviewSurfaceVariant: Color,
+    val editorMarkdownPreviewOutline: Color,
+    val editorMarkdownPreviewOutlineVariant: Color,
+    val editorMarkdownPreviewPrimary: Color,
+    val editorMarkdownPreviewCodeBackground: Color,
+    val editorMarkdownPreviewColorScheme: String,
+    val editorToolbarBackground: Color,
+    val editorToolbarIcon: Color,
+    val editorToolbarDisabledIcon: Color,
+    val editorMarkdownPreviewDivider: Color,
+    val editorMarkdownPreviewShimmerBase: Color,
+    val editorMarkdownPreviewShimmerHighlight: Color,
+
+    // ============================================================
+    // VAULT
+    // ============================================================
+    val vaultClipboardCardBackground: Color,
+    val vaultClipboardCardSelectedBackground: Color,
+    val vaultClipboardCardPressedBackground: Color,
+    val vaultClipboardCardDraggingBackground: Color,
+    val vaultClipboardPreviewText: Color,
+    val vaultClipboardMetaText: Color,
+    val vaultActionIcon: Color,
+    val vaultCheckboxChecked: Color,
+    val vaultCheckboxUnchecked: Color,
+    val vaultDragHandle: Color,
+    val vaultDragHandleActive: Color,
+    val vaultEmptyStateIcon: Color,
+    val vaultGroupDivider: Color,
+    val vaultPopupDivider: Color,
+
+    // ============================================================
+    // SHARE DIALOG
+    // ============================================================
+    val shareOptionBackground: Color,
+    val shareOptionSelectedBackground: Color,
+    val shareOptionSelectedBorder: Color,
+    val shareOptionAccent: Color,
+    val shareOptionUnselectedAccent: Color,
+    val shareOptionText: Color,
+    val shareOptionHint: Color,
+
+    // ============================================================
+    // SETTINGS / COMMON DIALOGS
+    // ============================================================
+    val settingsGroupTitle: Color,
+    val settingsGroupIcon: Color,
+    val settingsPrivacyCardBackground: Color,
+    val firstRunCalloutBackground: Color
+)
+
 val ForestThemePalette = ThemePalette(
     colorScheme = lightColorScheme(
-        primary = Color(0xFF1C3B2B), onPrimary = Color.White,
+
+        primary = Color(0xFF1C3B2B), onPrimary = Color(0xFFFFFFFF),
         primaryContainer = Color(0xFFD2E4D9), onPrimaryContainer = Color(0xFF1C3B2B),
-        secondary = Color(0xFF5A6660), onSecondary = Color.White,
+        secondary = Color(0xFF5A6660), onSecondary = Color(0xFFFFFFFF),
         secondaryContainer = Color(0xFFDBE8E0), onSecondaryContainer = Color(0xFF1C3B2B),
-        tertiary = Color(0xFF2A523C), onTertiary = Color.White,
+        tertiary = Color(0xFF2A523C), onTertiary = Color(0xFFFFFFFF),
         tertiaryContainer = Color(0xFFCFE5D6), onTertiaryContainer = Color(0xFF1C3B2B),
         background = Color(0xFFF3ECE1), onBackground = Color(0xFF1A231E),
         surface = Color(0xFFF3ECE1), onSurface = Color(0xFF1A231E),
         surfaceVariant = Color(0xFFE8DED0), onSurfaceVariant = Color(0xFF5A6660),
         outline = Color(0xFF6F7A73), outlineVariant = Color(0xFFDBE8E0)
     ),
-    semanticColors = ThemeSemanticColors(Color(0xFF1C3B2B), Color(0xFFD97706)),
-    waveTop = Color(0xFF2A523C),
-    waveMid = Color(0xFF0F2219),
-    waveBottom = Color(0xFF070E0A),
-    dockBg = Color(0xFFFFFFFF),
-    dockIconColor = Color(0xFF2B332E),
-    fabBg = Color(0xFF1C3B2B),
-    fabIconColor = Color(0xFFFFFFFF),
-    breadcrumb = Color(0xFF2A523C),
-    sectionText = Color(0xFF5A6660),
-    dockDivider = Color(0xFFDBE8E0)
+
+    // NOTE SCREEN
+    noteCardBackground = Color(0xFFFFFFFF),
+    noteCardSelectedBackground = Color(0xFFFFDBE6),
+    noteCardPinnedBackground = Color(0xFFFFE8EB),
+    noteTagBackground = Color(0xFFFFDFEB),
+    noteTagText = Color(0xFF1C3B2B),
+    noteHeaderBackground = Color(0xFF1C3B2B),
+    noteHeaderContent = Color(0xFFFFFFFF),
+    noteBreadcrumbText = Color(0xFF2A523C),
+    noteBreadcrumbDivider = Color(0xFFFF2347),
+    noteSectionTitle = Color(0xFF5A6660),
+    noteTitle = Color(0xFF1A231E),
+    notePreviewText = Color(0xFF5A6660),
+    noteActionIcon = Color(0xFF2B332E),
+    noteEmptyStateText = Color(0xFF5A6660),
+    noteSearchBackground = Color(0xFFE8DED0),
+    noteSearchContent = Color(0xFF1A231E),
+    noteSearchHint = Color(0xFF5A6660),
+    notePopupBackground = Color(0xFFF3ECE1),
+    notePopupContent = Color(0xFF1A231E),
+    notePopupSecondaryText = Color(0xFF5A6660),
+    notePopupDivider = Color(0xFFFFE7EA),
+    noteViewModeBackground = Color(0xFFE8DED0),
+    noteViewModeSelectedBackground = Color(0xFFF3ECE1),
+    noteViewModeSelectedIcon = Color(0xFF1C3B2B),
+    noteViewModeUnselectedIcon = Color(0xFF5A6660),
+    noteSectionChevron = Color(0xFF1A231E),
+    noteListDivider = Color(0xFFDBE8E0),
+    noteWavePrimary = Color(0xFFFFDFDD),
+    noteWaveSecondary = Color(0xFFFFE6E1),
+
+    // SHARED NAVIGATION
+    dockBackground = Color(0xFFFFFFFF),
+    dockIcon = Color(0xFF2B332E),
+    dockDivider = Color(0xFFDBE8E0),
+    fabBackground = Color(0xFF1C3B2B),
+    fabIcon = Color(0xFFFFFFFF),
+    mainNoteTabText = Color(0xFFF6F4EA),
+    mainNoteTabSelectedIndicator = Color(0xFFDDE8B5),
+
+    // SEMANTIC STATES
+    pinnedIndicator = Color(0xFF1C3B2B),
+    sensitiveIndicator = Color(0xFFD97706),
+
+    // EDITOR
+    editorText = Color(0xFF1A231E),
+    editorMarkdownPreviewBackground = Color(0xFFF6F6F6),
+    editorMarkdownPreviewText = Color(0xFF171717),
+    editorMarkdownPreviewMutedText = Color(0xFF5E5E5E),
+    editorMarkdownPreviewSurfaceVariant = Color(0xFFE8E8E8),
+    editorMarkdownPreviewOutline = Color(0xFF8A8A8A),
+    editorMarkdownPreviewOutlineVariant = Color(0xFFC7C7C7),
+    editorMarkdownPreviewPrimary = Color(0xFF171717),
+    editorMarkdownPreviewCodeBackground = Color(0xFFE8E8E8),
+    editorMarkdownPreviewColorScheme = "light",
+    editorToolbarBackground = Color(0xFFFFF0E8),
+    editorToolbarIcon = Color(0xFF1C3B2B),
+    editorToolbarDisabledIcon = Color(0xFFFFAFA8),
+    editorMarkdownPreviewDivider = Color(0xFFFFCECE),
+    editorMarkdownPreviewShimmerBase = Color(0xFFFFE0E0),
+    editorMarkdownPreviewShimmerHighlight = Color(0xFFFFC9C9),
+
+    // VAULT
+    vaultClipboardCardBackground = Color(0xFFF3ECE1),
+    vaultClipboardCardSelectedBackground = Color(0xFFFFE7E9),
+    vaultClipboardCardPressedBackground = Color(0xFFFFECEA),
+    vaultClipboardCardDraggingBackground = Color(0xFFD2E4D9),
+    vaultClipboardPreviewText = Color(0xFF1A231E),
+    vaultClipboardMetaText = Color(0xFF5A6660),
+    vaultActionIcon = Color(0xFF5A6660),
+    vaultCheckboxChecked = Color(0xFF1C3B2B),
+    vaultCheckboxUnchecked = Color(0xFF5A6660),
+    vaultDragHandle = Color(0xFF5A6660),
+    vaultDragHandleActive = Color(0xFF1A231E),
+    vaultEmptyStateIcon = Color(0xFFFF5D70),
+    vaultGroupDivider = Color(0xFFDBE8E0),
+    vaultPopupDivider = Color(0xFFFFE7EA),
+
+    // SHARE DIALOG
+    shareOptionBackground = Color(0xFFFFEFE6),
+    shareOptionSelectedBackground = Color(0xFFFFE4E8),
+    shareOptionSelectedBorder = Color(0xFF1C3B2B),
+    shareOptionAccent = Color(0xFF1C3B2B),
+    shareOptionUnselectedAccent = Color(0xFF5A6660),
+    shareOptionText = Color(0xFF1A231E),
+    shareOptionHint = Color(0xFF5A6660),
+
+    // SETTINGS / COMMON DIALOGS
+    settingsGroupTitle = Color(0xFF1A231E),
+    settingsGroupIcon = Color(0xFF1C3B2B),
+    settingsPrivacyCardBackground = Color(0xFFFFE7E9),
+    firstRunCalloutBackground = Color(0xFFFFEEE5)
 )
 
-// ─────────────────────────────────────────────
-// 2. NORD — Cool Scandinavian gray-blue, minimal
-// ─────────────────────────────────────────────
 val NordThemePalette = ThemePalette(
     colorScheme = lightColorScheme(
-        primary = Color(0xFF2E3440), onPrimary = Color.White,
+
+        primary = Color(0xFF2E3440), onPrimary = Color(0xFFFFFFFF),
         primaryContainer = Color(0xFFD8DEE9), onPrimaryContainer = Color(0xFF2E3440),
-        secondary = Color(0xFF4C566A), onSecondary = Color.White,
+        secondary = Color(0xFF4C566A), onSecondary = Color(0xFFFFFFFF),
         secondaryContainer = Color(0xFFD8DEE9), onSecondaryContainer = Color(0xFF2E3440),
-        tertiary = Color(0xFF5E81AC), onTertiary = Color.White,
+        tertiary = Color(0xFF5E81AC), onTertiary = Color(0xFFFFFFFF),
         tertiaryContainer = Color(0xFFD8DEE9), onTertiaryContainer = Color(0xFF2E3440),
         background = Color(0xFFECEFF4), onBackground = Color(0xFF2E3440),
         surface = Color(0xFFECEFF4), onSurface = Color(0xFF2E3440),
         surfaceVariant = Color(0xFFE5E9F0), onSurfaceVariant = Color(0xFF4C566A),
         outline = Color(0xFF7B8794), outlineVariant = Color(0xFFD8DEE9)
     ),
-    semanticColors = ThemeSemanticColors(Color(0xFF2E3440), Color(0xFFB45309)),
-    waveTop = Color(0xFF88C0D0),
-    waveMid = Color(0xFF5E81AC),
-    waveBottom = Color(0xFF2E3440),
-    dockBg = Color(0xFFFFFFFF),
-    dockIconColor = Color(0xFF2E3440),
-    fabBg = Color(0xFF5E81AC),
-    fabIconColor = Color(0xFFFFFFFF),
-    breadcrumb = Color(0xFF5E81AC),
-    sectionText = Color(0xFF4C566A),
-    dockDivider = Color(0xFFD8DEE9)
+
+    // NOTE SCREEN
+    noteCardBackground = Color(0xFFFFFFFF),
+    noteCardSelectedBackground = Color(0xFFFFDEE3),
+    noteCardPinnedBackground = Color(0xFFFFEAEB),
+    noteTagBackground = Color(0xFFFFDDE2),
+    noteTagText = Color(0xFF2E3440),
+    noteHeaderBackground = Color(0xFF2E3440),
+    noteHeaderContent = Color(0xFFFFFFFF),
+    noteBreadcrumbText = Color(0xFF5E81AC),
+    noteBreadcrumbDivider = Color(0xFFFF465B),
+    noteSectionTitle = Color(0xFF4C566A),
+    noteTitle = Color(0xFF2E3440),
+    notePreviewText = Color(0xFF4C566A),
+    noteActionIcon = Color(0xFF2E3440),
+    noteEmptyStateText = Color(0xFF4C566A),
+    noteSearchBackground = Color(0xFFE5E9F0),
+    noteSearchContent = Color(0xFF2E3440),
+    noteSearchHint = Color(0xFF4C566A),
+    notePopupBackground = Color(0xFFECEFF4),
+    notePopupContent = Color(0xFF2E3440),
+    notePopupSecondaryText = Color(0xFF4C566A),
+    notePopupDivider = Color(0xFFFFE2E7),
+    noteViewModeBackground = Color(0xFFE5E9F0),
+    noteViewModeSelectedBackground = Color(0xFFECEFF4),
+    noteViewModeSelectedIcon = Color(0xFF2E3440),
+    noteViewModeUnselectedIcon = Color(0xFF4C566A),
+    noteSectionChevron = Color(0xFF2E3440),
+    noteListDivider = Color(0xFFD8DEE9),
+    noteWavePrimary = Color(0xFFFFE2EA),
+    noteWaveSecondary = Color(0xFFFFE4E9),
+
+    // SHARED NAVIGATION
+    dockBackground = Color(0xFFFFFFFF),
+    dockIcon = Color(0xFF2E3440),
+    dockDivider = Color(0xFFD8DEE9),
+    fabBackground = Color(0xFF5E81AC),
+    fabIcon = Color(0xFFFFFFFF),
+    mainNoteTabText = Color(0xFFF6F4EA),
+    mainNoteTabSelectedIndicator = Color(0xFFDDE8B5),
+
+    // SEMANTIC STATES
+    pinnedIndicator = Color(0xFF2E3440),
+    sensitiveIndicator = Color(0xFFB45309),
+
+    // EDITOR
+    editorText = Color(0xFF2E3440),
+    editorMarkdownPreviewBackground = Color(0xFFF6F6F6),
+    editorMarkdownPreviewText = Color(0xFF171717),
+    editorMarkdownPreviewMutedText = Color(0xFF5E5E5E),
+    editorMarkdownPreviewSurfaceVariant = Color(0xFFE8E8E8),
+    editorMarkdownPreviewOutline = Color(0xFF8A8A8A),
+    editorMarkdownPreviewOutlineVariant = Color(0xFFC7C7C7),
+    editorMarkdownPreviewPrimary = Color(0xFF171717),
+    editorMarkdownPreviewCodeBackground = Color(0xFFE8E8E8),
+    editorMarkdownPreviewColorScheme = "light",
+    editorToolbarBackground = Color(0xFFFFEAED),
+    editorToolbarIcon = Color(0xFF2E3440),
+    editorToolbarDisabledIcon = Color(0xFFFFB6AA),
+    editorMarkdownPreviewDivider = Color(0xFFFFCECE),
+    editorMarkdownPreviewShimmerBase = Color(0xFFFFE0E0),
+    editorMarkdownPreviewShimmerHighlight = Color(0xFFFFC9C9),
+
+    // VAULT
+    vaultClipboardCardBackground = Color(0xFFECEFF4),
+    vaultClipboardCardSelectedBackground = Color(0xFFFFE5E9),
+    vaultClipboardCardPressedBackground = Color(0xFFFFE8EB),
+    vaultClipboardCardDraggingBackground = Color(0xFFD8DEE9),
+    vaultClipboardPreviewText = Color(0xFF2E3440),
+    vaultClipboardMetaText = Color(0xFF4C566A),
+    vaultActionIcon = Color(0xFF4C566A),
+    vaultCheckboxChecked = Color(0xFF2E3440),
+    vaultCheckboxUnchecked = Color(0xFF4C566A),
+    vaultDragHandle = Color(0xFF4C566A),
+    vaultDragHandleActive = Color(0xFF2E3440),
+    vaultEmptyStateIcon = Color(0xFFFF676C),
+    vaultGroupDivider = Color(0xFFD8DEE9),
+    vaultPopupDivider = Color(0xFFFFE2E7),
+
+    // SHARE DIALOG
+    shareOptionBackground = Color(0xFFFFE9ED),
+    shareOptionSelectedBackground = Color(0xFFFFE3E7),
+    shareOptionSelectedBorder = Color(0xFF2E3440),
+    shareOptionAccent = Color(0xFF2E3440),
+    shareOptionUnselectedAccent = Color(0xFF4C566A),
+    shareOptionText = Color(0xFF2E3440),
+    shareOptionHint = Color(0xFF4C566A),
+
+    // SETTINGS / COMMON DIALOGS
+    settingsGroupTitle = Color(0xFF2E3440),
+    settingsGroupIcon = Color(0xFF2E3440),
+    settingsPrivacyCardBackground = Color(0xFFFFE5E9),
+    firstRunCalloutBackground = Color(0xFFFFE9EC)
 )
 
-// ─────────────────────────────────────────────
-// 3. SNOW / SAPPHIRE — Clear snow + sapphire blue
-// ─────────────────────────────────────────────
 val SnowSapphireThemePalette = ThemePalette(
     colorScheme = lightColorScheme(
-        primary = Color(0xFF1E3A8A), onPrimary = Color.White,
+
+        primary = Color(0xFF1E3A8A), onPrimary = Color(0xFFFFFFFF),
         primaryContainer = Color(0xFFBAE6FD), onPrimaryContainer = Color(0xFF0C4A6E),
-        secondary = Color(0xFF0369A1), onSecondary = Color.White,
+        secondary = Color(0xFF0369A1), onSecondary = Color(0xFFFFFFFF),
         secondaryContainer = Color(0xFFBAE6FD), onSecondaryContainer = Color(0xFF0C4A6E),
-        tertiary = Color(0xFF0284C7), onTertiary = Color.White,
+        tertiary = Color(0xFF0284C7), onTertiary = Color(0xFFFFFFFF),
         tertiaryContainer = Color(0xFFE0F2FE), onTertiaryContainer = Color(0xFF0C4A6E),
         background = Color(0xFFF0F9FF), onBackground = Color(0xFF0C4A6E),
         surface = Color(0xFFF0F9FF), onSurface = Color(0xFF0C4A6E),
-        surfaceVariant = Color.White, onSurfaceVariant = Color(0xFF0369A1),
+        surfaceVariant = Color(0xFFFFFFFF), onSurfaceVariant = Color(0xFF0369A1),
         outline = Color(0xFF64748B), outlineVariant = Color(0xFFBAE6FD)
     ),
-    semanticColors = ThemeSemanticColors(Color(0xFF1E3A8A), Color(0xFFB45309)),
-    waveTop = Color(0xFF38BDF8),
-    waveMid = Color(0xFF0284C7),
-    waveBottom = Color(0xFF1E3A8A),
-    dockBg = Color(0xFFFFFFFF),
-    dockIconColor = Color(0xFF1E3A8A),
-    fabBg = Color(0xFF0284C7),
-    fabIconColor = Color(0xFFFFFFFF),
-    breadcrumb = Color(0xFF0284C7),
-    sectionText = Color(0xFF0369A1),
-    dockDivider = Color(0xFFBAE6FD)
+
+    // NOTE SCREEN
+    noteCardBackground = Color(0xFFFFFFFF),
+    noteCardSelectedBackground = Color(0xFFFFC9EB),
+    noteCardPinnedBackground = Color(0xFFFFE9EB),
+    noteTagBackground = Color(0xFFFFC2E9),
+    noteTagText = Color(0xFF0C4A6E),
+    noteHeaderBackground = Color(0xFF1E3A8A),
+    noteHeaderContent = Color(0xFFFFFFFF),
+    noteBreadcrumbText = Color(0xFF0284C7),
+    noteBreadcrumbDivider = Color(0xFFFF105F),
+    noteSectionTitle = Color(0xFF0369A1),
+    noteTitle = Color(0xFF0C4A6E),
+    notePreviewText = Color(0xFF0369A1),
+    noteActionIcon = Color(0xFF1E3A8A),
+    noteEmptyStateText = Color(0xFF0369A1),
+    noteSearchBackground = Color(0xFFFFFFFF),
+    noteSearchContent = Color(0xFF0C4A6E),
+    noteSearchHint = Color(0xFF0369A1),
+    notePopupBackground = Color(0xFFF0F9FF),
+    notePopupContent = Color(0xFF0C4A6E),
+    notePopupSecondaryText = Color(0xFF0369A1),
+    notePopupDivider = Color(0xFFFFD5F0),
+    noteViewModeBackground = Color(0xFFFFFFFF),
+    noteViewModeSelectedBackground = Color(0xFFF0F9FF),
+    noteViewModeSelectedIcon = Color(0xFF1E3A8A),
+    noteViewModeUnselectedIcon = Color(0xFF0369A1),
+    noteSectionChevron = Color(0xFF0C4A6E),
+    noteListDivider = Color(0xFFBAE6FD),
+    noteWavePrimary = Color(0xFFFFDEF3),
+    noteWaveSecondary = Color(0xFFFFE3F3),
+
+    // SHARED NAVIGATION
+    dockBackground = Color(0xFFFFFFFF),
+    dockIcon = Color(0xFF1E3A8A),
+    dockDivider = Color(0xFFBAE6FD),
+    fabBackground = Color(0xFF0284C7),
+    fabIcon = Color(0xFFFFFFFF),
+    mainNoteTabText = Color(0xFFF6F4EA),
+    mainNoteTabSelectedIndicator = Color(0xFFDDE8B5),
+
+    // SEMANTIC STATES
+    pinnedIndicator = Color(0xFF1E3A8A),
+    sensitiveIndicator = Color(0xFFB45309),
+
+    // EDITOR
+    editorText = Color(0xFF0C4A6E),
+    editorMarkdownPreviewBackground = Color(0xFFF6F6F6),
+    editorMarkdownPreviewText = Color(0xFF171717),
+    editorMarkdownPreviewMutedText = Color(0xFF5E5E5E),
+    editorMarkdownPreviewSurfaceVariant = Color(0xFFE8E8E8),
+    editorMarkdownPreviewOutline = Color(0xFF8A8A8A),
+    editorMarkdownPreviewOutlineVariant = Color(0xFFC7C7C7),
+    editorMarkdownPreviewPrimary = Color(0xFF171717),
+    editorMarkdownPreviewCodeBackground = Color(0xFFE8E8E8),
+    editorMarkdownPreviewColorScheme = "light",
+    editorToolbarBackground = Color(0xFFFFF4FB),
+    editorToolbarIcon = Color(0xFF1E3A8A),
+    editorToolbarDisabledIcon = Color(0xFFFFAAB9),
+    editorMarkdownPreviewDivider = Color(0xFFFFCECE),
+    editorMarkdownPreviewShimmerBase = Color(0xFFFFE0E0),
+    editorMarkdownPreviewShimmerHighlight = Color(0xFFFFC9C9),
+
+    // VAULT
+    vaultClipboardCardBackground = Color(0xFFF0F9FF),
+    vaultClipboardCardSelectedBackground = Color(0xFFFFDDF2),
+    vaultClipboardCardPressedBackground = Color(0xFFFFE4F5),
+    vaultClipboardCardDraggingBackground = Color(0xFFBAE6FD),
+    vaultClipboardPreviewText = Color(0xFF0C4A6E),
+    vaultClipboardMetaText = Color(0xFF0369A1),
+    vaultActionIcon = Color(0xFF0369A1),
+    vaultCheckboxChecked = Color(0xFF1E3A8A),
+    vaultCheckboxUnchecked = Color(0xFF0369A1),
+    vaultDragHandle = Color(0xFF0369A1),
+    vaultDragHandleActive = Color(0xFF0C4A6E),
+    vaultEmptyStateIcon = Color(0xFFFF5D73),
+    vaultGroupDivider = Color(0xFFBAE6FD),
+    vaultPopupDivider = Color(0xFFFFD5F0),
+
+    // SHARE DIALOG
+    shareOptionBackground = Color(0xFFFFF6FB),
+    shareOptionSelectedBackground = Color(0xFFFFD8F0),
+    shareOptionSelectedBorder = Color(0xFF1E3A8A),
+    shareOptionAccent = Color(0xFF1E3A8A),
+    shareOptionUnselectedAccent = Color(0xFF0369A1),
+    shareOptionText = Color(0xFF0C4A6E),
+    shareOptionHint = Color(0xFF0369A1),
+
+    // SETTINGS / COMMON DIALOGS
+    settingsGroupTitle = Color(0xFF0C4A6E),
+    settingsGroupIcon = Color(0xFF1E3A8A),
+    settingsPrivacyCardBackground = Color(0xFFFFDDF2),
+    firstRunCalloutBackground = Color(0xFFFFF8FC)
 )
 
-// ─────────────────────────────────────────────
-// 4. SAKURA — Soft, refined cherry blossom
-// ─────────────────────────────────────────────
 val SakuraThemePalette = ThemePalette(
     colorScheme = lightColorScheme(
-        primary = Color(0xFF9D174D), onPrimary = Color.White,
+
+        primary = Color(0xFF9D174D), onPrimary = Color(0xFFFFFFFF),
         primaryContainer = Color(0xFFFBCFE8), onPrimaryContainer = Color(0xFF500724),
-        secondary = Color(0xFF831843), onSecondary = Color.White,
+        secondary = Color(0xFF831843), onSecondary = Color(0xFFFFFFFF),
         secondaryContainer = Color(0xFFFBCFE8), onSecondaryContainer = Color(0xFF500724),
-        tertiary = Color(0xFFDB2777), onTertiary = Color.White,
+        tertiary = Color(0xFFDB2777), onTertiary = Color(0xFFFFFFFF),
         tertiaryContainer = Color(0xFFFCE7F3), onTertiaryContainer = Color(0xFF500724),
         background = Color(0xFFFDF2F8), onBackground = Color(0xFF500724),
         surface = Color(0xFFFDF2F8), onSurface = Color(0xFF500724),
         surfaceVariant = Color(0xFFFCE7F3), onSurfaceVariant = Color(0xFF9D174D),
         outline = Color(0xFF9CA3AF), outlineVariant = Color(0xFFFBCFE8)
     ),
-    semanticColors = ThemeSemanticColors(Color(0xFF831843), Color(0xFFD97706)),
-    waveTop = Color(0xFFF472B6),
-    waveMid = Color(0xFFDB2777),
-    waveBottom = Color(0xFF831843),
-    dockBg = Color(0xFFFFFFFF),
-    dockIconColor = Color(0xFF831843),
-    fabBg = Color(0xFFDB2777),
-    fabIconColor = Color(0xFFFFFFFF),
-    breadcrumb = Color(0xFFDB2777),
-    sectionText = Color(0xFF9D174D),
-    dockDivider = Color(0xFFFBCFE8)
+
+    // NOTE SCREEN
+    noteCardBackground = Color(0xFFFFFFFF),
+    noteCardSelectedBackground = Color(0xFFFFFCD9),
+    noteCardPinnedBackground = Color(0xFFFFF3E8),
+    noteTagBackground = Color(0xFFFFFBD5),
+    noteTagText = Color(0xFF500724),
+    noteHeaderBackground = Color(0xFF9D174D),
+    noteHeaderContent = Color(0xFFFFFFFF),
+    noteBreadcrumbText = Color(0xFFDB2777),
+    noteBreadcrumbDivider = Color(0xFFFFBC1F),
+    noteSectionTitle = Color(0xFF9D174D),
+    noteTitle = Color(0xFF500724),
+    notePreviewText = Color(0xFF9D174D),
+    noteActionIcon = Color(0xFF831843),
+    noteEmptyStateText = Color(0xFF9D174D),
+    noteSearchBackground = Color(0xFFFCE7F3),
+    noteSearchContent = Color(0xFF500724),
+    noteSearchHint = Color(0xFF9D174D),
+    notePopupBackground = Color(0xFFFDF2F8),
+    notePopupContent = Color(0xFF500724),
+    notePopupSecondaryText = Color(0xFF9D174D),
+    notePopupDivider = Color(0xFFFFFCE1),
+    noteViewModeBackground = Color(0xFFFCE7F3),
+    noteViewModeSelectedBackground = Color(0xFFFDF2F8),
+    noteViewModeSelectedIcon = Color(0xFF9D174D),
+    noteViewModeUnselectedIcon = Color(0xFF9D174D),
+    noteSectionChevron = Color(0xFF500724),
+    noteListDivider = Color(0xFFFBCFE8),
+    noteWavePrimary = Color(0xFFFFFCE5),
+    noteWaveSecondary = Color(0xFFFFFBE7),
+
+    // SHARED NAVIGATION
+    dockBackground = Color(0xFFFFFFFF),
+    dockIcon = Color(0xFF831843),
+    dockDivider = Color(0xFFFBCFE8),
+    fabBackground = Color(0xFFDB2777),
+    fabIcon = Color(0xFFFFFFFF),
+    mainNoteTabText = Color(0xFFF6F4EA),
+    mainNoteTabSelectedIndicator = Color(0xFFDDE8B5),
+
+    // SEMANTIC STATES
+    pinnedIndicator = Color(0xFF831843),
+    sensitiveIndicator = Color(0xFFD97706),
+
+    // EDITOR
+    editorText = Color(0xFF500724),
+    editorMarkdownPreviewBackground = Color(0xFFF6F6F6),
+    editorMarkdownPreviewText = Color(0xFF171717),
+    editorMarkdownPreviewMutedText = Color(0xFF5E5E5E),
+    editorMarkdownPreviewSurfaceVariant = Color(0xFFE8E8E8),
+    editorMarkdownPreviewOutline = Color(0xFF8A8A8A),
+    editorMarkdownPreviewOutlineVariant = Color(0xFFC7C7C7),
+    editorMarkdownPreviewPrimary = Color(0xFF171717),
+    editorMarkdownPreviewCodeBackground = Color(0xFFE8E8E8),
+    editorMarkdownPreviewColorScheme = "light",
+    editorToolbarBackground = Color(0xFFFFFDEF),
+    editorToolbarIcon = Color(0xFF9D174D),
+    editorToolbarDisabledIcon = Color(0xFFFFC2A7),
+    editorMarkdownPreviewDivider = Color(0xFFFFCECE),
+    editorMarkdownPreviewShimmerBase = Color(0xFFFFE0E0),
+    editorMarkdownPreviewShimmerHighlight = Color(0xFFFFC9C9),
+
+    // VAULT
+    vaultClipboardCardBackground = Color(0xFFFDF2F8),
+    vaultClipboardCardSelectedBackground = Color(0xFFFFFCE6),
+    vaultClipboardCardPressedBackground = Color(0xFFFFFDEA),
+    vaultClipboardCardDraggingBackground = Color(0xFFFBCFE8),
+    vaultClipboardPreviewText = Color(0xFF500724),
+    vaultClipboardMetaText = Color(0xFF9D174D),
+    vaultActionIcon = Color(0xFF9D174D),
+    vaultCheckboxChecked = Color(0xFF9D174D),
+    vaultCheckboxUnchecked = Color(0xFF9D174D),
+    vaultDragHandle = Color(0xFF9D174D),
+    vaultDragHandleActive = Color(0xFF500724),
+    vaultEmptyStateIcon = Color(0xFFFFBA59),
+    vaultGroupDivider = Color(0xFFFBCFE8),
+    vaultPopupDivider = Color(0xFFFFFCE1),
+
+    // SHARE DIALOG
+    shareOptionBackground = Color(0xFFFFFDEE),
+    shareOptionSelectedBackground = Color(0xFFFFFCE2),
+    shareOptionSelectedBorder = Color(0xFF9D174D),
+    shareOptionAccent = Color(0xFF9D174D),
+    shareOptionUnselectedAccent = Color(0xFF9D174D),
+    shareOptionText = Color(0xFF500724),
+    shareOptionHint = Color(0xFF9D174D),
+
+    // SETTINGS / COMMON DIALOGS
+    settingsGroupTitle = Color(0xFF500724),
+    settingsGroupIcon = Color(0xFF9D174D),
+    settingsPrivacyCardBackground = Color(0xFFFFFCE6),
+    firstRunCalloutBackground = Color(0xFFFFFDED)
 )
 
-// ─────────────────────────────────────────────
-// 5. LAVENDER — Calm lavender purple
-// ─────────────────────────────────────────────
 val LavenderThemePalette = ThemePalette(
     colorScheme = lightColorScheme(
-        primary = Color(0xFF6D28D9), onPrimary = Color.White,
+
+        primary = Color(0xFF6D28D9), onPrimary = Color(0xFFFFFFFF),
         primaryContainer = Color(0xFFDDD6FE), onPrimaryContainer = Color(0xFF2E1065),
-        secondary = Color(0xFF4C1D95), onSecondary = Color.White,
+        secondary = Color(0xFF4C1D95), onSecondary = Color(0xFFFFFFFF),
         secondaryContainer = Color(0xFFDDD6FE), onSecondaryContainer = Color(0xFF2E1065),
-        tertiary = Color(0xFF7C3AED), onTertiary = Color.White,
+        tertiary = Color(0xFF7C3AED), onTertiary = Color(0xFFFFFFFF),
         tertiaryContainer = Color(0xFFEDE9FE), onTertiaryContainer = Color(0xFF2E1065),
         background = Color(0xFFF5F3FF), onBackground = Color(0xFF2E1065),
         surface = Color(0xFFF5F3FF), onSurface = Color(0xFF2E1065),
         surfaceVariant = Color(0xFFEDE9FE), onSurfaceVariant = Color(0xFF6D28D9),
         outline = Color(0xFF9CA3AF), outlineVariant = Color(0xFFDDD6FE)
     ),
-    semanticColors = ThemeSemanticColors(Color(0xFF4C1D95), Color(0xFFD97706)),
-    waveTop = Color(0xFFA78BFA),
-    waveMid = Color(0xFF7C3AED),
-    waveBottom = Color(0xFF4C1D95),
-    dockBg = Color(0xFFFFFFFF),
-    dockIconColor = Color(0xFF4C1D95),
-    fabBg = Color(0xFF7C3AED),
-    fabIconColor = Color(0xFFFFFFFF),
-    breadcrumb = Color(0xFF7C3AED),
-    sectionText = Color(0xFF6D28D9),
-    dockDivider = Color(0xFFDDD6FE)
+
+    // NOTE SCREEN
+    noteCardBackground = Color(0xFFFFFFFF),
+    noteCardSelectedBackground = Color(0xFFFFE4DE),
+    noteCardPinnedBackground = Color(0xFFFFEDE8),
+    noteTagBackground = Color(0xFFFFE1DB),
+    noteTagText = Color(0xFF2E1065),
+    noteHeaderBackground = Color(0xFF6D28D9),
+    noteHeaderContent = Color(0xFFFFFFFF),
+    noteBreadcrumbText = Color(0xFF7C3AED),
+    noteBreadcrumbDivider = Color(0xFFFF7531),
+    noteSectionTitle = Color(0xFF6D28D9),
+    noteTitle = Color(0xFF2E1065),
+    notePreviewText = Color(0xFF6D28D9),
+    noteActionIcon = Color(0xFF4C1D95),
+    noteEmptyStateText = Color(0xFF6D28D9),
+    noteSearchBackground = Color(0xFFEDE9FE),
+    noteSearchContent = Color(0xFF2E1065),
+    noteSearchHint = Color(0xFF6D28D9),
+    notePopupBackground = Color(0xFFF5F3FF),
+    notePopupContent = Color(0xFF2E1065),
+    notePopupSecondaryText = Color(0xFF6D28D9),
+    notePopupDivider = Color(0xFFFFE9E5),
+    noteViewModeBackground = Color(0xFFEDE9FE),
+    noteViewModeSelectedBackground = Color(0xFFF5F3FF),
+    noteViewModeSelectedIcon = Color(0xFF6D28D9),
+    noteViewModeUnselectedIcon = Color(0xFF6D28D9),
+    noteSectionChevron = Color(0xFF2E1065),
+    noteListDivider = Color(0xFFDDD6FE),
+    noteWavePrimary = Color(0xFFFFEDE9),
+    noteWaveSecondary = Color(0xFFFFEEE9),
+
+    // SHARED NAVIGATION
+    dockBackground = Color(0xFFFFFFFF),
+    dockIcon = Color(0xFF4C1D95),
+    dockDivider = Color(0xFFDDD6FE),
+    fabBackground = Color(0xFF7C3AED),
+    fabIcon = Color(0xFFFFFFFF),
+    mainNoteTabText = Color(0xFFF6F4EA),
+    mainNoteTabSelectedIndicator = Color(0xFFDDE8B5),
+
+    // SEMANTIC STATES
+    pinnedIndicator = Color(0xFF4C1D95),
+    sensitiveIndicator = Color(0xFFD97706),
+
+    // EDITOR
+    editorText = Color(0xFF2E1065),
+    editorMarkdownPreviewBackground = Color(0xFFF6F6F6),
+    editorMarkdownPreviewText = Color(0xFF171717),
+    editorMarkdownPreviewMutedText = Color(0xFF5E5E5E),
+    editorMarkdownPreviewSurfaceVariant = Color(0xFFE8E8E8),
+    editorMarkdownPreviewOutline = Color(0xFF8A8A8A),
+    editorMarkdownPreviewOutlineVariant = Color(0xFFC7C7C7),
+    editorMarkdownPreviewPrimary = Color(0xFF171717),
+    editorMarkdownPreviewCodeBackground = Color(0xFFE8E8E8),
+    editorMarkdownPreviewColorScheme = "light",
+    editorToolbarBackground = Color(0xFFFFF3F0),
+    editorToolbarIcon = Color(0xFF6D28D9),
+    editorToolbarDisabledIcon = Color(0xFFFFB6A4),
+    editorMarkdownPreviewDivider = Color(0xFFFFCECE),
+    editorMarkdownPreviewShimmerBase = Color(0xFFFFE0E0),
+    editorMarkdownPreviewShimmerHighlight = Color(0xFFFFC9C9),
+
+    // VAULT
+    vaultClipboardCardBackground = Color(0xFFF5F3FF),
+    vaultClipboardCardSelectedBackground = Color(0xFFFFEDE9),
+    vaultClipboardCardPressedBackground = Color(0xFFFFF0ED),
+    vaultClipboardCardDraggingBackground = Color(0xFFDDD6FE),
+    vaultClipboardPreviewText = Color(0xFF2E1065),
+    vaultClipboardMetaText = Color(0xFF6D28D9),
+    vaultActionIcon = Color(0xFF6D28D9),
+    vaultCheckboxChecked = Color(0xFF6D28D9),
+    vaultCheckboxUnchecked = Color(0xFF6D28D9),
+    vaultDragHandle = Color(0xFF6D28D9),
+    vaultDragHandleActive = Color(0xFF2E1065),
+    vaultEmptyStateIcon = Color(0xFFFF9665),
+    vaultGroupDivider = Color(0xFFDDD6FE),
+    vaultPopupDivider = Color(0xFFFFE9E5),
+
+    // SHARE DIALOG
+    shareOptionBackground = Color(0xFFFFF2EF),
+    shareOptionSelectedBackground = Color(0xFFFFEAE6),
+    shareOptionSelectedBorder = Color(0xFF6D28D9),
+    shareOptionAccent = Color(0xFF6D28D9),
+    shareOptionUnselectedAccent = Color(0xFF6D28D9),
+    shareOptionText = Color(0xFF2E1065),
+    shareOptionHint = Color(0xFF6D28D9),
+
+    // SETTINGS / COMMON DIALOGS
+    settingsGroupTitle = Color(0xFF2E1065),
+    settingsGroupIcon = Color(0xFF6D28D9),
+    settingsPrivacyCardBackground = Color(0xFFFFEDE9),
+    firstRunCalloutBackground = Color(0xFFFFF1EE)
 )
 
-// ─────────────────────────────────────────────
-// 6. LIGHT BASIC — Traditional light, minimal
-// ─────────────────────────────────────────────
 val LightBasicThemePalette = ThemePalette(
     colorScheme = lightColorScheme(
-        primary = Color(0xFF374151), onPrimary = Color.White,
+
+        primary = Color(0xFF374151), onPrimary = Color(0xFFFFFFFF),
         primaryContainer = Color(0xFFE5E7EB), onPrimaryContainer = Color(0xFF111827),
-        secondary = Color(0xFF4B5563), onSecondary = Color.White,
+        secondary = Color(0xFF4B5563), onSecondary = Color(0xFFFFFFFF),
         secondaryContainer = Color(0xFFE5E7EB), onSecondaryContainer = Color(0xFF111827),
-        tertiary = Color(0xFF6B7280), onTertiary = Color.White,
+        tertiary = Color(0xFF6B7280), onTertiary = Color(0xFFFFFFFF),
         tertiaryContainer = Color(0xFFF3F4F6), onTertiaryContainer = Color(0xFF111827),
         background = Color(0xFFFFFFFF), onBackground = Color(0xFF111827),
         surface = Color(0xFFFFFFFF), onSurface = Color(0xFF111827),
         surfaceVariant = Color(0xFFF3F4F6), onSurfaceVariant = Color(0xFF4B5563),
         outline = Color(0xFF9CA3AF), outlineVariant = Color(0xFFE5E7EB)
     ),
-    semanticColors = ThemeSemanticColors(Color(0xFF374151), Color(0xFFD97706)),
-    waveTop = Color(0xFF9CA3AF),
-    waveMid = Color(0xFF6B7280),
-    waveBottom = Color(0xFF374151),
-    dockBg = Color(0xFFFFFFFF),
-    dockIconColor = Color(0xFF374151),
-    fabBg = Color(0xFF374151),
-    fabIconColor = Color(0xFFFFFFFF),
-    breadcrumb = Color(0xFF6B7280),
-    sectionText = Color(0xFF4B5563),
-    dockDivider = Color(0xFFE5E7EB)
+
+    // NOTE SCREEN
+    noteCardBackground = Color(0xFFF8FAFC),
+    noteCardSelectedBackground = Color(0xFFFFECEE),
+    noteCardPinnedBackground = Color(0xFFFFE5E8),
+    noteTagBackground = Color(0xFFFFE7E9),
+    noteTagText = Color(0xFF111827),
+    noteHeaderBackground = Color(0xFF374151),
+    noteHeaderContent = Color(0xFFFFFFFF),
+    noteBreadcrumbText = Color(0xFF6B7280),
+    noteBreadcrumbDivider = Color(0xFFFF515A),
+    noteSectionTitle = Color(0xFF4B5563),
+    noteTitle = Color(0xFF111827),
+    notePreviewText = Color(0xFF4B5563),
+    noteActionIcon = Color(0xFF374151),
+    noteEmptyStateText = Color(0xFF4B5563),
+    noteSearchBackground = Color(0xFFF3F4F6),
+    noteSearchContent = Color(0xFF111827),
+    noteSearchHint = Color(0xFF4B5563),
+    notePopupBackground = Color(0xFFFFFFFF),
+    notePopupContent = Color(0xFF111827),
+    notePopupSecondaryText = Color(0xFF4B5563),
+    notePopupDivider = Color(0xFFFFF2F3),
+    noteViewModeBackground = Color(0xFFF3F4F6),
+    noteViewModeSelectedBackground = Color(0xFFFFFFFF),
+    noteViewModeSelectedIcon = Color(0xFF374151),
+    noteViewModeUnselectedIcon = Color(0xFF4B5563),
+    noteSectionChevron = Color(0xFF111827),
+    noteListDivider = Color(0xFFE5E7EB),
+    noteWavePrimary = Color(0xFFFFF5F6),
+    noteWaveSecondary = Color(0xFFFFF7F7),
+
+    // SHARED NAVIGATION
+    dockBackground = Color(0xFFFFFFFF),
+    dockIcon = Color(0xFF374151),
+    dockDivider = Color(0xFFE5E7EB),
+    fabBackground = Color(0xFF374151),
+    fabIcon = Color(0xFFFFFFFF),
+    mainNoteTabText = Color(0xFFF6F4EA),
+    mainNoteTabSelectedIndicator = Color(0xFFDDE8B5),
+
+    // SEMANTIC STATES
+    pinnedIndicator = Color(0xFF374151),
+    sensitiveIndicator = Color(0xFFD97706),
+
+    // EDITOR
+    editorText = Color(0xFF111827),
+    editorMarkdownPreviewBackground = Color(0xFFF6F6F6),
+    editorMarkdownPreviewText = Color(0xFF171717),
+    editorMarkdownPreviewMutedText = Color(0xFF5E5E5E),
+    editorMarkdownPreviewSurfaceVariant = Color(0xFFE8E8E8),
+    editorMarkdownPreviewOutline = Color(0xFF8A8A8A),
+    editorMarkdownPreviewOutlineVariant = Color(0xFFC7C7C7),
+    editorMarkdownPreviewPrimary = Color(0xFF171717),
+    editorMarkdownPreviewCodeBackground = Color(0xFFE8E8E8),
+    editorMarkdownPreviewColorScheme = "light",
+    editorToolbarBackground = Color(0xFFFFFCFC),
+    editorToolbarIcon = Color(0xFF374151),
+    editorToolbarDisabledIcon = Color(0xFFFFACAC),
+    editorMarkdownPreviewDivider = Color(0xFFFFCECE),
+    editorMarkdownPreviewShimmerBase = Color(0xFFFFE0E0),
+    editorMarkdownPreviewShimmerHighlight = Color(0xFFFFC9C9),
+
+    // VAULT
+    vaultClipboardCardBackground = Color(0xFFFFFFFF),
+    vaultClipboardCardSelectedBackground = Color(0xFFFFF6F7),
+    vaultClipboardCardPressedBackground = Color(0xFFFFF9FA),
+    vaultClipboardCardDraggingBackground = Color(0xFFE5E7EB),
+    vaultClipboardPreviewText = Color(0xFF111827),
+    vaultClipboardMetaText = Color(0xFF4B5563),
+    vaultActionIcon = Color(0xFF4B5563),
+    vaultCheckboxChecked = Color(0xFF374151),
+    vaultCheckboxUnchecked = Color(0xFF4B5563),
+    vaultDragHandle = Color(0xFF4B5563),
+    vaultDragHandleActive = Color(0xFF111827),
+    vaultEmptyStateIcon = Color(0xFFFF737A),
+    vaultGroupDivider = Color(0xFFE5E7EB),
+    vaultPopupDivider = Color(0xFFFFF2F3),
+
+    // SHARE DIALOG
+    shareOptionBackground = Color(0xFFFFFAFB),
+    shareOptionSelectedBackground = Color(0xFFFFF3F4),
+    shareOptionSelectedBorder = Color(0xFF374151),
+    shareOptionAccent = Color(0xFF374151),
+    shareOptionUnselectedAccent = Color(0xFF4B5563),
+    shareOptionText = Color(0xFF111827),
+    shareOptionHint = Color(0xFF4B5563),
+
+    // SETTINGS / COMMON DIALOGS
+    settingsGroupTitle = Color(0xFF111827),
+    settingsGroupIcon = Color(0xFF374151),
+    settingsPrivacyCardBackground = Color(0xFFFFF6F7),
+    firstRunCalloutBackground = Color(0xFFFFF9FA)
 )
 
-// ─────────────────────────────────────────────
-// 7. BASIC DARK — Traditional dark gray, minimal
-// ─────────────────────────────────────────────
 val BasicDarkThemePalette = ThemePalette(
     colorScheme = darkColorScheme(
+
         primary = Color(0xFF111827), onPrimary = Color(0xFFF9FAFB),
         primaryContainer = Color(0xFF374151), onPrimaryContainer = Color(0xFFF9FAFB),
         secondary = Color(0xFFCBD5E1), onSecondary = Color(0xFF111827),
@@ -297,24 +791,104 @@ val BasicDarkThemePalette = ThemePalette(
         surfaceVariant = Color(0xFF374151), onSurfaceVariant = Color(0xFFCBD5E1),
         outline = Color(0xFF6B7280), outlineVariant = Color(0xFF374151)
     ),
-    semanticColors = ThemeSemanticColors(Color(0xFFF9FAFB), Color(0xFFFBBF24)),
-    waveTop = Color(0xFF4B5563),
-    waveMid = Color(0xFF374151),
-    waveBottom = Color(0xFF111827),
-    dockBg = Color(0xFFF9FAFB),
-    dockIconColor = Color(0xFF111827),
-    fabBg = Color(0xFFF9FAFB),
-    fabIconColor = Color(0xFF111827),
-    breadcrumb = Color(0xFF94A3B8),
-    sectionText = Color(0xFFCBD5E1),
-    dockDivider = Color(0xFF6B7280)
+
+    // NOTE SCREEN
+    noteCardBackground = Color(0xFFFFFFFF),
+    noteCardSelectedBackground = Color(0xFFFF2C36),
+    noteCardPinnedBackground = Color(0xFFFFFEFF),
+    noteTagBackground = Color(0xFFFF4F58),
+    noteTagText = Color(0xFFF9FAFB),
+    noteHeaderBackground = Color(0xFF111827),
+    noteHeaderContent = Color(0xFFF9FAFB),
+    noteBreadcrumbText = Color(0xFF94A3B8),
+    noteBreadcrumbDivider = Color(0xFFFF535E),
+    noteSectionTitle = Color(0xFFCBD5E1),
+    noteTitle = Color(0xFFF9FAFB),
+    notePreviewText = Color(0xFFCBD5E1),
+    noteActionIcon = Color(0xFF111827),
+    noteEmptyStateText = Color(0xFFCBD5E1),
+    noteSearchBackground = Color(0xFF374151),
+    noteSearchContent = Color(0xFFF9FAFB),
+    noteSearchHint = Color(0xFFCBD5E1),
+    notePopupBackground = Color(0xFF2D3A4D),
+    notePopupContent = Color(0xFFF9FAFB),
+    notePopupSecondaryText = Color(0xFFCBD5E1),
+    notePopupDivider = Color(0xFFFF4C56),
+    noteViewModeBackground = Color(0xFF374151),
+    noteViewModeSelectedBackground = Color(0xFF2D3A4D),
+    noteViewModeSelectedIcon = Color(0xFF111827),
+    noteViewModeUnselectedIcon = Color(0xFFCBD5E1),
+    noteSectionChevron = Color(0xFFF9FAFB),
+    noteListDivider = Color(0xFF374151),
+    noteWavePrimary = Color(0xFFFF171E),
+    noteWaveSecondary = Color(0xFFFF131A),
+
+    // SHARED NAVIGATION
+    dockBackground = Color(0xFFF9FAFB),
+    dockIcon = Color(0xFF111827),
+    dockDivider = Color(0xFF6B7280),
+    fabBackground = Color(0xFFF9FAFB),
+    fabIcon = Color(0xFF111827),
+    mainNoteTabText = Color(0xFFF6F4EA),
+    mainNoteTabSelectedIndicator = Color(0xFFDDE8B5),
+
+    // SEMANTIC STATES
+    pinnedIndicator = Color(0xFFF9FAFB),
+    sensitiveIndicator = Color(0xFFFBBF24),
+
+    // EDITOR
+    editorText = Color(0xFFF9FAFB),
+    editorMarkdownPreviewBackground = Color(0xFF2B2B2B),
+    editorMarkdownPreviewText = Color(0xFFF4F4F4),
+    editorMarkdownPreviewMutedText = Color(0xFFCACACA),
+    editorMarkdownPreviewSurfaceVariant = Color(0xFF3A3A3A),
+    editorMarkdownPreviewOutline = Color(0xFF777777),
+    editorMarkdownPreviewOutlineVariant = Color(0xFF555555),
+    editorMarkdownPreviewPrimary = Color(0xFFF4F4F4),
+    editorMarkdownPreviewCodeBackground = Color(0xFF3A3A3A),
+    editorMarkdownPreviewColorScheme = "dark",
+    editorToolbarBackground = Color(0xFFFF1C23),
+    editorToolbarIcon = Color(0xFF111827),
+    editorToolbarDisabledIcon = Color(0xFFFFFD6A),
+    editorMarkdownPreviewDivider = Color(0xFFFF4F4F),
+    editorMarkdownPreviewShimmerBase = Color(0xFFFF3F3F),
+    editorMarkdownPreviewShimmerHighlight = Color(0xFFFF5353),
+
+    // VAULT
+    vaultClipboardCardBackground = Color(0xFF2D3A4D),
+    vaultClipboardCardSelectedBackground = Color(0xFFFF313C),
+    vaultClipboardCardPressedBackground = Color(0xFFFF2F3C),
+    vaultClipboardCardDraggingBackground = Color(0xFF374151),
+    vaultClipboardPreviewText = Color(0xFFF9FAFB),
+    vaultClipboardMetaText = Color(0xFFCBD5E1),
+    vaultActionIcon = Color(0xFFCBD5E1),
+    vaultCheckboxChecked = Color(0xFF111827),
+    vaultCheckboxUnchecked = Color(0xFFCBD5E1),
+    vaultDragHandle = Color(0xFFCBD5E1),
+    vaultDragHandleActive = Color(0xFFF9FAFB),
+    vaultEmptyStateIcon = Color(0xFFFF1118),
+    vaultGroupDivider = Color(0xFF374151),
+    vaultPopupDivider = Color(0xFFFF323E),
+
+    // SHARE DIALOG
+    shareOptionBackground = Color(0xFFFF313D),
+    shareOptionSelectedBackground = Color(0xFFFF323D),
+    shareOptionSelectedBorder = Color(0xFF111827),
+    shareOptionAccent = Color(0xFF111827),
+    shareOptionUnselectedAccent = Color(0xFFCBD5E1),
+    shareOptionText = Color(0xFFF9FAFB),
+    shareOptionHint = Color(0xFFCBD5E1),
+
+    // SETTINGS / COMMON DIALOGS
+    settingsGroupTitle = Color(0xFFF9FAFB),
+    settingsGroupIcon = Color(0xFF111827),
+    settingsPrivacyCardBackground = Color(0xFFFF1E26),
+    firstRunCalloutBackground = Color(0xFFFF242D)
 )
 
-// ─────────────────────────────────────────────
-// 8. DEEP OCEAN — Deep navy ocean, mysterious
-// ─────────────────────────────────────────────
 val DeepOceanThemePalette = ThemePalette(
     colorScheme = darkColorScheme(
+
         primary = Color(0xFF0A1929), onPrimary = Color(0xFFE3F2FD),
         primaryContainer = Color(0xFF14507A), onPrimaryContainer = Color(0xFFE3F2FD),
         secondary = Color(0xFF90CAF9), onSecondary = Color(0xFF0A1929),
@@ -326,24 +900,104 @@ val DeepOceanThemePalette = ThemePalette(
         surfaceVariant = Color(0xFF1E4976), onSurfaceVariant = Color(0xFF90CAF9),
         outline = Color(0xFF64B5F6), outlineVariant = Color(0xFF1E4976)
     ),
-    semanticColors = ThemeSemanticColors(Color(0xFF38BDF8), Color(0xFFFBBF24)),
-    waveTop = Color(0xFF1565C0),
-    waveMid = Color(0xFF0D47A1),
-    waveBottom = Color(0xFF0A1929),
-    dockBg = Color(0xFFE3F2FD),
-    dockIconColor = Color(0xFF0A1929),
-    fabBg = Color(0xFF38BDF8),
-    fabIconColor = Color(0xFF0A1929),
-    breadcrumb = Color(0xFF38BDF8),
-    sectionText = Color(0xFF90CAF9),
-    dockDivider = Color(0xFF64B5F6)
+
+    // NOTE SCREEN
+    noteCardBackground = Color(0xFFFFFFFF),
+    noteCardSelectedBackground = Color(0xFFFF1141),
+    noteCardPinnedBackground = Color(0xFFFFEBF8),
+    noteTagBackground = Color(0xFFFF395F),
+    noteTagText = Color(0xFFE3F2FD),
+    noteHeaderBackground = Color(0xFF0A1929),
+    noteHeaderContent = Color(0xFFE3F2FD),
+    noteBreadcrumbText = Color(0xFF38BDF8),
+    noteBreadcrumbDivider = Color(0xFFFF216B),
+    noteSectionTitle = Color(0xFF90CAF9),
+    noteTitle = Color(0xFFE3F2FD),
+    notePreviewText = Color(0xFF90CAF9),
+    noteActionIcon = Color(0xFF0A1929),
+    noteEmptyStateText = Color(0xFF90CAF9),
+    noteSearchBackground = Color(0xFF1E4976),
+    noteSearchContent = Color(0xFFE3F2FD),
+    noteSearchHint = Color(0xFF90CAF9),
+    notePopupBackground = Color(0xFF16385A),
+    notePopupContent = Color(0xFFE3F2FD),
+    notePopupSecondaryText = Color(0xFF90CAF9),
+    notePopupDivider = Color(0xFFFF3D77),
+    noteViewModeBackground = Color(0xFF1E4976),
+    noteViewModeSelectedBackground = Color(0xFF16385A),
+    noteViewModeSelectedIcon = Color(0xFF0A1929),
+    noteViewModeUnselectedIcon = Color(0xFF90CAF9),
+    noteSectionChevron = Color(0xFFE3F2FD),
+    noteListDivider = Color(0xFF1E4976),
+    noteWavePrimary = Color(0xFFFF0B21),
+    noteWaveSecondary = Color(0xFFFF0A1C),
+
+    // SHARED NAVIGATION
+    dockBackground = Color(0xFFE3F2FD),
+    dockIcon = Color(0xFF0A1929),
+    dockDivider = Color(0xFF64B5F6),
+    fabBackground = Color(0xFF38BDF8),
+    fabIcon = Color(0xFF0A1929),
+    mainNoteTabText = Color(0xFFF6F4EA),
+    mainNoteTabSelectedIndicator = Color(0xFFDDE8B5),
+
+    // SEMANTIC STATES
+    pinnedIndicator = Color(0xFF38BDF8),
+    sensitiveIndicator = Color(0xFFFBBF24),
+
+    // EDITOR
+    editorText = Color(0xFFE3F2FD),
+    editorMarkdownPreviewBackground = Color(0xFF2B2B2B),
+    editorMarkdownPreviewText = Color(0xFFF4F4F4),
+    editorMarkdownPreviewMutedText = Color(0xFFCACACA),
+    editorMarkdownPreviewSurfaceVariant = Color(0xFF3A3A3A),
+    editorMarkdownPreviewOutline = Color(0xFF777777),
+    editorMarkdownPreviewOutlineVariant = Color(0xFF555555),
+    editorMarkdownPreviewPrimary = Color(0xFFF4F4F4),
+    editorMarkdownPreviewCodeBackground = Color(0xFF3A3A3A),
+    editorMarkdownPreviewColorScheme = "dark",
+    editorToolbarBackground = Color(0xFFFF1026),
+    editorToolbarIcon = Color(0xFF0A1929),
+    editorToolbarDisabledIcon = Color(0xFFFFF55F),
+    editorMarkdownPreviewDivider = Color(0xFFFF4F4F),
+    editorMarkdownPreviewShimmerBase = Color(0xFFFF3F3F),
+    editorMarkdownPreviewShimmerHighlight = Color(0xFFFF5353),
+
+    // VAULT
+    vaultClipboardCardBackground = Color(0xFF16385A),
+    vaultClipboardCardSelectedBackground = Color(0xFFFF1540),
+    vaultClipboardCardPressedBackground = Color(0xFFFF163D),
+    vaultClipboardCardDraggingBackground = Color(0xFF14507A),
+    vaultClipboardPreviewText = Color(0xFFE3F2FD),
+    vaultClipboardMetaText = Color(0xFF90CAF9),
+    vaultActionIcon = Color(0xFF90CAF9),
+    vaultCheckboxChecked = Color(0xFF0A1929),
+    vaultCheckboxUnchecked = Color(0xFF90CAF9),
+    vaultDragHandle = Color(0xFF90CAF9),
+    vaultDragHandleActive = Color(0xFFE3F2FD),
+    vaultEmptyStateIcon = Color(0xFFFF0A19),
+    vaultGroupDivider = Color(0xFF1E4976),
+    vaultPopupDivider = Color(0xFFFF1A41),
+
+    // SHARE DIALOG
+    shareOptionBackground = Color(0xFFFF193F),
+    shareOptionSelectedBackground = Color(0xFFFF1543),
+    shareOptionSelectedBorder = Color(0xFF0A1929),
+    shareOptionAccent = Color(0xFF0A1929),
+    shareOptionUnselectedAccent = Color(0xFF90CAF9),
+    shareOptionText = Color(0xFFE3F2FD),
+    shareOptionHint = Color(0xFF90CAF9),
+
+    // SETTINGS / COMMON DIALOGS
+    settingsGroupTitle = Color(0xFFE3F2FD),
+    settingsGroupIcon = Color(0xFF0A1929),
+    settingsPrivacyCardBackground = Color(0xFFFF0E2C),
+    firstRunCalloutBackground = Color(0xFFFF1431)
 )
 
-// ─────────────────────────────────────────────
-// 9. COFFEE — Warm coffee brown, amber accents
-// ─────────────────────────────────────────────
 val CoffeeThemePalette = ThemePalette(
     colorScheme = darkColorScheme(
+
         primary = Color(0xFF2B1A12), onPrimary = Color(0xFFF5E6D3),
         primaryContainer = Color(0xFF7A3B1F), onPrimaryContainer = Color(0xFFF5E6D3),
         secondary = Color(0xFFD4A574), onSecondary = Color(0xFF2B1A12),
@@ -355,24 +1009,104 @@ val CoffeeThemePalette = ThemePalette(
         surfaceVariant = Color(0xFF6B4630), onSurfaceVariant = Color(0xFFD4A574),
         outline = Color(0xFFB08968), outlineVariant = Color(0xFF6B4630)
     ),
-    semanticColors = ThemeSemanticColors(Color(0xFFE8A87C), Color(0xFFFBBF24)),
-    waveTop = Color(0xFFA0522D),
-    waveMid = Color(0xFF7A3B1F),
-    waveBottom = Color(0xFF2B1A12),
-    dockBg = Color(0xFFF5E6D3),
-    dockIconColor = Color(0xFF2B1A12),
-    fabBg = Color(0xFFE8A87C),
-    fabIconColor = Color(0xFF2B1A12),
-    breadcrumb = Color(0xFFE8A87C),
-    sectionText = Color(0xFFD4A574),
-    dockDivider = Color(0xFFB08968)
+
+    // NOTE SCREEN
+    noteCardBackground = Color(0xFFFFFFFF),
+    noteCardSelectedBackground = Color(0xFFFF6432),
+    noteCardPinnedBackground = Color(0xFFFFFDF6),
+    noteTagBackground = Color(0xFFFF7D5C),
+    noteTagText = Color(0xFFF5E6D3),
+    noteHeaderBackground = Color(0xFF2B1A12),
+    noteHeaderContent = Color(0xFFF5E6D3),
+    noteBreadcrumbText = Color(0xFFE8A87C),
+    noteBreadcrumbDivider = Color(0xFFFF8A61),
+    noteSectionTitle = Color(0xFFD4A574),
+    noteTitle = Color(0xFFF5E6D3),
+    notePreviewText = Color(0xFFD4A574),
+    noteActionIcon = Color(0xFF2B1A12),
+    noteEmptyStateText = Color(0xFFD4A574),
+    noteSearchBackground = Color(0xFF6B4630),
+    noteSearchContent = Color(0xFFF5E6D3),
+    noteSearchHint = Color(0xFFD4A574),
+    notePopupBackground = Color(0xFF5A3826),
+    notePopupContent = Color(0xFFF5E6D3),
+    notePopupSecondaryText = Color(0xFFD4A574),
+    notePopupDivider = Color(0xFFFF8561),
+    noteViewModeBackground = Color(0xFF6B4630),
+    noteViewModeSelectedBackground = Color(0xFF5A3826),
+    noteViewModeSelectedIcon = Color(0xFF2B1A12),
+    noteViewModeUnselectedIcon = Color(0xFFD4A574),
+    noteSectionChevron = Color(0xFFF5E6D3),
+    noteListDivider = Color(0xFF6B4630),
+    noteWavePrimary = Color(0xFFFF3720),
+    noteWaveSecondary = Color(0xFFFF2F1C),
+
+    // SHARED NAVIGATION
+    dockBackground = Color(0xFFF5E6D3),
+    dockIcon = Color(0xFF2B1A12),
+    dockDivider = Color(0xFFB08968),
+    fabBackground = Color(0xFFE8A87C),
+    fabIcon = Color(0xFF2B1A12),
+    mainNoteTabText = Color(0xFFF6F4EA),
+    mainNoteTabSelectedIndicator = Color(0xFFDDE8B5),
+
+    // SEMANTIC STATES
+    pinnedIndicator = Color(0xFFE8A87C),
+    sensitiveIndicator = Color(0xFFFBBF24),
+
+    // EDITOR
+    editorText = Color(0xFFF5E6D3),
+    editorMarkdownPreviewBackground = Color(0xFF2B2B2B),
+    editorMarkdownPreviewText = Color(0xFFF4F4F4),
+    editorMarkdownPreviewMutedText = Color(0xFFCACACA),
+    editorMarkdownPreviewSurfaceVariant = Color(0xFF3A3A3A),
+    editorMarkdownPreviewOutline = Color(0xFF777777),
+    editorMarkdownPreviewOutlineVariant = Color(0xFF555555),
+    editorMarkdownPreviewPrimary = Color(0xFFF4F4F4),
+    editorMarkdownPreviewCodeBackground = Color(0xFF3A3A3A),
+    editorMarkdownPreviewColorScheme = "dark",
+    editorToolbarBackground = Color(0xFFFF3D26),
+    editorToolbarIcon = Color(0xFF2B1A12),
+    editorToolbarDisabledIcon = Color(0xFFFFFC78),
+    editorMarkdownPreviewDivider = Color(0xFFFF4F4F),
+    editorMarkdownPreviewShimmerBase = Color(0xFFFF3F3F),
+    editorMarkdownPreviewShimmerHighlight = Color(0xFFFF5353),
+
+    // VAULT
+    vaultClipboardCardBackground = Color(0xFF5A3826),
+    vaultClipboardCardSelectedBackground = Color(0xFFFF6539),
+    vaultClipboardCardPressedBackground = Color(0xFFFF6139),
+    vaultClipboardCardDraggingBackground = Color(0xFF7A3B1F),
+    vaultClipboardPreviewText = Color(0xFFF5E6D3),
+    vaultClipboardMetaText = Color(0xFFD4A574),
+    vaultActionIcon = Color(0xFFD4A574),
+    vaultCheckboxChecked = Color(0xFF2B1A12),
+    vaultCheckboxUnchecked = Color(0xFFD4A574),
+    vaultDragHandle = Color(0xFFD4A574),
+    vaultDragHandleActive = Color(0xFFF5E6D3),
+    vaultEmptyStateIcon = Color(0xFFFF2B1A),
+    vaultGroupDivider = Color(0xFF6B4630),
+    vaultPopupDivider = Color(0xFFFF633F),
+
+    // SHARE DIALOG
+    shareOptionBackground = Color(0xFFFF613E),
+    shareOptionSelectedBackground = Color(0xFFFF6839),
+    shareOptionSelectedBorder = Color(0xFF2B1A12),
+    shareOptionAccent = Color(0xFF2B1A12),
+    shareOptionUnselectedAccent = Color(0xFFD4A574),
+    shareOptionText = Color(0xFFF5E6D3),
+    shareOptionHint = Color(0xFFD4A574),
+
+    // SETTINGS / COMMON DIALOGS
+    settingsGroupTitle = Color(0xFFF5E6D3),
+    settingsGroupIcon = Color(0xFF2B1A12),
+    settingsPrivacyCardBackground = Color(0xFFFF4726),
+    firstRunCalloutBackground = Color(0xFFFF4B30)
 )
 
-// ─────────────────────────────────────────────
-// 10. OBSIDIAN — Dark violet obsidian, mysterious and refined
-// ─────────────────────────────────────────────
 val ObsidianThemePalette = ThemePalette(
     colorScheme = darkColorScheme(
+
         primary = Color(0xFF1A0F2E), onPrimary = Color(0xFFEDE9FE),
         primaryContainer = Color(0xFF5B21B6), onPrimaryContainer = Color(0xFFEDE9FE),
         secondary = Color(0xFFC4B5FD), onSecondary = Color(0xFF1A0F2E),
@@ -384,17 +1118,99 @@ val ObsidianThemePalette = ThemePalette(
         surfaceVariant = Color(0xFF4C2E6E), onSurfaceVariant = Color(0xFFC4B5FD),
         outline = Color(0xFFA78BFA), outlineVariant = Color(0xFF4C2E6E)
     ),
-    semanticColors = ThemeSemanticColors(Color(0xFFA78BFA), Color(0xFFFBBF24)),
-    waveTop = Color(0xFF8B5CF6),
-    waveMid = Color(0xFF5B21B6),
-    waveBottom = Color(0xFF1A0F2E),
-    dockBg = Color(0xFFEDE9FE),
-    dockIconColor = Color(0xFF1A0F2E),
-    fabBg = Color(0xFFA78BFA),
-    fabIconColor = Color(0xFF1A0F2E),
-    breadcrumb = Color(0xFFA78BFA),
-    sectionText = Color(0xFFC4B5FD),
-    dockDivider = Color(0xFFDDD6FE)
+
+    // NOTE SCREEN
+    noteCardBackground = Color(0xFFFFFFFF),
+    noteCardSelectedBackground = Color(0xFFFF491C),
+    noteCardPinnedBackground = Color(0xFFFFF6F3),
+    noteTagBackground = Color(0xFFFF6147),
+    noteTagText = Color(0xFFEDE9FE),
+    noteHeaderBackground = Color(0xFF1A0F2E),
+    noteHeaderContent = Color(0xFFEDE9FE),
+    noteBreadcrumbText = Color(0xFFA78BFA),
+    noteBreadcrumbDivider = Color(0xFFFF614D),
+    noteSectionTitle = Color(0xFFC4B5FD),
+    noteTitle = Color(0xFFEDE9FE),
+    notePreviewText = Color(0xFFC4B5FD),
+    noteActionIcon = Color(0xFF1A0F2E),
+    noteEmptyStateText = Color(0xFFC4B5FD),
+    noteSearchBackground = Color(0xFF4C2E6E),
+    noteSearchContent = Color(0xFFEDE9FE),
+    noteSearchHint = Color(0xFFC4B5FD),
+    notePopupBackground = Color(0xFF3A2356),
+    notePopupContent = Color(0xFFEDE9FE),
+    notePopupSecondaryText = Color(0xFFC4B5FD),
+    notePopupDivider = Color(0xFFFF8C7D),
+    noteViewModeBackground = Color(0xFF4C2E6E),
+    noteViewModeSelectedBackground = Color(0xFF3A2356),
+    noteViewModeSelectedIcon = Color(0xFF1A0F2E),
+    noteViewModeUnselectedIcon = Color(0xFFC4B5FD),
+    noteSectionChevron = Color(0xFFEDE9FE),
+    noteListDivider = Color(0xFF4C2E6E),
+    noteWavePrimary = Color(0xFFFF2517),
+    noteWaveSecondary = Color(0xFFFF1E10),
+
+    // SHARED NAVIGATION
+    dockBackground = Color(0xFFEDE9FE),
+    dockIcon = Color(0xFF1A0F2E),
+    dockDivider = Color(0xFFDDD6FE),
+    fabBackground = Color(0xFFA78BFA),
+    fabIcon = Color(0xFF1A0F2E),
+    mainNoteTabText = Color(0xFFF6F4EA),
+    mainNoteTabSelectedIndicator = Color(0xFFDDE8B5),
+
+    // SEMANTIC STATES
+    pinnedIndicator = Color(0xFFA78BFA),
+    sensitiveIndicator = Color(0xFFFBBF24),
+
+    // EDITOR
+    editorText = Color(0xFFEDE9FE),
+    editorMarkdownPreviewBackground = Color(0xFF2B2B2B),
+    editorMarkdownPreviewText = Color(0xFFF4F4F4),
+    editorMarkdownPreviewMutedText = Color(0xFFCACACA),
+    editorMarkdownPreviewSurfaceVariant = Color(0xFF3A3A3A),
+    editorMarkdownPreviewOutline = Color(0xFF777777),
+    editorMarkdownPreviewOutlineVariant = Color(0xFF555555),
+    editorMarkdownPreviewPrimary = Color(0xFFF4F4F4),
+    editorMarkdownPreviewCodeBackground = Color(0xFF3A3A3A),
+    editorMarkdownPreviewColorScheme = "dark",
+    editorToolbarBackground = Color(0xFFFF2818),
+    editorToolbarIcon = Color(0xFF1A0F2E),
+    editorToolbarDisabledIcon = Color(0xFFFFF96C),
+    editorMarkdownPreviewDivider = Color(0xFFFF4F4F),
+    editorMarkdownPreviewShimmerBase = Color(0xFFFF3F3F),
+    editorMarkdownPreviewShimmerHighlight = Color(0xFFFF5353),
+
+    // VAULT
+    vaultClipboardCardBackground = Color(0xFF3A2356),
+    vaultClipboardCardSelectedBackground = Color(0xFFFF4622),
+    vaultClipboardCardPressedBackground = Color(0xFFFF4123),
+    vaultClipboardCardDraggingBackground = Color(0xFF5B21B6),
+    vaultClipboardPreviewText = Color(0xFFEDE9FE),
+    vaultClipboardMetaText = Color(0xFFC4B5FD),
+    vaultActionIcon = Color(0xFFC4B5FD),
+    vaultCheckboxChecked = Color(0xFF1A0F2E),
+    vaultCheckboxUnchecked = Color(0xFFC4B5FD),
+    vaultDragHandle = Color(0xFFC4B5FD),
+    vaultDragHandleActive = Color(0xFFEDE9FE),
+    vaultEmptyStateIcon = Color(0xFFFF1A0F),
+    vaultGroupDivider = Color(0xFF4C2E6E),
+    vaultPopupDivider = Color(0xFFFF4329),
+
+    // SHARE DIALOG
+    shareOptionBackground = Color(0xFFFF4127),
+    shareOptionSelectedBackground = Color(0xFFFF4922),
+    shareOptionSelectedBorder = Color(0xFF1A0F2E),
+    shareOptionAccent = Color(0xFF1A0F2E),
+    shareOptionUnselectedAccent = Color(0xFFC4B5FD),
+    shareOptionText = Color(0xFFEDE9FE),
+    shareOptionHint = Color(0xFFC4B5FD),
+
+    // SETTINGS / COMMON DIALOGS
+    settingsGroupTitle = Color(0xFFEDE9FE),
+    settingsGroupIcon = Color(0xFF1A0F2E),
+    settingsPrivacyCardBackground = Color(0xFFFF3115),
+    firstRunCalloutBackground = Color(0xFFFF331F)
 )
 
 fun themePaletteFor(preset: ThemePreset): ThemePalette = when (preset) {
