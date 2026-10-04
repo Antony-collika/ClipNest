@@ -165,7 +165,6 @@ fun NoteScreen(
     val previewNote = noteCards.firstOrNull { it.id == previewNoteId }
 
     val palette = LocalThemePalette.current
-    val noteColors = palette.noteColors()
 
     Box(modifier.fillMaxSize()) {
         Canvas(
@@ -205,12 +204,12 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
                     topics = topics,
                     colors = MaterialTheme.colorScheme,
                     typography = MaterialTheme.typography,
-                    headerSurface = noteColors.headerSurface,
-                    headerContent = noteColors.headerContent,
-                    breadcrumb = noteColors.breadcrumb,
-                    sectionText = noteColors.sectionText,
-                    tagSurface = noteColors.tagSurface,
-                    tagContent = noteColors.tagContent,
+                    headerSurface = palette.noteHeaderBackground,
+                    headerContent = palette.noteHeaderContent,
+                    breadcrumb = palette.noteBreadcrumbText,
+                    sectionText = palette.noteSectionTitle,
+                    tagSurface = palette.noteTagBackground,
+                    tagContent = palette.noteTagText,
                     viewMode = viewMode,
                     pinnedLabel = androidx.compose.ui.res.stringResource(R.string.pinned),
                     pinnedExpanded = pinnedExpanded,
@@ -248,7 +247,7 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
                         } else {
                             androidx.compose.ui.res.stringResource(R.string.no_search_results)
                         },
-                        color = noteColors.emptyStateText
+                        color = palette.noteEmptyStateText
                     )
                 }
             } else {
@@ -310,7 +309,7 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
         .align(Alignment.BottomCenter)
         .padding(horizontal = 18.dp, vertical = 18.dp),
     shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
-    color = noteColors.dockSurface,
+    color = palette.dockBackground,
     tonalElevation = 2.dp,
     shadowElevation = 3.dp
 ) {
@@ -328,7 +327,7 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
                     Icon(
                         Icons.Default.Menu,
                         contentDescription = androidx.compose.ui.res.stringResource(R.string.menu),
-                        tint = noteColors.dockIcon
+                        tint = palette.dockIcon
                     )
                 }
                 IconButton(
@@ -338,7 +337,7 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
                     Icon(
                         Icons.Default.Search,
                         contentDescription = androidx.compose.ui.res.stringResource(R.string.search_notes),
-                        tint = noteColors.dockIcon
+                        tint = palette.dockIcon
                     )
                 }
                 VerticalDivider(
@@ -352,7 +351,7 @@ IconButton(
     Icon(
         Icons.Default.Edit,
         contentDescription = androidx.compose.ui.res.stringResource(R.string.new_note),
-        tint = noteColors.dockIcon
+        tint = palette.dockIcon
     )
 }
 VerticalDivider(
@@ -367,7 +366,7 @@ VerticalDivider(
                         Icon(
                             Icons.Default.MoreVert,
                             contentDescription = androidx.compose.ui.res.stringResource(R.string.more_options),
-                            tint = noteColors.dockIcon
+                            tint = palette.dockIcon
                         )
                     }
                     DropdownMenu(
