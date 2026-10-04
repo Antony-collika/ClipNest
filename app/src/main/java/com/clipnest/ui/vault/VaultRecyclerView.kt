@@ -1,6 +1,5 @@
 package com.clipnest.ui.vault
 
-import android.animation.ArgbEvaluator
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
@@ -500,7 +499,7 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
 
             val masked = card.isSensitive && isMaskingEnabled && !isSensitiveRevealed
             preview.text = if (masked) "•••••••••••••••• ${context.getString(com.clipnest.R.string.sensitive)}" else card.preview
-            preview.setTextColor(if (masked) colors.sensitiveIndicatorIndicator else colors.vaultClipboardPreviewText)
+            preview.setTextColor(if (masked) colors.sensitiveIndicator else colors.vaultClipboardPreviewText)
             preview.setTypeface(Typeface.DEFAULT, if (masked) Typeface.BOLD else Typeface.NORMAL)
             sensitiveRow.visibility = if (card.isSensitive) VISIBLE else GONE
             sensitiveLabel.visibility = if (card.isSensitive && !masked) VISIBLE else GONE
@@ -517,7 +516,7 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
             )
             timestamp.setTextColor(colors.vaultClipboardMetaText)
             pinnedLabel.visibility = if (card.pinned) VISIBLE else GONE
-            pinnedLabel.setTextColor(colors.pinnedIndicatorIndicator)
+            pinnedLabel.setTextColor(colors.pinnedIndicator)
             copyButton.imageTintList = ColorStateList.valueOf(colors.vaultActionIcon)
             copyButton.setOnClickListener { onCopy() }
             dragHandle.setDotColor(colors.vaultDragHandle)
