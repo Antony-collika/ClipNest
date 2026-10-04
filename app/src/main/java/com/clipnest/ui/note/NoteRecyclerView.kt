@@ -163,6 +163,7 @@ internal fun NoteHeaderContent(state: NoteHeaderState, modifier: Modifier = Modi
                 ) {
                     Text(
                         text = state.myTopicsLabel,
+                        color = state.breadcrumb,
                         style = MaterialTheme.typography.labelLarge,
                         maxLines = 1
                     )
@@ -195,6 +196,7 @@ internal fun NoteHeaderContent(state: NoteHeaderState, modifier: Modifier = Modi
             // 4. Tên topic đang chọn
             Text(
                 text = state.currentTopicLabel,
+                color = state.breadcrumb,
                 style = MaterialTheme.typography.labelLarge,
                 maxLines = 1,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
@@ -760,7 +762,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             checkbox.isChecked = selected
 
             title.text = note.title.ifBlank { context.getString(R.string.untitled) }
-            title.setTextColor(colors.onSurface)
+            title.setTextColor(colors.noteTitle)
 
             label.text = note.topicLabels
             label.visibility = if (note.topicLabels.isBlank()) GONE else VISIBLE
@@ -773,9 +775,9 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             label.setPadding(dp(8), dp(3), dp(8), dp(3))
 
             preview.text = note.preview.ifBlank { context.getString(R.string.untitled) }
-            preview.setTextColor(colors.onSurfaceVariant)
+            preview.setTextColor(colors.notePreview)
 
-            editButton.imageTintList = ColorStateList.valueOf(colors.onSurfaceVariant)
+            editButton.imageTintList = ColorStateList.valueOf(colors.noteActionIcon)
             editButton.setOnClickListener { onEdit() }
 
             setOnClickListener {
