@@ -13,6 +13,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.viewinterop.AndroidView
 
 private class FastScrollWebView(context: android.content.Context) : WebView(context) {
+    var scrollThumbColor: Int? = null
+    var scrollThumbActiveColor: Int? = null
     private var draggingFastScroll = false
     private val thumbWidthPx = dp(4)
     private val hitWidthPx = dp(24)
@@ -70,7 +72,7 @@ private class FastScrollWebView(context: android.content.Context) : WebView(cont
         val thumbHeight = (height.toFloat() * extent / range).toInt().coerceAtLeast(minThumbHeightPx).coerceAtMost(height)
         val travel = (height - thumbHeight).coerceAtLeast(0)
         val top = if (travel == 0) 0f else travel.toFloat() * scrollY.coerceIn(0, maxScroll) / maxScroll
-        paint.color = if (draggingFastScroll) previewScrollThumbActiveColor else previewScrollThumbColor
+        paint.color = if (draggingFastScroll) scrollThumbActiveColor ?: return else scrollThumbColor ?: return
         val left = width - thumbWidthPx.toFloat()
         rect.set(left, top, width.toFloat(), top + thumbHeight)
         canvas.drawRoundRect(rect, thumbWidthPx.toFloat(), thumbWidthPx.toFloat(), paint)
@@ -122,6 +124,8 @@ internal fun MarkdownPreviewWebView(
     AndroidView(
         factory = { context ->
             FastScrollWebView(context).apply {
+                scrollThumbColor = previewScrollThumbColor
+                scrollThumbActiveColor = previewScrollThumbActiveColor
                 settings.setSupportZoom(true)
                 settings.builtInZoomControls = true
                 settings.displayZoomControls = false
@@ -148,6 +152,8 @@ internal fun MarkdownPreviewWebView(
         },
         update = { webView ->
             webView.setBackgroundColor(previewSurfaceColor)
+            webView.scrollThumbColor = previewScrollThumbColor
+            webView.scrollThumbActiveColor = previewScrollThumbActiveColor
             if (webView.requestedHtml != html) {
                 val previousScrollY = webView.scrollY
                 webView.requestedHtml = html
