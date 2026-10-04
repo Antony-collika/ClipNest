@@ -162,7 +162,7 @@ private fun VaultCardList(
     val semanticColors = palette.semanticColors
     val noteColors = palette.noteColors()
     val colors = VaultRecyclerColors(
-        surface = noteColors.noteTitle.toArgb(),
+        surface = noteColors.card.toArgb(),
         onSurface = noteColors.noteTitle.toArgb(),
         onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant.toArgb(),
         primary = MaterialTheme.colorScheme.primary.toArgb(),
