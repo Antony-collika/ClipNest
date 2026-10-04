@@ -68,21 +68,18 @@ import com.clipnest.domain.RelativeDateLabels
 import com.clipnest.domain.RelativeTimeFormatter
 
 internal data class NoteRecyclerColors(
-    val surface: Int,
-    val onSurface: Int,
-    val onSurfaceVariant: Int,
-    val primary: Int,
-    val primaryContainer: Int,
-    val outlineVariant: Int,
-    val pinned: Int,
-    val noteCard: Int,
-    val noteSelectedCard: Int,
-    val notePinnedSurface: Int,
-    val noteTagSurface: Int,
+    val noteCardBackground: Int,
+    val noteCardSelectedBackground: Int,
+    val noteTagBackground: Int,
     val noteTagContent: Int,
-    val sectionText: Int,
+    val noteSectionTitle: Int,
+    val noteSectionChevron: Int,
+    val noteCardSelectionChecked: Int,
+    val noteCardSelectionUnchecked: Int,
+    val noteListDivider: Int,
+    val pinnedIndicator: Int,
     val noteTitle: Int,
-    val notePreview: Int,
+    val notePreviewText: Int,
     val noteActionIcon: Int
 )
 
@@ -292,24 +289,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
         onLongPress = { _, _ -> },
         onEdit = {}
     )
-    private var currentColors = NoteRecyclerColors(
-        surface = Color.WHITE,
-        onSurface = Color.BLACK,
-        onSurfaceVariant = Color.DKGRAY,
-        primary = Color.DKGRAY,
-        primaryContainer = Color.LTGRAY,
-        outlineVariant = Color.LTGRAY,
-        pinned = Color.DKGRAY,
-        noteCard = Color.WHITE,
-        noteSelectedCard = Color.LTGRAY,
-        notePinnedSurface = Color.LTGRAY,
-        noteTagSurface = Color.LTGRAY,
-        noteTagContent = Color.DKGRAY,
-        sectionText = Color.DKGRAY,
-        noteTitle = Color.BLACK,
-        notePreview = Color.DKGRAY,
-        noteActionIcon = Color.DKGRAY
-    )
+    private lateinit var currentColors: NoteRecyclerColors
     private val spacingDecoration = NoteSpacingDecoration(dp(14))
 
     init {
@@ -329,10 +309,10 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
         callbacks: NoteRecyclerCallbacks
     ) {
         this.callbacks = callbacks
-        val decorationChanged = currentColors.outlineVariant != colors.outlineVariant
+        val decorationChanged = ::currentColors.isInitialized && currentColors.noteListDivider != colors.noteListDivider
         currentColors = colors
         if (decorationChanged) {
-            spacingDecoration.setSpacingColor(colors.outlineVariant)
+            spacingDecoration.setSpacingColor(colors.noteListDivider)
             invalidateItemDecorations()
         }
 
@@ -361,7 +341,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
     private inner class NoteAdapter(private val context: Context) : ListAdapter<NoteListItem, RecyclerView.ViewHolder>(ITEM_DIFF_CALLBACK) {
         private var selectedIds: Set<Long> = emptySet()
         private var pinnedIds: Set<Long> = emptySet()
-        private var colors = currentColors
+        private lateinit var colors: NoteRecyclerColors
         private var currentSourceIds: List<Long> = emptyList()
         private var currentHeader: NoteHeaderState? = null
         private var pinnedToggle: ((Boolean) -> Unit)? = null
@@ -434,11 +414,11 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
 
             if (item.id == "pinned" && onPinnedToggle != null) {
                 view.text = "📌 ${item.title} · ${item.count} notes"
-                view.setTextColor(colors.sectionText)
+                view.setTextColor(colors.noteSectionTitle)
                 view.setBackgroundColor(Color.TRANSPARENT)
                 view.elevation = 0f
                 view.setCompoundDrawablePadding(dp(8))
-                view.setCompoundDrawablesWithIntrinsicBounds(null, null, ChevronDrawable(view.resources.displayMetrics.density, pinnedExpandedState, colors.onSurface), null)
+                view.setCompoundDrawablesWithIntrinsicBounds(null, null, ChevronDrawable(view.resources.displayMetrics.density, pinnedExpandedState, colors.noteSectionChevron), null)
                 view.contentDescription = item.title + " " + item.count
                 view.isClickable = true
                 view.isFocusable = true
@@ -448,7 +428,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
                 }
             } else {
                 view.text = item.title
-                view.setTextColor(colors.onSurface)
+                view.setTextColor(colors.noteSectionTitle)
                 view.background = null
                 view.elevation = 0f
                 view.setCompoundDrawablesWithIntrinsicBounds(0, 0, 0, 0)
@@ -558,18 +538,18 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             label = TextView(context).apply { layoutParams = LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f).apply { topMargin = dp(6) }; maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END; textSize = 12f; gravity = Gravity.BOTTOM or Gravity.START }; addView(label);addView(actions)
         }
         fun bind(note: NoteCardProjection, selected: Boolean, colors: NoteRecyclerColors, onToggleSelect: () -> Unit, onLongPress: () -> Unit, onEdit: () -> Unit) {
-            background = GradientDrawable().apply { shape = GradientDrawable.RECTANGLE; cornerRadius = dp(18).toFloat(); setColor(if (selected) colors.noteSelectedCard else colors.noteCard) }
+            background = GradientDrawable().apply { shape = GradientDrawable.RECTANGLE; cornerRadius = dp(18).toFloat(); setColor(if (selected) colors.noteCardSelectedBackground else colors.noteCardBackground) }
             elevation = dp(2).toFloat()
-            checkbox.buttonTintList = ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(colors.primary, colors.onSurfaceVariant)); checkbox.isChecked = selected; checkbox.setOnClickListener { onToggleSelect() }
+            checkbox.buttonTintList = ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(colors.noteCardSelectionChecked, colors.noteCardSelectionUnchecked)); checkbox.isChecked = selected; checkbox.setOnClickListener { onToggleSelect() }
             title.text = note.title.ifBlank { context.getString(R.string.untitled) }; title.setTextColor(colors.noteTitle)
-            preview.text = note.preview.ifBlank { context.getString(R.string.untitled) }; preview.setTextColor(colors.notePreview)
+            preview.text = note.preview.ifBlank { context.getString(R.string.untitled) }; preview.setTextColor(colors.notePreviewText)
             label.text = note.topicLabels
             label.visibility = if (note.topicLabels.isBlank()) GONE else VISIBLE
             label.setTextColor(colors.noteTagContent)
             label.background = if (note.topicLabels.isBlank()) null else GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dp(10).toFloat()
-                setColor(colors.noteTagSurface)
+                setColor(colors.noteTagBackground)
             }
             label.setPadding(dp(8), dp(3), dp(8), dp(3))
             editButton.imageTintList = ColorStateList.valueOf(colors.noteActionIcon); editButton.setOnClickListener { onEdit() }
