@@ -1,5 +1,6 @@
 package com.clipnest.ui.editor
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,6 +23,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.clipnest.ui.theme.LocalThemePalette
 
 /**
  * Breadcrumb row above the toolbar. Its actions are mode-specific:
@@ -40,9 +42,12 @@ fun EditorNoteBreadcrumbBar(
     onSaveToNote: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val palette = LocalThemePalette.current
+
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .background(palette.noteBreadcrumbBackground)
             .padding(horizontal = 4.dp, vertical = 1.5.dp)
             .testTag("note_breadcrumb_bar"),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -57,7 +62,7 @@ fun EditorNoteBreadcrumbBar(
                     Icon(
                         Icons.Default.ArrowBack,
                         contentDescription = stringResource(com.clipnest.R.string.back),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        tint = palette.noteBreadcrumbText
                     )
                 }
             } else {
@@ -70,7 +75,7 @@ fun EditorNoteBreadcrumbBar(
                     else -> stringResource(com.clipnest.R.string.note_breadcrumb_default)
                 },
                 style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = palette.noteBreadcrumbText,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -82,7 +87,7 @@ fun EditorNoteBreadcrumbBar(
             Icon(
                 if (mode == EditorMode.NOTE) Icons.Default.Save else Icons.Default.Save,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
+                tint = palette.noteBreadcrumbText,
                 modifier = Modifier.padding(end = 4.dp)
             )
             Text(
@@ -90,7 +95,7 @@ fun EditorNoteBreadcrumbBar(
                     stringResource(com.clipnest.R.string.save_file)
                 else
                     stringResource(com.clipnest.R.string.save_to_note),
-                color = MaterialTheme.colorScheme.primary
+                color = palette.noteBreadcrumbText
             )
         }
     }
