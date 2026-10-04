@@ -254,7 +254,7 @@ fun EditorScreen(
                     },
                     update = {
                         it.setEditorTextSize(editorTextSize)
-                        it.setEditorTextColor(editorTextColor)
+                        it.setEditorTextColor(editorTextColor.toArgb())
                         nativeEditorView = it
                         if (uiState.showMarkdownPreview) it.hideKeyboardAndClearFocus()
                         viewModel.bindNativeEditor(it)
