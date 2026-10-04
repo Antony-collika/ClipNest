@@ -87,8 +87,6 @@ fun VaultScreen(
     }
 
     if (uiState.showInAppCaptureSheet) {
-
-    if (uiState.showInAppCaptureSheet) {
         InAppCaptureSheet(
             onDismiss = viewModel::closeInAppCapture,
             onSave = viewModel::saveInAppCapture
