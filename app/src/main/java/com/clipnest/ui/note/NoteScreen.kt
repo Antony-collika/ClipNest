@@ -266,11 +266,11 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
                     noteSelectedCard = noteColors.selectedCard.toArgb(),
                     notePinnedSurface = noteColors.pinnedSurface.toArgb(),
                     noteTagSurface = noteColors.tagSurface.toArgb(),
-                    noteTagContent = noteColors.noteLabel.toArgb(),
+                    noteTagContent = noteColors.cardLabel.toArgb(),
                     sectionText = noteColors.sectionText.toArgb(),
-                    cardTitle = noteColors.noteTitle.toArgb(),
-                    cardPreview = noteColors.notePreview.toArgb(),
-                    cardActionIcon = noteColors.noteActionIcon.toArgb()
+                    cardTitle = noteColors.cardTitle.toArgb(),
+                    cardPreview = noteColors.cardPreview.toArgb(),
+                    cardActionIcon = noteColors.cardActionIcon.toArgb()
                 )
                 Box(Modifier.fillMaxWidth().weight(1f)) {
                     AndroidView(
