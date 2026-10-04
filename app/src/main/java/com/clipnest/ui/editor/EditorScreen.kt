@@ -63,6 +63,7 @@ import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.clipnest.data.local.EditorTextSize
+import com.clipnest.ui.theme.LocalThemePalette
 import com.clipnest.data.local.ViewerTextSize
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -131,13 +132,22 @@ fun EditorScreen(
     val pendingEncryptedOpen by viewModel.pendingEncryptedOpen.collectAsStateWithLifecycle()
     val topicSuggestionSession by viewModel.topicSuggestionSession.collectAsStateWithLifecycle()
     val topicSuggestions by viewModel.topicSuggestions.collectAsStateWithLifecycle()
-    val isDark = MaterialTheme.colorScheme.background.red < 0.5f
-    val editorTextColor = MaterialTheme.colorScheme.onBackground.toArgb()
-    val previewBackground = if (isDark) Color(0xFF2B2B2B) else Color(0xFFF6F6F6)
-    val previewTextColor = if (isDark) Color(0xFFF4F4F4) else Color(0xFF171717)
-    val previewMutedColor = if (isDark) Color(0xFFCACACA) else Color(0xFF5E5E5E)
-    val previewColors = remember(isDark) {
-        MarkdownPreviewColors.from(previewBackground, previewTextColor, previewMutedColor, if (isDark) Color(0xFF3A3A3A) else Color(0xFFE8E8E8), if (isDark) Color(0xFF777777) else Color(0xFF8A8A8A), if (isDark) Color(0xFF555555) else Color(0xFFC7C7C7), previewTextColor, if (isDark) Color(0xFF3A3A3A) else Color(0xFFE8E8E8), isDark)
+    val palette = LocalThemePalette.current
+    val editorTextColor = palette.editorText
+    val previewBackground = palette.editorMarkdownPreviewBackground
+    val previewTextColor = palette.editorMarkdownPreviewText
+    val previewColors = remember(palette) {
+        MarkdownPreviewColors.from(
+            background = palette.editorMarkdownPreviewBackground,
+            onSurface = palette.editorMarkdownPreviewText,
+            onSurfaceVariant = palette.editorMarkdownPreviewMutedText,
+            surfaceVariant = palette.editorMarkdownPreviewSurfaceVariant,
+            outline = palette.editorMarkdownPreviewOutline,
+            outlineVariant = palette.editorMarkdownPreviewOutlineVariant,
+            primary = palette.editorMarkdownPreviewPrimary,
+            codeBackground = palette.editorMarkdownPreviewCodeBackground,
+            colorScheme = palette.editorMarkdownPreviewColorScheme
+        )
     }
     var previewHtml by remember { mutableStateOf("") }
     var tocHeadings by remember { mutableStateOf<List<MarkdownHeading>>(emptyList()) }
@@ -363,17 +373,17 @@ private fun EditorToolbox(
     onTogglePreview: () -> Unit
 ) {
     val contentToolsEnabled = !caretInTitle
-    val disabledTint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
-    Surface(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f), modifier = Modifier.fillMaxWidth().testTag("editor_toolbox")) {
+    val disabledTint = LocalThemePalette.current.editorToolbarDisabledIcon
+    Surface(color = LocalThemePalette.current.editorToolbarBackground, modifier = Modifier.fillMaxWidth().testTag("editor_toolbox")) {
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(1.dp), verticalAlignment = Alignment.CenterVertically) {
             EditorToolButton("editor_action_cut", "Cut", Icons.Default.ContentCut, onCut)
             EditorToolButton("editor_action_copy", stringResource(com.clipnest.R.string.copy_selected), Icons.Default.ContentCopy, onCopy)
             EditorToolButton("editor_action_paste", stringResource(com.clipnest.R.string.paste), Icons.Default.ContentPaste, onPaste)
             EditorToolButton("editor_action_select_all", stringResource(com.clipnest.R.string.select_all), Icons.Default.SelectAll, onSelectAll)
             EditorToolButton("editor_action_delete", stringResource(com.clipnest.R.string.delete_selected), Icons.Default.Delete, onDelete)
-            EditorToolButton("editor_action_undo", stringResource(com.clipnest.R.string.undo), Icons.AutoMirrored.Filled.Undo, onUndo, enabled = contentToolsEnabled, tint = if (contentToolsEnabled) MaterialTheme.colorScheme.primary else disabledTint)
-            EditorToolButton("editor_action_redo", stringResource(com.clipnest.R.string.redo), Icons.AutoMirrored.Filled.Redo, onRedo, enabled = contentToolsEnabled, tint = if (contentToolsEnabled) MaterialTheme.colorScheme.primary else disabledTint)
-            EditorToolButton("markdown_action_view", if (isPreviewVisible) stringResource(com.clipnest.R.string.hide_markdown_preview) else stringResource(com.clipnest.R.string.show_markdown_preview), if (isPreviewVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility, onTogglePreview, enabled = contentToolsEnabled, tint = if (contentToolsEnabled) MaterialTheme.colorScheme.primary else disabledTint)
+            EditorToolButton("editor_action_undo", stringResource(com.clipnest.R.string.undo), Icons.AutoMirrored.Filled.Undo, onUndo, enabled = contentToolsEnabled, tint = if (contentToolsEnabled) LocalThemePalette.current.editorToolbarIcon else disabledTint)
+            EditorToolButton("editor_action_redo", stringResource(com.clipnest.R.string.redo), Icons.AutoMirrored.Filled.Redo, onRedo, enabled = contentToolsEnabled, tint = if (contentToolsEnabled) LocalThemePalette.current.editorToolbarIcon else disabledTint)
+            EditorToolButton("markdown_action_view", if (isPreviewVisible) stringResource(com.clipnest.R.string.hide_markdown_preview) else stringResource(com.clipnest.R.string.show_markdown_preview), if (isPreviewVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility, onTogglePreview, enabled = contentToolsEnabled, tint = if (contentToolsEnabled) LocalThemePalette.current.editorToolbarIcon else disabledTint)
             MarkdownTextButton("markdown_action_h1", "H1", stringResource(com.clipnest.R.string.markdown_h1), enabled = contentToolsEnabled) { onHeading(1) }
             MarkdownTextButton("markdown_action_h2", "H2", stringResource(com.clipnest.R.string.markdown_h2), enabled = contentToolsEnabled) { onHeading(2) }
             MarkdownTextButton("markdown_action_h3", "H3", stringResource(com.clipnest.R.string.markdown_h3), enabled = contentToolsEnabled) { onHeading(3) }
@@ -390,7 +400,7 @@ private fun EditorToolbox(
 
 @Composable
 private fun MarkdownTextButton(tag: String, label: String, description: String, bold: Boolean = false, italic: Boolean = false, enabled: Boolean = true, onClick: () -> Unit) {
-    val contentColor = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+    val contentColor = if (enabled) LocalThemePalette.current.editorToolbarIcon else LocalThemePalette.current.editorToolbarDisabledIcon
     Surface(color = Color.Transparent, contentColor = contentColor, shape = RoundedCornerShape(6.dp), modifier = Modifier.size(48.dp).testTag(tag).semantics { role = Role.Button; contentDescription = description }) {
         Box(Modifier.fillMaxSize().clickable(enabled = enabled, onClick = onClick), contentAlignment = Alignment.Center) {
             Text(label, style = MaterialTheme.typography.labelMedium.copy(color = contentColor, fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal, fontStyle = if (italic) FontStyle.Italic else FontStyle.Normal))
@@ -399,7 +409,7 @@ private fun MarkdownTextButton(tag: String, label: String, description: String, 
 }
 
 @Composable
-private fun EditorToolButton(tag: String, description: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit, enabled: Boolean = true, tint: Color = MaterialTheme.colorScheme.primary) {
+private fun EditorToolButton(tag: String, description: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit, enabled: Boolean = true, tint: Color = LocalThemePalette.current.editorToolbarIcon) {
     IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(48.dp).testTag(tag).semantics { role = Role.Button; contentDescription = description }) { Icon(icon, null, tint = tint, modifier = Modifier.size(22.dp)) }
 }
 
@@ -440,7 +450,7 @@ private fun MarkdownPreviewDialog(html: String, headings: List<MarkdownHeading>,
                         }
                         IconButton(::dismiss, Modifier.size(44.dp).testTag("markdown_preview_close")) { Icon(Icons.Default.Close, stringResource(com.clipnest.R.string.close), tint = contentColor) }
                     }
-                    HorizontalDivider(color = contentColor.copy(alpha = 0.18f))
+                    HorizontalDivider(color = LocalThemePalette.current.editorMarkdownPreviewDivider)
                     Box(Modifier.fillMaxSize().padding(start = 20.dp, end = 20.dp, bottom = 20.dp)) {
                         if (showToc) {
                             if (tocIndexing) Text("🔹Loading . . .", modifier = Modifier.fillMaxWidth().padding(20.dp), style = MaterialTheme.typography.bodyLarge)
@@ -469,7 +479,7 @@ private fun MarkdownPreviewLoadingOverlay(visible: Boolean, backgroundColor: Col
 private fun MarkdownPreviewShimmer(backgroundColor: Color, contentColor: Color) {
     val transition = rememberInfiniteTransition(label = "markdown_preview_shimmer")
     val progress by transition.animateFloat(-1f, 2f, infiniteRepeatable(tween(1100, easing = LinearEasing), RepeatMode.Restart), label = "markdown_preview_shimmer_progress")
-    val base = contentColor.copy(alpha = .10f); val highlight = contentColor.copy(alpha = .20f)
+    val base = LocalThemePalette.current.editorMarkdownPreviewShimmerBase; val highlight = LocalThemePalette.current.editorMarkdownPreviewShimmerHighlight
     Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) { MarkdownShimmerLine(progress, base, highlight, .72f); MarkdownShimmerLine(progress, base, highlight, .92f); MarkdownShimmerLine(progress, base, highlight, .58f); Spacer(Modifier.weight(1f)) }
 }
 
