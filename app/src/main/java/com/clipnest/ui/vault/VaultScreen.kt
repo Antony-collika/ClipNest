@@ -170,7 +170,6 @@ private fun VaultCardList(
         vaultCheckboxChecked = palette.vaultCheckboxChecked.toArgb(),
         vaultCheckboxUnchecked = palette.vaultCheckboxUnchecked.toArgb(),
         vaultDragHandle = palette.vaultDragHandle.toArgb(),
-        vaultDragHandleActive = palette.vaultDragHandleActive.toArgb(),
         pinnedIndicator = palette.pinnedIndicator.toArgb(),
         sensitiveIndicator = palette.sensitiveIndicator.toArgb(),
         vaultGroupDivider = palette.vaultGroupDivider.toArgb()
