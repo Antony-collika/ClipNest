@@ -526,7 +526,9 @@ val SnowSapphireThemePalette = ThemePalette(
     settingsGroupIcon = Color(0xFF1E3A8A),
     settingsPrivacyCardBackground = Color(0xFFDCEAF7),
     firstRunCalloutBackground = Color(0xFFE2EEF9)
-)val SakuraThemePalette = ThemePalette(
+)
+
+val SakuraThemePalette = ThemePalette(
     colorScheme = lightColorScheme(
 
         primary = Color(0xFF9D174D), onPrimary = Color(0xFFFFFFFF),
