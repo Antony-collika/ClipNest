@@ -66,6 +66,7 @@ import com.clipnest.data.model.NoteCardProjection
 import com.clipnest.data.model.Topic
 import com.clipnest.domain.RelativeDateLabels
 import com.clipnest.domain.RelativeTimeFormatter
+import com.clipnest.ui.theme.LocalThemePalette
 
 internal data class NoteRecyclerColors(
     val noteCardBackground: Int,
@@ -91,14 +92,7 @@ internal data class NoteHeaderState(
     val currentTopicLabel: String,
     val allNotesLabel: String,
     val topics: List<Topic>,
-    val colors: androidx.compose.material3.ColorScheme,
     val typography: androidx.compose.material3.Typography,
-    val headerSurface: androidx.compose.ui.graphics.Color,
-    val headerContent: androidx.compose.ui.graphics.Color,
-    val breadcrumb: androidx.compose.ui.graphics.Color,
-    val sectionText: androidx.compose.ui.graphics.Color,
-    val tagSurface: androidx.compose.ui.graphics.Color,
-    val tagContent: androidx.compose.ui.graphics.Color,
     val viewMode: NoteViewMode,
     val pinnedLabel: String,
     val pinnedExpanded: Boolean,
@@ -121,12 +115,13 @@ internal data class NoteRecyclerCallbacks(
 @Composable
 internal fun NoteHeaderContent(state: NoteHeaderState, modifier: Modifier = Modifier) {
     var expanded by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    val palette = LocalThemePalette.current
 
     Surface(
         modifier = modifier,
         shape = androidx.compose.ui.graphics.RectangleShape,
-        color = state.headerSurface,
-        contentColor = state.headerContent
+        color = palette.noteHeaderBackground,
+        contentColor = palette.noteHeaderContent
     ) {
         Row(
             modifier = Modifier
@@ -137,14 +132,14 @@ internal fun NoteHeaderContent(state: NoteHeaderState, modifier: Modifier = Modi
             // 1. Avatar — trang trí, không bấm
             Surface(
                 shape = RoundedCornerShape(50),
-                color = state.tagSurface,
+                color = palette.noteTagBackground,
                 modifier = Modifier.size(36.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = state.avatarIcon,
                         contentDescription = null,
-                        tint = state.tagContent,
+                        tint = palette.noteTagText,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -185,7 +180,7 @@ internal fun NoteHeaderContent(state: NoteHeaderState, modifier: Modifier = Modi
             Text(
                 text = "|",
                 style = MaterialTheme.typography.labelLarge,
-                color = state.breadcrumb,
+                color = palette.noteBreadcrumbText,
                 modifier = Modifier.padding(horizontal = 4.dp)
             )
 
@@ -215,11 +210,12 @@ private fun ViewModeButton(
     selected: NoteViewMode,
     onViewModeChanged: (NoteViewMode) -> Unit
 ) {
+    val palette = LocalThemePalette.current
     Box(
         modifier = Modifier
             .size(width = 80.dp, height = 40.dp)
             .background(
-                color = MaterialTheme.colorScheme.surfaceVariant,
+                color = palette.noteViewModeBackground,
                 shape = RoundedCornerShape(12.dp)
             )
     ) {
@@ -234,7 +230,7 @@ private fun ViewModeButton(
                 .align(Alignment.CenterStart)
                 .offset(x = selectedOffset)
                 .background(
-                    color = MaterialTheme.colorScheme.surface,
+                    color = palette.noteViewModeSelectedBackground,
                     shape = RoundedCornerShape(9.dp)
                 )
         )
@@ -273,9 +269,9 @@ private fun ViewModeIconButton(
             imageVector = icon,
             contentDescription = description,
             tint = if (selected) {
-                MaterialTheme.colorScheme.primary
+                palette.noteViewModeSelectedIcon
             } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
+                palette.noteViewModeUnselectedIcon
             },
             modifier = Modifier.size(20.dp)
         )
