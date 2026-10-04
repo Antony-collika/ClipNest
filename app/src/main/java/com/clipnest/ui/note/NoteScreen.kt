@@ -314,7 +314,7 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
         .align(Alignment.BottomCenter)
         .padding(horizontal = 18.dp, vertical = 18.dp),
     shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
-    color = noteColors.dockSurface,
+    color = noteColors.dockBackground,
     tonalElevation = 2.dp,
     shadowElevation = 3.dp
 ) {
