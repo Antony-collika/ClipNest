@@ -99,6 +99,7 @@ internal data class NoteHeaderState(
     val headerSurface: androidx.compose.ui.graphics.Color,
     val headerContent: androidx.compose.ui.graphics.Color,
     val breadcrumb: androidx.compose.ui.graphics.Color,
+    val breadcrumbBackground: androidx.compose.ui.graphics.Color,
     val sectionText: androidx.compose.ui.graphics.Color,
     val tagSurface: androidx.compose.ui.graphics.Color,
     val tagContent: androidx.compose.ui.graphics.Color,
@@ -155,53 +156,62 @@ internal fun NoteHeaderContent(state: NoteHeaderState, modifier: Modifier = Modi
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            // 2. "My topics" — bấm mở dropdown
-            Box {
-                TextButton(
-                    onClick = { expanded = true },
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+            // 2-4. Breadcrumb — nền và chữ lấy riêng từ theme palette.
+            Surface(
+                color = state.breadcrumbBackground,
+                contentColor = state.breadcrumb,
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Box {
+                        TextButton(
+                            onClick = { expanded = true },
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = state.myTopicsLabel,
+                                color = state.breadcrumb,
+                                style = MaterialTheme.typography.labelLarge,
+                                maxLines = 1
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = expanded,
+                            onDismissRequest = { expanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(state.allNotesLabel) },
+                                onClick = { expanded = false; state.onTopicSelected(null) }
+                            )
+                            state.topics.forEach { topic ->
+                                DropdownMenuItem(
+                                    text = { Text(topic.name) },
+                                    onClick = { expanded = false; state.onTopicSelected(topic.id) }
+                                )
+                            }
+                        }
+                    }
+
                     Text(
-                        text = state.myTopicsLabel,
+                        text = "|",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = state.breadcrumb,
+                        modifier = Modifier.padding(horizontal = 4.dp)
+                    )
+
+                    Text(
+                        text = state.currentTopicLabel,
                         color = state.breadcrumb,
                         style = MaterialTheme.typography.labelLarge,
-                        maxLines = 1
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
                     )
-                }
-                DropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false }
-                ) {
-                    DropdownMenuItem(
-                        text = { Text(state.allNotesLabel) },
-                        onClick = { expanded = false; state.onTopicSelected(null) }
-                    )
-                    state.topics.forEach { topic ->
-                        DropdownMenuItem(
-                            text = { Text(topic.name) },
-                            onClick = { expanded = false; state.onTopicSelected(topic.id) }
-                        )
-                    }
                 }
             }
-
-            // 3. Dấu "|" ngăn cách
-            Text(
-                text = "|",
-                style = MaterialTheme.typography.labelLarge,
-                color = state.breadcrumb,
-                modifier = Modifier.padding(horizontal = 4.dp)
-            )
-
-            // 4. Tên topic đang chọn
-            Text(
-                text = state.currentTopicLabel,
-                color = state.breadcrumb,
-                style = MaterialTheme.typography.labelLarge,
-                maxLines = 1,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
 
             Spacer(modifier = Modifier.width(8.dp))
 
