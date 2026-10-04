@@ -704,7 +704,27 @@ fun MainAppContent(
                 )
             }
         }
-    }
+        if (isNoteTab || isVaultTab) {
+            SharedMainDock(
+                palette = LocalThemePalette.current,
+                noteOrigin = noteOrigin,
+                noteTopicId = noteSelectedTopicId,
+                notePinnedExpanded = notePinnedExpanded,
+                hasPinnedNotes = notePinnedIds.isNotEmpty(),
+                overflowExpanded = dockOverflowExpanded,
+                onOverflowExpandedChange = { dockOverflowExpanded = it },
+                onOpenMenu = { scope.launch { drawerState.open() } },
+                onOpenSearch = {
+                    noteSearchOpen = true
+                    scope.launch { pagerState.animateScrollToPage(0, animationSpec = tween(durationMillis = 180)) }
+                },
+                onCreateNote = ::openNewNote,
+                onViewModeChange = { noteViewMode = it },
+                onPinnedExpandedChange = { notePinnedExpanded = it },
+                onOpenSettings = { navController.navigate(Screen.Settings.route) { launchSingleTop = true } }
+            )
+        }
+        }
     }
 
 
