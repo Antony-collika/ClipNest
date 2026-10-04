@@ -324,7 +324,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
         callbacks: NoteRecyclerCallbacks
     ) {
         this.callbacks = callbacks
-        val decorationChanged = ::currentColors.isInitialized && currentColors.noteListDivider != colors.noteListDivider
+        val decorationChanged = currentColors.noteListDivider != colors.noteListDivider
         currentColors = colors
         if (decorationChanged) {
             invalidateItemDecorations()
