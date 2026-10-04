@@ -823,7 +823,7 @@ private fun MainTopBar(
                                 Text(
                                     text = stringResource(com.clipnest.R.string.selected_count, selectedCount),
                                     style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                                    color = if (isNote) LocalThemePalette.current.noteColors().headerContent else MaterialTheme.colorScheme.onSurface,
+                                    color = if (isNote) LocalThemePalette.current.noteHeaderContent else MaterialTheme.colorScheme.onSurface,
                                     maxLines = 1,
                                     modifier = Modifier.testTag(if (isNote) "note_selected_count_text" else "vault_selected_count_text")
                                 )
