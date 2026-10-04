@@ -48,7 +48,7 @@ fun EditorNoteBreadcrumbBar(
             .fillMaxWidth()
             .background(noteColors.topBarBackground)
             .padding(horizontal = 4.dp, vertical = 1.5.dp)
-            .testTag("note_breadcrumbContent_bar"),
+            .testTag("note_breadcrumb_bar"),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -56,7 +56,7 @@ fun EditorNoteBreadcrumbBar(
             if (mode == EditorMode.NOTE) {
                 IconButton(
                     onClick = onExit,
-                    modifier = Modifier.testTag("note_breadcrumbContent_back")
+                    modifier = Modifier.testTag("note_breadcrumb_back")
                 ) {
                     Icon(
                         Icons.Default.ArrowBack,
@@ -81,7 +81,7 @@ fun EditorNoteBreadcrumbBar(
         }
         TextButton(
             onClick = if (mode == EditorMode.NOTE) onSave else onSaveToNote,
-            modifier = Modifier.testTag("note_breadcrumbContent_action")
+            modifier = Modifier.testTag("note_breadcrumb_action")
         ) {
             Icon(
                 if (mode == EditorMode.NOTE) Icons.Default.Save else Icons.Default.Save,
