@@ -135,7 +135,7 @@ fun EditorScreen(
     val topicSuggestionSession by viewModel.topicSuggestionSession.collectAsStateWithLifecycle()
     val topicSuggestions by viewModel.topicSuggestions.collectAsStateWithLifecycle()
     val isDark = MaterialTheme.colorScheme.background.red < 0.5f
-    val editorTextColor = noteColors.breadcrumb.toArgb()
+    val editorTextColor = noteColors.breadcrumbContent.toArgb()
     val editorBackgroundColor = palette.breadcrumbBackground.toArgb()
     val previewBackground = if (isDark) Color(0xFF2B2B2B) else Color(0xFFF6F6F6)
     val previewTextColor = if (isDark) Color(0xFFF4F4F4) else Color(0xFF171717)
@@ -206,7 +206,7 @@ fun EditorScreen(
                     onSaveToNote = { viewModel.createNoteAndEnterNoteMode(viewModel.currentDocumentText(), title = viewModel.currentDocumentTitle()) }
                 )
             EditorToolbox(
-                toolbarBackground = noteColors.headerSurface,
+                toolbarBackground = noteColors.topBarBackground,
                 isMarkdownToolsExpanded = uiState.isMarkdownToolsExpanded,
                 isPreviewVisible = uiState.showMarkdownPreview,
                 caretInTitle = caretInTitle,
@@ -371,7 +371,7 @@ private fun EditorToolbox(
     onTogglePreview: () -> Unit
 ) {
     val contentToolsEnabled = !caretInTitle
-    val toolbarContentColor = LocalThemePalette.current.noteColors().headerContent
+    val toolbarContentColor = LocalThemePalette.current.noteColors().topBarContent
     val disabledTint = toolbarContentColor.copy(alpha = 0.35f)
     Surface(color = toolbarBackground, modifier = Modifier.fillMaxWidth().testTag("editor_toolbox")) {
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(1.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -399,7 +399,7 @@ private fun EditorToolbox(
 
 @Composable
 private fun MarkdownTextButton(tag: String, label: String, description: String, bold: Boolean = false, italic: Boolean = false, enabled: Boolean = true, onClick: () -> Unit) {
-    val toolbarContentColor = LocalThemePalette.current.noteColors().headerContent
+    val toolbarContentColor = LocalThemePalette.current.noteColors().topBarContent
     val contentColor = if (enabled) toolbarContentColor else toolbarContentColor.copy(alpha = 0.35f)
     Surface(color = Color.Transparent, contentColor = contentColor, shape = RoundedCornerShape(6.dp), modifier = Modifier.size(48.dp).testTag(tag).semantics { role = Role.Button; contentDescription = description }) {
         Box(Modifier.fillMaxSize().clickable(enabled = enabled, onClick = onClick), contentAlignment = Alignment.Center) {
@@ -409,7 +409,7 @@ private fun MarkdownTextButton(tag: String, label: String, description: String, 
 }
 
 @Composable
-private fun EditorToolButton(tag: String, description: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit, enabled: Boolean = true, tint: Color = LocalThemePalette.current.noteColors().headerContent) {
+private fun EditorToolButton(tag: String, description: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit, enabled: Boolean = true, tint: Color = LocalThemePalette.current.noteColors().topBarContent) {
     IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(48.dp).testTag(tag).semantics { role = Role.Button; contentDescription = description }) { Icon(icon, null, tint = tint, modifier = Modifier.size(22.dp)) }
 }
 
