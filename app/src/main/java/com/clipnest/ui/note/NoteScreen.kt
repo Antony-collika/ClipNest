@@ -458,7 +458,7 @@ private fun SearchOverlay(
                     errorContainerColor = androidx.compose.ui.graphics.Color.Transparent,
                     focusedTextColor = LocalThemePalette.current.noteColors().searchContent,
                     unfocusedTextColor = LocalThemePalette.current.noteColors().searchContent,
-                    cursorColor = LocalThemePalette.current.noteColors().breadcrumb,
+                    cursorColor = LocalThemePalette.current.noteColors().breadcrumbContent,
                     focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
                     unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent
                 )
