@@ -526,7 +526,9 @@ class NativeEditorView @JvmOverloads constructor(
 
     fun setEditorBackgroundColor(color: Int) {
         setBackgroundColor(color)
-    }\n\n    fun setEditorTextColor(color: Int) {
+    }
+
+    fun setEditorTextColor(color: Int) {
         if (appliedEditorTextColor == color) return
         appliedEditorTextColor = color
         setTextColor(color)
