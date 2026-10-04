@@ -242,8 +242,8 @@ data class MarkdownPreviewColors(
     val colorScheme: String
 ) {
     companion object {
-        fun from(background: Color, onSurface: Color, onSurfaceVariant: Color, surfaceVariant: Color, outline: Color, outlineVariant: Color, primary: Color, codeBackground: Color, isDark: Boolean) = MarkdownPreviewColors(
-            background.toPreviewCssHex(), onSurface.toPreviewCssHex(), onSurfaceVariant.toPreviewCssHex(), surfaceVariant.toPreviewCssHex(), outline.toPreviewCssHex(), outlineVariant.toPreviewCssHex(), primary.toPreviewCssHex(), codeBackground.toPreviewCssHex(), if (isDark) "dark" else "light"
+        fun from(background: Color, onSurface: Color, onSurfaceVariant: Color, surfaceVariant: Color, outline: Color, outlineVariant: Color, primary: Color, codeBackground: Color, colorScheme: String) = MarkdownPreviewColors(
+            background.toPreviewCssHex(), onSurface.toPreviewCssHex(), onSurfaceVariant.toPreviewCssHex(), surfaceVariant.toPreviewCssHex(), outline.toPreviewCssHex(), outlineVariant.toPreviewCssHex(), primary.toPreviewCssHex(), codeBackground.toPreviewCssHex(), colorScheme
         )
     }
 }
