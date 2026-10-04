@@ -46,9 +46,9 @@ fun EditorNoteBreadcrumbBar(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(noteColors.headerSurface)
+            .background(noteColors.topBarBackground)
             .padding(horizontal = 4.dp, vertical = 1.5.dp)
-            .testTag("note_breadcrumb_bar"),
+            .testTag("note_breadcrumbContent_bar"),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -56,12 +56,12 @@ fun EditorNoteBreadcrumbBar(
             if (mode == EditorMode.NOTE) {
                 IconButton(
                     onClick = onExit,
-                    modifier = Modifier.testTag("note_breadcrumb_back")
+                    modifier = Modifier.testTag("note_breadcrumbContent_back")
                 ) {
                     Icon(
                         Icons.Default.ArrowBack,
                         contentDescription = stringResource(com.clipnest.R.string.back),
-                        tint = noteColors.breadcrumb
+                        tint = noteColors.breadcrumbContent
                     )
                 }
             } else {
@@ -70,23 +70,23 @@ fun EditorNoteBreadcrumbBar(
             Text(
                 text = when {
                     mode != EditorMode.NOTE -> stringResource(com.clipnest.R.string.editor_mode_label)
-                    origin != null -> stringResource(com.clipnest.R.string.note_breadcrumb_with_origin, origin.label)
-                    else -> stringResource(com.clipnest.R.string.note_breadcrumb_default)
+                    origin != null -> stringResource(com.clipnest.R.string.note_breadcrumbContent_with_origin, origin.label)
+                    else -> stringResource(com.clipnest.R.string.note_breadcrumbContent_default)
                 },
                 style = MaterialTheme.typography.labelLarge,
-                color = noteColors.breadcrumb,
+                color = noteColors.breadcrumbContent,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
         }
         TextButton(
             onClick = if (mode == EditorMode.NOTE) onSave else onSaveToNote,
-            modifier = Modifier.testTag("note_breadcrumb_action")
+            modifier = Modifier.testTag("note_breadcrumbContent_action")
         ) {
             Icon(
                 if (mode == EditorMode.NOTE) Icons.Default.Save else Icons.Default.Save,
                 contentDescription = null,
-                tint = noteColors.breadcrumb,
+                tint = noteColors.breadcrumbContent,
                 modifier = Modifier.padding(end = 4.dp)
             )
             Text(
@@ -94,7 +94,7 @@ fun EditorNoteBreadcrumbBar(
                     stringResource(com.clipnest.R.string.save_file)
                 else
                     stringResource(com.clipnest.R.string.save_to_note),
-                color = noteColors.breadcrumb
+                color = noteColors.breadcrumbContent
             )
         }
     }
