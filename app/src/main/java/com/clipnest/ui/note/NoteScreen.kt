@@ -93,11 +93,13 @@ fun NoteScreen(
     onOpenMenu: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
     onNoteOriginChanged: (EditorNoteOrigin?) -> Unit = {},
+    viewMode: NoteViewMode = NoteViewMode.LIST,
+    onViewModeChange: (NoteViewMode) -> Unit = {},
+    pinnedExpanded: Boolean = true,
+    onPinnedExpandedChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var selectedTopicId by rememberSaveable { mutableStateOf<Long?>(null) }
-    var viewMode by rememberSaveable { mutableStateOf(NoteViewMode.LIST) }
-    var pinnedExpanded by rememberSaveable { mutableStateOf(true) }
     var previewNoteId by rememberSaveable { mutableStateOf<Long?>(null) }
     var previewAnchorY by remember { mutableStateOf(0f) }
     var previewContent by remember { mutableStateOf<String?>(null) }
@@ -178,7 +180,7 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
                     viewMode = viewMode,
                     pinnedLabel = androidx.compose.ui.res.stringResource(R.string.pinned),
                     pinnedExpanded = pinnedExpanded,
-                    onPinnedExpandedChanged = { pinnedExpanded = it },
+                    onPinnedExpandedChanged = onPinnedExpandedChange,
                     todayLabel = androidx.compose.ui.res.stringResource(R.string.today),
                     yesterdayLabel = androidx.compose.ui.res.stringResource(R.string.yesterday),
                     previous7DaysLabel = androidx.compose.ui.res.stringResource(R.string.previous_7_days),
@@ -194,7 +196,7 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
                         monthYear = { month, year -> context.getString(R.string.month_year, month, year) }
                     ),
                     onTopicSelected = { topicId -> selectedTopicId = topicId },
-                    onViewModeChanged = { viewMode = it }
+                    onViewModeChanged = onViewModeChange
                 )
             if (isSearchOpen) {
                 SearchOverlay(
