@@ -70,7 +70,7 @@ fun EditorNoteBreadcrumbBar(
             Text(
                 text = when {
                     mode != EditorMode.NOTE -> stringResource(com.clipnest.R.string.editor_mode_label)
-                    origin != null -> stringResource(com.clipnest.R.string.note_breadcrumbContent_with_origin, origin.label)
+                    origin != null -> stringResource(com.clipnest.R.string.note_breadcrumb_with_origin, origin.label)
                     else -> stringResource(com.clipnest.R.string.note_breadcrumbContent_default)
                 },
                 style = MaterialTheme.typography.labelLarge,
