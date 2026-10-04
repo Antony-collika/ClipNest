@@ -27,7 +27,6 @@ data class ThemeNoteColors(
     val wavePrimary: Color,
     val waveSecondary: Color,
     val breadcrumb: Color,
-    val breadcrumbBackground: Color,
     val sectionText: Color,
     val noteTitle: Color,
     val notePreview: Color,
@@ -64,6 +63,7 @@ data class ThemePalette(
     val fabIconColor: Color,
     // Text hierarchy outside cards.
     val breadcrumb: Color,
+    val breadcrumbBackground: Color,
     val sectionText: Color,
     // Note screen colors are independently configurable and do not derive from other palette colors.
     val noteCardBg: Color,
