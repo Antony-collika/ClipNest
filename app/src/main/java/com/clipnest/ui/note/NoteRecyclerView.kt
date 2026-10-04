@@ -185,7 +185,7 @@ internal fun NoteHeaderContent(state: NoteHeaderState, modifier: Modifier = Modi
             Text(
                 text = "|",
                 style = MaterialTheme.typography.labelLarge,
-                color = state.breadcrumb.copy(alpha = 0.5f),
+                color = state.breadcrumb,
                 modifier = Modifier.padding(horizontal = 4.dp)
             )
 
