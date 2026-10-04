@@ -136,14 +136,14 @@ fun ClipboardCardItem(
     val isMasked = isSensitive && isMaskingEnabled && !isSensitiveRevealed
 
     val palette = LocalThemePalette.current
-    val pinnedColor = palette.pinnedIndicator
-    val sensitiveColor = palette.sensitiveIndicator
+    val pinnedColor = LocalThemePalette.current.pinnedIndicator
+    val sensitiveColor = LocalThemePalette.current.sensitiveIndicator
 
     Card(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected) {
-                palette.vaultClipboardCardSelectedBackground
+                LocalThemePalette.current.vaultClipboardCardSelectedBackground
             } else {
                 MaterialTheme.colorScheme.surface
             }
@@ -169,7 +169,7 @@ fun ClipboardCardItem(
                 onCheckedChange = { onToggleSelect() },
                 colors = CheckboxDefaults.colors(
                     checkedColor = MaterialTheme.colorScheme.primary,
-                    uncheckedColor = palette.vaultCheckboxUnchecked
+                    uncheckedColor = LocalThemePalette.current.vaultCheckboxUnchecked
                 ),
                 modifier = Modifier
                     .testTag("card_checkbox_${card.id}")
@@ -211,7 +211,7 @@ fun ClipboardCardItem(
                             Icon(
                                 imageVector = Icons.Default.Visibility,
                                 contentDescription = stringResource(com.clipnest.R.string.reveal_sensitive),
-                                tint = palette.vaultClipboardMetaText,
+                                tint = LocalThemePalette.current.vaultClipboardMetaText,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -220,7 +220,7 @@ fun ClipboardCardItem(
                     Text(
                         text = card.preview,
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            color = palette.vaultClipboardPreviewText,
+                            color = LocalThemePalette.current.vaultClipboardPreviewText,
                             fontWeight = FontWeight.Medium,
                             lineHeight = 17.sp,
                             fontSize = 13.5.sp
@@ -253,7 +253,7 @@ fun ClipboardCardItem(
                                 Icon(
                                     imageVector = Icons.Default.VisibilityOff,
                                     contentDescription = stringResource(com.clipnest.R.string.mask_sensitive),
-                                    tint = palette.vaultClipboardMetaText,
+                                    tint = LocalThemePalette.current.vaultClipboardMetaText,
                                     modifier = Modifier.size(14.dp)
                                 )
                             }
@@ -277,7 +277,7 @@ fun ClipboardCardItem(
                     Text(
                         text = relativeTime,
                         style = MaterialTheme.typography.labelMedium.copy(
-                            color = palette.vaultClipboardMetaText,
+                            color = LocalThemePalette.current.vaultClipboardMetaText,
                             fontWeight = FontWeight.Normal,
                             fontSize = 11.sp
                         ),
@@ -310,13 +310,13 @@ fun ClipboardCardItem(
                 Icon(
                     imageVector = Icons.Default.ContentCopy,
                     contentDescription = stringResource(com.clipnest.R.string.copy_item),
-                    tint = palette.vaultClipboardMetaText,
+                    tint = LocalThemePalette.current.vaultClipboardMetaText,
                     modifier = Modifier.size(20.dp)
                 )
             }
 
             DragDots(
-                tint = if (isDragging) palette.vaultDragHandleActive else palette.vaultDragHandle,
+                tint = if (isDragging) LocalThemePalette.current.vaultDragHandleActive else LocalThemePalette.current.vaultDragHandle,
                 modifier = Modifier
                     .size(48.dp)
                     .testTag("drag_handle_${card.id}")
@@ -381,7 +381,7 @@ fun VaultTopBar(
                     Icon(
                         imageVector = Icons.Default.Menu,
                         contentDescription = stringResource(com.clipnest.R.string.navigation_drawer),
-                        tint = palette.vaultClipboardPreviewText
+                        tint = LocalThemePalette.current.vaultClipboardPreviewText
                     )
                 }
             }
@@ -437,7 +437,7 @@ fun VaultTopBar(
                     Icon(
                         imageVector = Icons.Default.Search,
                         contentDescription = stringResource(com.clipnest.R.string.search),
-                        tint = palette.vaultClipboardPreviewText
+                        tint = LocalThemePalette.current.vaultClipboardPreviewText
                     )
                 }
 
@@ -449,7 +449,7 @@ fun VaultTopBar(
                         Icon(
                             imageVector = Icons.Default.MoreVert,
                             contentDescription = stringResource(com.clipnest.R.string.more_options),
-                            tint = palette.vaultClipboardPreviewText
+                            tint = LocalThemePalette.current.vaultClipboardPreviewText
                         )
                     }
 
@@ -566,11 +566,11 @@ fun ShareCaptureDialog(
                 if (hasClipboard) {
                     val isSelected = isClipboardSelected
                     val containerBg = if (isSelected) {
-                        palette.shareOptionSelectedBackground
+                        LocalThemePalette.current.shareOptionSelectedBackground
                     } else {
-                        palette.shareOptionBackground
+                        LocalThemePalette.current.shareOptionBackground
                     }
-                    val borderColor = if (isSelected) palette.shareOptionSelectedBorder else Color.Transparent
+                    val borderColor = if (isSelected) LocalThemePalette.current.shareOptionSelectedBorder else Color.Transparent
 
                     Card(
                         shape = RoundedCornerShape(14.dp),
@@ -596,7 +596,7 @@ fun ShareCaptureDialog(
                             Text(
                                 text = "❝",
                                 style = MaterialTheme.typography.titleLarge.copy(
-                                    color = if (isSelected) MaterialTheme.colorScheme.primary else palette.vaultClipboardMetaText,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else LocalThemePalette.current.vaultClipboardMetaText,
                                     fontWeight = FontWeight.Bold
                                 ),
                                 modifier = Modifier.padding(horizontal = 2.dp)
@@ -606,7 +606,7 @@ fun ShareCaptureDialog(
                                 Text(
                                     text = stringResource(com.clipnest.R.string.device_clipboard),
                                     style = MaterialTheme.typography.labelSmall.copy(
-                                        color = if (isSelected) MaterialTheme.colorScheme.primary else palette.vaultClipboardMetaText,
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else LocalThemePalette.current.vaultClipboardMetaText,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 11.sp
                                     )
@@ -614,7 +614,7 @@ fun ShareCaptureDialog(
                                 Text(
                                     text = clipboardText,
                                     style = MaterialTheme.typography.bodyMedium.copy(
-                                        color = palette.vaultClipboardPreviewText,
+                                        color = LocalThemePalette.current.vaultClipboardPreviewText,
                                         fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                                         fontSize = 13.5.sp
                                     ),
@@ -630,11 +630,11 @@ fun ShareCaptureDialog(
                 if (hasShared) {
                     val isSelected = isSharedSelected
                     val containerBg = if (isSelected) {
-                        palette.shareOptionSelectedBackground
+                        LocalThemePalette.current.shareOptionSelectedBackground
                     } else {
-                        palette.shareOptionBackground
+                        LocalThemePalette.current.shareOptionBackground
                     }
-                    val borderColor = if (isSelected) palette.shareOptionSelectedBorder else Color.Transparent
+                    val borderColor = if (isSelected) LocalThemePalette.current.shareOptionSelectedBorder else Color.Transparent
 
                     Card(
                         shape = RoundedCornerShape(14.dp),
@@ -660,7 +660,7 @@ fun ShareCaptureDialog(
                             Icon(
                                 imageVector = if (sharedText.startsWith("http")) Icons.Default.Link else Icons.Default.Description,
                                 contentDescription = null,
-                                tint = if (isSelected) MaterialTheme.colorScheme.primary else palette.vaultClipboardMetaText,
+                                tint = if (isSelected) MaterialTheme.colorScheme.primary else LocalThemePalette.current.vaultClipboardMetaText,
                                 modifier = Modifier.size(22.dp)
                             )
                             Spacer(modifier = Modifier.width(10.dp))
@@ -674,7 +674,7 @@ fun ShareCaptureDialog(
                                     }
                                 ),
                                     style = MaterialTheme.typography.labelSmall.copy(
-                                        color = if (isSelected) MaterialTheme.colorScheme.primary else palette.vaultClipboardMetaText,
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else LocalThemePalette.current.vaultClipboardMetaText,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 11.sp
                                     )
@@ -682,7 +682,7 @@ fun ShareCaptureDialog(
                                 Text(
                                     text = sharedText,
                                     style = MaterialTheme.typography.bodyMedium.copy(
-                                        color = palette.vaultClipboardPreviewText,
+                                        color = LocalThemePalette.current.vaultClipboardPreviewText,
                                         fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                                         fontSize = 13.5.sp
                                     ),
@@ -711,7 +711,7 @@ fun ShareCaptureDialog(
                     Text(
                         text = stringResource(com.clipnest.R.string.share_select_hint),
                         style = MaterialTheme.typography.bodySmall.copy(
-                            color = palette.vaultClipboardMetaText,
+                            color = LocalThemePalette.current.vaultClipboardMetaText,
                             fontSize = 11.sp
                         )
                     )
@@ -889,7 +889,7 @@ fun BackupPasswordDialog(
                         if (isExport) com.clipnest.R.string.backup_password_description
                         else com.clipnest.R.string.restore_password_description
                     ),
-                    style = MaterialTheme.typography.bodySmall.copy(color = palette.vaultClipboardMetaText)
+                    style = MaterialTheme.typography.bodySmall.copy(color = LocalThemePalette.current.vaultClipboardMetaText)
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 OutlinedTextField(
@@ -972,7 +972,7 @@ fun ExportDialog(
                         onClick = { selectedFormat = ExportFormat.MARKDOWN },
                         colors = RadioButtonDefaults.colors(
                             selectedColor = MaterialTheme.colorScheme.primary,
-                            unselectedColor = palette.vaultClipboardMetaText
+                            unselectedColor = LocalThemePalette.current.vaultClipboardMetaText
                         ),
                         modifier = Modifier.testTag("export_format_markdown")
                     )
@@ -985,7 +985,7 @@ fun ExportDialog(
                         onClick = { selectedFormat = ExportFormat.PLAIN_TEXT },
                         colors = RadioButtonDefaults.colors(
                             selectedColor = MaterialTheme.colorScheme.primary,
-                            unselectedColor = palette.vaultClipboardMetaText
+                            unselectedColor = LocalThemePalette.current.vaultClipboardMetaText
                         ),
                         modifier = Modifier.testTag("export_format_plain_text")
                     )
@@ -1111,7 +1111,7 @@ fun ClipboardPreviewPopup(
     val popupWidth = minOf(360.dp, (configuration.screenWidthDp - 24).dp)
     val isMasked = card.isSensitive && isMaskingEnabled && !isSensitiveRevealed
     val palette = LocalThemePalette.current
-    val sensitiveColor = palette.sensitiveIndicator
+    val sensitiveColor = LocalThemePalette.current.sensitiveIndicator
 
     fun dismissAnimated() {
         if (dismissing) return
@@ -1163,7 +1163,7 @@ fun ClipboardPreviewPopup(
                         }
                     }
 
-                    HorizontalDivider(color = palette.vaultPopupDivider)
+                    HorizontalDivider(color = LocalThemePalette.current.vaultPopupDivider)
 
                     Box(
                         modifier = Modifier
@@ -1186,7 +1186,7 @@ fun ClipboardPreviewPopup(
                             Text(
                                 text = card.content,
                                 style = MaterialTheme.typography.bodyMedium.copy(
-                                    color = palette.vaultClipboardPreviewText,
+                                    color = LocalThemePalette.current.vaultClipboardPreviewText,
                                     lineHeight = 19.sp
                                 ),
                                 modifier = Modifier.fillMaxWidth()
@@ -1194,7 +1194,7 @@ fun ClipboardPreviewPopup(
                         }
                     }
 
-                    HorizontalDivider(color = palette.vaultPopupDivider)
+                    HorizontalDivider(color = LocalThemePalette.current.vaultPopupDivider)
 
                     Row(
                         modifier = popupDragModifier
@@ -1209,7 +1209,7 @@ fun ClipboardPreviewPopup(
                         stringResource(com.clipnest.R.string.yesterday)
                     ),
                             style = MaterialTheme.typography.labelSmall.copy(
-                                color = palette.vaultClipboardMetaText
+                                color = LocalThemePalette.current.vaultClipboardMetaText
                             ),
                             modifier = Modifier.weight(1f)
                         )
@@ -1217,7 +1217,7 @@ fun ClipboardPreviewPopup(
                             Text(
                                 text = stringResource(com.clipnest.R.string.pinned),
                                 style = MaterialTheme.typography.labelSmall.copy(
-                                    color = palette.pinnedIndicator,
+                                    color = LocalThemePalette.current.pinnedIndicator,
                                     fontWeight = FontWeight.Bold
                                 ),
                                 modifier = Modifier.padding(end = 8.dp)
