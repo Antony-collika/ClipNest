@@ -82,7 +82,25 @@ internal data class NoteRecyclerColors(
     val noteTitle: Int,
     val notePreviewText: Int,
     val noteActionIcon: Int
-)
+) {
+    companion object {
+        val DEFAULT = NoteRecyclerColors(
+            noteCardBackground = Color.TRANSPARENT,
+            noteCardSelectedBackground = Color.TRANSPARENT,
+            noteTagBackground = Color.TRANSPARENT,
+            noteTagContent = Color.TRANSPARENT,
+            noteSectionTitle = Color.TRANSPARENT,
+            noteSectionChevron = Color.TRANSPARENT,
+            noteCardSelectionChecked = Color.TRANSPARENT,
+            noteCardSelectionUnchecked = Color.TRANSPARENT,
+            noteListDivider = Color.TRANSPARENT,
+            pinnedIndicator = Color.TRANSPARENT,
+            noteTitle = Color.TRANSPARENT,
+            notePreviewText = Color.TRANSPARENT,
+            noteActionIcon = Color.TRANSPARENT
+        )
+    }
+}
 
 internal enum class NoteViewMode { LIST, GRID }
 
@@ -286,7 +304,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
         onLongPress = { _, _ -> },
         onEdit = {}
     )
-    private lateinit var currentColors: NoteRecyclerColors
+    private var currentColors = NoteRecyclerColors.DEFAULT
     private val spacingDecoration = NoteSpacingDecoration(dp(14))
 
     init {
@@ -337,7 +355,7 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
     private inner class NoteAdapter(private val context: Context) : ListAdapter<NoteListItem, RecyclerView.ViewHolder>(ITEM_DIFF_CALLBACK) {
         private var selectedIds: Set<Long> = emptySet()
         private var pinnedIds: Set<Long> = emptySet()
-        private lateinit var colors: NoteRecyclerColors
+        private var colors = NoteRecyclerColors.DEFAULT
         private var currentSourceIds: List<Long> = emptyList()
         private var currentHeader: NoteHeaderState? = null
         private var pinnedToggle: ((Boolean) -> Unit)? = null
