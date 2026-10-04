@@ -15,7 +15,7 @@ class MarkdownPreviewRendererTest {
         outlineVariant = Color.LightGray,
         primary = Color(0xFF00695C),
         codeBackground = Color(0xFFECEFF1),
-        isDark = false
+        colorScheme = "light"
     )
 
     @Test
