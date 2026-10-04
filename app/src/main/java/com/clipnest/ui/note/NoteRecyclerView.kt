@@ -96,8 +96,8 @@ internal data class NoteHeaderState(
     val topics: List<Topic>,
     val colors: androidx.compose.material3.ColorScheme,
     val typography: androidx.compose.material3.Typography,
-    val headerSurface: androidx.compose.ui.graphics.Color,
-    val headerContent: androidx.compose.ui.graphics.Color,
+    val topBarBackground: androidx.compose.ui.graphics.Color,
+    val topBarContent: androidx.compose.ui.graphics.Color,
     val breadcrumb: androidx.compose.ui.graphics.Color,
     val breadcrumbBackground: androidx.compose.ui.graphics.Color,
     val sectionText: androidx.compose.ui.graphics.Color,
@@ -129,8 +129,8 @@ internal fun NoteHeaderContent(state: NoteHeaderState, modifier: Modifier = Modi
     Surface(
         modifier = modifier,
         shape = androidx.compose.ui.graphics.RectangleShape,
-        color = state.headerSurface,
-        contentColor = state.headerContent
+        color = state.topBarBackground,
+        contentColor = state.topBarContent
     ) {
         Row(
             modifier = Modifier
