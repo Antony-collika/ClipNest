@@ -28,11 +28,8 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
@@ -95,6 +92,7 @@ fun NoteScreen(
     onSearchQueryChange: (String) -> Unit = {},
     onOpenMenu: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
+    onNoteOriginChanged: (EditorNoteOrigin?) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var selectedTopicId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -103,7 +101,6 @@ fun NoteScreen(
     var previewNoteId by rememberSaveable { mutableStateOf<Long?>(null) }
     var previewAnchorY by remember { mutableStateOf(0f) }
     var previewContent by remember { mutableStateOf<String?>(null) }
-    var overflowExpanded by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
 
     val topics by topicDao.observeAllTopics().collectAsState(initial = emptyList())
@@ -162,39 +159,14 @@ fun NoteScreen(
     }
 
     val origin = originForTopic(selectedTopic)
+    LaunchedEffect(origin) {
+        onNoteOriginChanged(origin)
+    }
     val previewNote = noteCards.firstOrNull { it.id == previewNoteId }
 
     val palette = LocalThemePalette.current
 
     Box(modifier.fillMaxSize()) {
-        Canvas(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(120.dp)
-                .align(Alignment.BottomCenter)
-        ) {
-            val backWave = Path().apply {
-                moveTo(0f, size.height * 0.24f)
-                cubicTo(size.width * 0.16f, size.height * 0.02f, size.width * 0.30f, size.height * 0.40f, size.width * 0.48f, size.height * 0.18f)
-                cubicTo(size.width * 0.66f, -size.height * 0.02f, size.width * 0.82f, size.height * 0.34f, size.width, size.height * 0.12f)
-                lineTo(size.width, size.height)
-                lineTo(0f, size.height)
-                close()
-            }
-            val frontWave = Path().apply {
-                moveTo(0f, size.height * 0.42f)
-                cubicTo(size.width * 0.15f, size.height * 0.12f, size.width * 0.31f, size.height * 0.58f, size.width * 0.49f, size.height * 0.34f)
-                cubicTo(size.width * 0.67f, size.height * 0.10f, size.width * 0.83f, size.height * 0.50f, size.width, size.height * 0.28f)
-                lineTo(size.width, size.height)
-                lineTo(0f, size.height)
-                close()
-            }
-            val wavePrimary = palette.noteWavePrimary
-            val waveSecondary = palette.noteWaveSecondary
-            drawPath(backWave, waveSecondary)
-            drawPath(frontWave, wavePrimary)
-        }
-
         Column(Modifier.fillMaxSize()) {
                 val headerState = NoteHeaderState(
                     avatarIcon = androidx.compose.material.icons.Icons.Default.Person,
@@ -295,111 +267,6 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
                 }
             }
         }
-
-        Surface(
-    modifier = Modifier
-        .align(Alignment.BottomCenter)
-        .padding(horizontal = 18.dp, vertical = 18.dp),
-    shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
-    color = palette.dockBackground,
-    tonalElevation = 2.dp,
-    shadowElevation = 3.dp
-) {
-            Row(
-                modifier = Modifier
-                    .height(48.dp)
-                    .padding(horizontal = 4.dp, vertical = 0.dp),
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = onOpenMenu,
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Menu,
-                        contentDescription = androidx.compose.ui.res.stringResource(R.string.menu),
-                        tint = palette.dockIcon
-                    )
-                }
-                IconButton(
-                    onClick = onOpenSearch,
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Search,
-                        contentDescription = androidx.compose.ui.res.stringResource(R.string.search_notes),
-                        tint = palette.dockIcon
-                    )
-                }
-                VerticalDivider(
-    modifier = Modifier.height(20.dp),
-    color = palette.dockDivider
-)
-IconButton(
-    onClick = { onCreateNote(origin, selectedTopicId) },
-    modifier = Modifier.size(48.dp)
-) {
-    Icon(
-        Icons.Default.Edit,
-        contentDescription = androidx.compose.ui.res.stringResource(R.string.new_note),
-        tint = palette.dockIcon
-    )
-}
-VerticalDivider(
-    modifier = Modifier.height(20.dp),
-    color = palette.dockDivider
-)
-                Box {
-                    IconButton(
-                        onClick = { overflowExpanded = true },
-                        modifier = Modifier.size(48.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.MoreVert,
-                            contentDescription = androidx.compose.ui.res.stringResource(R.string.more_options),
-                            tint = palette.dockIcon
-                        )
-                    }
-                    DropdownMenu(
-                        expanded = overflowExpanded,
-                        onDismissRequest = { overflowExpanded = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text(androidx.compose.ui.res.stringResource(R.string.note_list_view)) },
-                            onClick = {
-                                overflowExpanded = false
-                                viewMode = NoteViewMode.LIST
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(androidx.compose.ui.res.stringResource(R.string.note_grid_view)) },
-                            onClick = {
-                                overflowExpanded = false
-                                viewMode = NoteViewMode.GRID
-                            }
-                        )
-                        if (pinnedNoteIds.isNotEmpty()) {
-                            DropdownMenuItem(
-                                text = { Text(androidx.compose.ui.res.stringResource(if (pinnedExpanded) R.string.collapse_pinned else R.string.expand_pinned)) },
-                                onClick = {
-                                    overflowExpanded = false
-                                    pinnedExpanded = !pinnedExpanded
-                                }
-                            )
-                        }
-                        DropdownMenuItem(
-                            text = { Text(androidx.compose.ui.res.stringResource(R.string.settings)) },
-                            onClick = {
-                                overflowExpanded = false
-                                onOpenSettings()
-                            }
-                        )
-                    }
-                }
-            }
-        }
-    }
 
     if (previewNote != null) {
         NotePreviewPopup(
