@@ -70,8 +70,7 @@ private class FastScrollWebView(context: android.content.Context) : WebView(cont
         val thumbHeight = (height.toFloat() * extent / range).toInt().coerceAtLeast(minThumbHeightPx).coerceAtMost(height)
         val travel = (height - thumbHeight).coerceAtLeast(0)
         val top = if (travel == 0) 0f else travel.toFloat() * scrollY.coerceIn(0, maxScroll) / maxScroll
-        paint.color = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) context.resources.getColor(android.R.color.darker_gray, context.theme) else context.resources.getColor(android.R.color.darker_gray)
-        paint.alpha = if (draggingFastScroll) 210 else 125
+        paint.color = if (draggingFastScroll) previewScrollThumbActiveColor else previewScrollThumbColor
         val left = width - thumbWidthPx.toFloat()
         rect.set(left, top, width.toFloat(), top + thumbHeight)
         canvas.drawRoundRect(rect, thumbWidthPx.toFloat(), thumbWidthPx.toFloat(), paint)
@@ -115,6 +114,8 @@ private class FastScrollWebView(context: android.content.Context) : WebView(cont
 internal fun MarkdownPreviewWebView(
     html: String,
     previewSurfaceColor: Int,
+    previewScrollThumbColor: Int,
+    previewScrollThumbActiveColor: Int,
     jumpToHeadingIndex: Int?,
     onReady: (loadedHtml: String) -> Unit
 ) {
