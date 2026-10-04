@@ -7,10 +7,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.FolderOpen
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -58,19 +56,6 @@ fun VaultScreen(
     }
 
     Scaffold(
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { viewModel.captureCurrentClipboard(context) },
-                containerColor = LocalThemePalette.current.fabBackground,
-                contentColor = LocalThemePalette.current.fabIcon,
-                modifier = Modifier.testTag("vault_add_fab")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = stringResource(com.clipnest.R.string.save_to_clipboard)
-                )
-            }
-        },
         modifier = modifier.fillMaxSize()
     ) { innerPadding ->
         Box(
