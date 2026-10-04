@@ -132,7 +132,7 @@ fun EditorScreen(
     val topicSuggestionSession by viewModel.topicSuggestionSession.collectAsStateWithLifecycle()
     val topicSuggestions by viewModel.topicSuggestions.collectAsStateWithLifecycle()
     val isDark = MaterialTheme.colorScheme.background.red < 0.5f
-    val editorTextColor = MaterialTheme.colorScheme.onBackground.toArgb()
+    val editorTextColor = noteColors.breadcrumb.toArgb()\n    val editorBackgroundColor = noteColors.headerSurface
     val previewBackground = if (isDark) Color(0xFF2B2B2B) else Color(0xFFF6F6F6)
     val previewTextColor = if (isDark) Color(0xFFF4F4F4) else Color(0xFF171717)
     val previewMutedColor = if (isDark) Color(0xFFCACACA) else Color(0xFF5E5E5E)
@@ -201,7 +201,7 @@ fun EditorScreen(
                     onSave = viewModel::saveCurrentNoteNow,
                     onSaveToNote = { viewModel.createNoteAndEnterNoteMode(viewModel.currentDocumentText(), title = viewModel.currentDocumentTitle()) }
                 )
-            EditorToolbox(
+            EditorToolbox(\n                toolbarBackground = noteColors.headerSurface,
                 isMarkdownToolsExpanded = uiState.isMarkdownToolsExpanded,
                 isPreviewVisible = uiState.showMarkdownPreview,
                 caretInTitle = caretInTitle,
@@ -229,7 +229,7 @@ fun EditorScreen(
                     factory = {
                         NativeEditorView(it).apply {
                             setEditorTextSize(editorTextSize)
-                            setEditorTextColor(editorTextColor)
+                            setEditorTextColor(editorTextColor)\n                            setEditorBackgroundColor(editorBackgroundColor)
                             nativeEditorView = this
                             viewModel.bindNativeEditor(this)
                             caretInTitle = isCaretInTitle()
@@ -244,7 +244,7 @@ fun EditorScreen(
                     },
                     update = {
                         it.setEditorTextSize(editorTextSize)
-                        it.setEditorTextColor(editorTextColor)
+                        it.setEditorTextColor(editorTextColor)\n                        it.setEditorBackgroundColor(editorBackgroundColor)
                         nativeEditorView = it
                         if (uiState.showMarkdownPreview) it.hideKeyboardAndClearFocus()
                         viewModel.bindNativeEditor(it)
@@ -364,7 +364,7 @@ private fun EditorToolbox(
 ) {
     val contentToolsEnabled = !caretInTitle
     val disabledTint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
-    Surface(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f), modifier = Modifier.fillMaxWidth().testTag("editor_toolbox")) {
+    Surface(color = toolbarBackground, modifier = Modifier.fillMaxWidth().testTag("editor_toolbox")) {
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(1.dp), verticalAlignment = Alignment.CenterVertically) {
             EditorToolButton("editor_action_cut", "Cut", Icons.Default.ContentCut, onCut)
             EditorToolButton("editor_action_copy", stringResource(com.clipnest.R.string.copy_selected), Icons.Default.ContentCopy, onCopy)
