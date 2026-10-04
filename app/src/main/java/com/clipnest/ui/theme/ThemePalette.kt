@@ -18,6 +18,7 @@ data class ThemePalette(
     // ============================================================
     // NOTE SCREEN
     // ============================================================
+    // Background of an individual note card.
     val noteCardBackground: Color,
     val noteCardSelectedBackground: Color,
     val noteCardPinnedBackground: Color,
@@ -51,23 +52,26 @@ data class ThemePalette(
     // ============================================================
     // SHARED NAVIGATION
     // ============================================================
+    // Background of the shared bottom navigation dock.
     val dockBackground: Color,
     val dockIcon: Color,
     val dockDivider: Color,
     val fabBackground: Color,
     val fabIcon: Color,
-    val mainNoteTabText: Color,
-    val mainNoteTabSelectedIndicator: Color,
+    val mainTabText: Color,
+    val mainTabSelectedIndicator: Color,
 
     // ============================================================
     // SEMANTIC STATES
     // ============================================================
+    // Color of the pinned state indicator.
     val pinnedIndicator: Color,
     val sensitiveIndicator: Color,
 
     // ============================================================
     // EDITOR
     // ============================================================
+    // Text color of the native editor.
     val editorText: Color,
     val editorMarkdownPreviewBackground: Color,
     val editorMarkdownPreviewText: Color,
@@ -88,6 +92,7 @@ data class ThemePalette(
     // ============================================================
     // VAULT
     // ============================================================
+    // Background of an individual vault clipboard card.
     val vaultClipboardCardBackground: Color,
     val vaultClipboardCardSelectedBackground: Color,
     val vaultClipboardCardPressedBackground: Color,
@@ -106,6 +111,7 @@ data class ThemePalette(
     // ============================================================
     // SHARE DIALOG
     // ============================================================
+    // Background of an unselected share option.
     val shareOptionBackground: Color,
     val shareOptionSelectedBackground: Color,
     val shareOptionSelectedBorder: Color,
@@ -117,9 +123,11 @@ data class ThemePalette(
     // ============================================================
     // SETTINGS / COMMON DIALOGS
     // ============================================================
+    // Title text color of a settings group.
     val settingsGroupTitle: Color,
     val settingsGroupIcon: Color,
     val settingsPrivacyCardBackground: Color,
+    // Background of the first-run education callout.
     val firstRunCalloutBackground: Color
 )
 
@@ -166,8 +174,8 @@ val ForestThemePalette = ThemePalette(
     noteViewModeUnselectedIcon = Color(0xFF5A6660),
     noteSectionChevron = Color(0xFF1A231E),
     noteListDivider = Color(0xFFDBE8E0),
-    noteWavePrimary = Color(0xFFFFDFDD),
-    noteWaveSecondary = Color(0xFFFFE6E1),
+    noteWavePrimary = Color(0x1AFFDFDD),
+    noteWaveSecondary = Color(0x0EFFE6E1),
 
     // SHARED NAVIGATION
     dockBackground = Color(0xFFFFFFFF),
@@ -175,8 +183,8 @@ val ForestThemePalette = ThemePalette(
     dockDivider = Color(0xFFDBE8E0),
     fabBackground = Color(0xFF1C3B2B),
     fabIcon = Color(0xFFFFFFFF),
-    mainNoteTabText = Color(0xFFF6F4EA),
-    mainNoteTabSelectedIndicator = Color(0xFFDDE8B5),
+    mainTabText = Color(0xFFF6F4EA),
+    mainTabSelectedIndicator = Color(0xFFDDE8B5),
 
     // SEMANTIC STATES
     pinnedIndicator = Color(0xFF1C3B2B),
@@ -275,8 +283,8 @@ val NordThemePalette = ThemePalette(
     noteViewModeUnselectedIcon = Color(0xFF4C566A),
     noteSectionChevron = Color(0xFF2E3440),
     noteListDivider = Color(0xFFD8DEE9),
-    noteWavePrimary = Color(0xFFFFE2EA),
-    noteWaveSecondary = Color(0xFFFFE4E9),
+    noteWavePrimary = Color(0x1AFFE2EA),
+    noteWaveSecondary = Color(0x0EFFE4E9),
 
     // SHARED NAVIGATION
     dockBackground = Color(0xFFFFFFFF),
@@ -284,8 +292,8 @@ val NordThemePalette = ThemePalette(
     dockDivider = Color(0xFFD8DEE9),
     fabBackground = Color(0xFF5E81AC),
     fabIcon = Color(0xFFFFFFFF),
-    mainNoteTabText = Color(0xFFF6F4EA),
-    mainNoteTabSelectedIndicator = Color(0xFFDDE8B5),
+    mainTabText = Color(0xFFF6F4EA),
+    mainTabSelectedIndicator = Color(0xFFDDE8B5),
 
     // SEMANTIC STATES
     pinnedIndicator = Color(0xFF2E3440),
@@ -384,8 +392,8 @@ val SnowSapphireThemePalette = ThemePalette(
     noteViewModeUnselectedIcon = Color(0xFF0369A1),
     noteSectionChevron = Color(0xFF0C4A6E),
     noteListDivider = Color(0xFFBAE6FD),
-    noteWavePrimary = Color(0xFFFFDEF3),
-    noteWaveSecondary = Color(0xFFFFE3F3),
+    noteWavePrimary = Color(0x1AFFDEF3),
+    noteWaveSecondary = Color(0x0EFFE3F3),
 
     // SHARED NAVIGATION
     dockBackground = Color(0xFFFFFFFF),
@@ -393,8 +401,8 @@ val SnowSapphireThemePalette = ThemePalette(
     dockDivider = Color(0xFFBAE6FD),
     fabBackground = Color(0xFF0284C7),
     fabIcon = Color(0xFFFFFFFF),
-    mainNoteTabText = Color(0xFFF6F4EA),
-    mainNoteTabSelectedIndicator = Color(0xFFDDE8B5),
+    mainTabText = Color(0xFFF6F4EA),
+    mainTabSelectedIndicator = Color(0xFFDDE8B5),
 
     // SEMANTIC STATES
     pinnedIndicator = Color(0xFF1E3A8A),
@@ -493,8 +501,8 @@ val SakuraThemePalette = ThemePalette(
     noteViewModeUnselectedIcon = Color(0xFF9D174D),
     noteSectionChevron = Color(0xFF500724),
     noteListDivider = Color(0xFFFBCFE8),
-    noteWavePrimary = Color(0xFFFFFCE5),
-    noteWaveSecondary = Color(0xFFFFFBE7),
+    noteWavePrimary = Color(0x1AFFFCE5),
+    noteWaveSecondary = Color(0x0EFFFBE7),
 
     // SHARED NAVIGATION
     dockBackground = Color(0xFFFFFFFF),
@@ -502,8 +510,8 @@ val SakuraThemePalette = ThemePalette(
     dockDivider = Color(0xFFFBCFE8),
     fabBackground = Color(0xFFDB2777),
     fabIcon = Color(0xFFFFFFFF),
-    mainNoteTabText = Color(0xFFF6F4EA),
-    mainNoteTabSelectedIndicator = Color(0xFFDDE8B5),
+    mainTabText = Color(0xFFF6F4EA),
+    mainTabSelectedIndicator = Color(0xFFDDE8B5),
 
     // SEMANTIC STATES
     pinnedIndicator = Color(0xFF831843),
@@ -602,8 +610,8 @@ val LavenderThemePalette = ThemePalette(
     noteViewModeUnselectedIcon = Color(0xFF6D28D9),
     noteSectionChevron = Color(0xFF2E1065),
     noteListDivider = Color(0xFFDDD6FE),
-    noteWavePrimary = Color(0xFFFFEDE9),
-    noteWaveSecondary = Color(0xFFFFEEE9),
+    noteWavePrimary = Color(0x1AFFEDE9),
+    noteWaveSecondary = Color(0x0EFFEEE9),
 
     // SHARED NAVIGATION
     dockBackground = Color(0xFFFFFFFF),
@@ -611,8 +619,8 @@ val LavenderThemePalette = ThemePalette(
     dockDivider = Color(0xFFDDD6FE),
     fabBackground = Color(0xFF7C3AED),
     fabIcon = Color(0xFFFFFFFF),
-    mainNoteTabText = Color(0xFFF6F4EA),
-    mainNoteTabSelectedIndicator = Color(0xFFDDE8B5),
+    mainTabText = Color(0xFFF6F4EA),
+    mainTabSelectedIndicator = Color(0xFFDDE8B5),
 
     // SEMANTIC STATES
     pinnedIndicator = Color(0xFF4C1D95),
@@ -711,8 +719,8 @@ val LightBasicThemePalette = ThemePalette(
     noteViewModeUnselectedIcon = Color(0xFF4B5563),
     noteSectionChevron = Color(0xFF111827),
     noteListDivider = Color(0xFFE5E7EB),
-    noteWavePrimary = Color(0xFFFFF5F6),
-    noteWaveSecondary = Color(0xFFFFF7F7),
+    noteWavePrimary = Color(0x1AFFF5F6),
+    noteWaveSecondary = Color(0x0EFFF7F7),
 
     // SHARED NAVIGATION
     dockBackground = Color(0xFFFFFFFF),
@@ -720,8 +728,8 @@ val LightBasicThemePalette = ThemePalette(
     dockDivider = Color(0xFFE5E7EB),
     fabBackground = Color(0xFF374151),
     fabIcon = Color(0xFFFFFFFF),
-    mainNoteTabText = Color(0xFFF6F4EA),
-    mainNoteTabSelectedIndicator = Color(0xFFDDE8B5),
+    mainTabText = Color(0xFFF6F4EA),
+    mainTabSelectedIndicator = Color(0xFFDDE8B5),
 
     // SEMANTIC STATES
     pinnedIndicator = Color(0xFF374151),
@@ -820,8 +828,8 @@ val BasicDarkThemePalette = ThemePalette(
     noteViewModeUnselectedIcon = Color(0xFFCBD5E1),
     noteSectionChevron = Color(0xFFF9FAFB),
     noteListDivider = Color(0xFF374151),
-    noteWavePrimary = Color(0xFFFF171E),
-    noteWaveSecondary = Color(0xFFFF131A),
+    noteWavePrimary = Color(0x1AFF171E),
+    noteWaveSecondary = Color(0x0EFF131A),
 
     // SHARED NAVIGATION
     dockBackground = Color(0xFFF9FAFB),
@@ -829,8 +837,8 @@ val BasicDarkThemePalette = ThemePalette(
     dockDivider = Color(0xFF6B7280),
     fabBackground = Color(0xFFF9FAFB),
     fabIcon = Color(0xFF111827),
-    mainNoteTabText = Color(0xFFF6F4EA),
-    mainNoteTabSelectedIndicator = Color(0xFFDDE8B5),
+    mainTabText = Color(0xFFF6F4EA),
+    mainTabSelectedIndicator = Color(0xFFDDE8B5),
 
     // SEMANTIC STATES
     pinnedIndicator = Color(0xFFF9FAFB),
@@ -929,8 +937,8 @@ val DeepOceanThemePalette = ThemePalette(
     noteViewModeUnselectedIcon = Color(0xFF90CAF9),
     noteSectionChevron = Color(0xFFE3F2FD),
     noteListDivider = Color(0xFF1E4976),
-    noteWavePrimary = Color(0xFFFF0B21),
-    noteWaveSecondary = Color(0xFFFF0A1C),
+    noteWavePrimary = Color(0x1AFF0B21),
+    noteWaveSecondary = Color(0x0EFF0A1C),
 
     // SHARED NAVIGATION
     dockBackground = Color(0xFFE3F2FD),
@@ -938,8 +946,8 @@ val DeepOceanThemePalette = ThemePalette(
     dockDivider = Color(0xFF64B5F6),
     fabBackground = Color(0xFF38BDF8),
     fabIcon = Color(0xFF0A1929),
-    mainNoteTabText = Color(0xFFF6F4EA),
-    mainNoteTabSelectedIndicator = Color(0xFFDDE8B5),
+    mainTabText = Color(0xFFF6F4EA),
+    mainTabSelectedIndicator = Color(0xFFDDE8B5),
 
     // SEMANTIC STATES
     pinnedIndicator = Color(0xFF38BDF8),
@@ -1038,8 +1046,8 @@ val CoffeeThemePalette = ThemePalette(
     noteViewModeUnselectedIcon = Color(0xFFD4A574),
     noteSectionChevron = Color(0xFFF5E6D3),
     noteListDivider = Color(0xFF6B4630),
-    noteWavePrimary = Color(0xFFFF3720),
-    noteWaveSecondary = Color(0xFFFF2F1C),
+    noteWavePrimary = Color(0x1AFF3720),
+    noteWaveSecondary = Color(0x0EFF2F1C),
 
     // SHARED NAVIGATION
     dockBackground = Color(0xFFF5E6D3),
@@ -1047,8 +1055,8 @@ val CoffeeThemePalette = ThemePalette(
     dockDivider = Color(0xFFB08968),
     fabBackground = Color(0xFFE8A87C),
     fabIcon = Color(0xFF2B1A12),
-    mainNoteTabText = Color(0xFFF6F4EA),
-    mainNoteTabSelectedIndicator = Color(0xFFDDE8B5),
+    mainTabText = Color(0xFFF6F4EA),
+    mainTabSelectedIndicator = Color(0xFFDDE8B5),
 
     // SEMANTIC STATES
     pinnedIndicator = Color(0xFFE8A87C),
@@ -1147,8 +1155,8 @@ val ObsidianThemePalette = ThemePalette(
     noteViewModeUnselectedIcon = Color(0xFFC4B5FD),
     noteSectionChevron = Color(0xFFEDE9FE),
     noteListDivider = Color(0xFF4C2E6E),
-    noteWavePrimary = Color(0xFFFF2517),
-    noteWaveSecondary = Color(0xFFFF1E10),
+    noteWavePrimary = Color(0x1AFF2517),
+    noteWaveSecondary = Color(0x0EFF1E10),
 
     // SHARED NAVIGATION
     dockBackground = Color(0xFFEDE9FE),
@@ -1156,8 +1164,8 @@ val ObsidianThemePalette = ThemePalette(
     dockDivider = Color(0xFFDDD6FE),
     fabBackground = Color(0xFFA78BFA),
     fabIcon = Color(0xFF1A0F2E),
-    mainNoteTabText = Color(0xFFF6F4EA),
-    mainNoteTabSelectedIndicator = Color(0xFFDDE8B5),
+    mainTabText = Color(0xFFF6F4EA),
+    mainTabSelectedIndicator = Color(0xFFDDE8B5),
 
     // SEMANTIC STATES
     pinnedIndicator = Color(0xFFA78BFA),
