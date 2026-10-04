@@ -185,7 +185,7 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
         private var selectedIds: Set<Long> = emptySet()
         private var revealedSensitiveIds: Set<Long> = emptySet()
         private var maskingEnabled = false
-        private var colors = currentColors
+        private lateinit var colors: VaultRecyclerColors
         private var showPinnedFirst = false
 
         init {
