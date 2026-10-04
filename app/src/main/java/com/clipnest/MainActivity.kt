@@ -731,6 +731,98 @@ fun MainAppContent(
 
 }
     
+@Composable
+private fun SharedMainDock(
+    palette: com.clipnest.ui.theme.ThemePalette,
+    noteOrigin: com.clipnest.ui.editor.EditorNoteOrigin?,
+    noteTopicId: Long?,
+    notePinnedExpanded: Boolean,
+    hasPinnedNotes: Boolean,
+    overflowExpanded: Boolean,
+    onOverflowExpandedChange: (Boolean) -> Unit,
+    onOpenMenu: () -> Unit,
+    onOpenSearch: () -> Unit,
+    onCreateNote: (com.clipnest.ui.editor.EditorNoteOrigin?, Long?) -> Unit,
+    onViewModeChange: (com.clipnest.ui.note.NoteViewMode) -> Unit,
+    onPinnedExpandedChange: (Boolean) -> Unit,
+    onOpenSettings: () -> Unit
+) {
+    Box(Modifier.fillMaxSize()) {
+        Canvas(
+            modifier = Modifier.fillMaxWidth().height(120.dp).align(Alignment.BottomCenter)
+        ) {
+            val backWave = Path().apply {
+                moveTo(0f, size.height * 0.24f)
+                cubicTo(size.width * 0.16f, size.height * 0.02f, size.width * 0.30f, size.height * 0.40f, size.width * 0.48f, size.height * 0.18f)
+                cubicTo(size.width * 0.66f, -size.height * 0.02f, size.width * 0.82f, size.height * 0.34f, size.width, size.height * 0.12f)
+                lineTo(size.width, size.height)
+                lineTo(0f, size.height)
+                close()
+            }
+            val frontWave = Path().apply {
+                moveTo(0f, size.height * 0.42f)
+                cubicTo(size.width * 0.15f, size.height * 0.12f, size.width * 0.31f, size.height * 0.58f, size.width * 0.49f, size.height * 0.34f)
+                cubicTo(size.width * 0.67f, size.height * 0.10f, size.width * 0.83f, size.height * 0.50f, size.width, size.height * 0.28f)
+                lineTo(size.width, size.height)
+                lineTo(0f, size.height)
+                close()
+            }
+            drawPath(backWave, palette.noteWaveSecondary)
+            drawPath(frontWave, palette.noteWavePrimary)
+        }
+        Surface(
+            modifier = Modifier.align(Alignment.BottomCenter).padding(horizontal = 18.dp, vertical = 18.dp),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+            color = palette.dockBackground,
+            tonalElevation = 2.dp,
+            shadowElevation = 3.dp
+        ) {
+            Row(
+                modifier = Modifier.height(48.dp).padding(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onOpenMenu, modifier = Modifier.size(48.dp)) {
+                    Icon(Icons.Default.Menu, contentDescription = stringResource(com.clipnest.R.string.menu), tint = palette.dockIcon)
+                }
+                IconButton(onClick = onOpenSearch, modifier = Modifier.size(48.dp)) {
+                    Icon(Icons.Default.Search, contentDescription = stringResource(com.clipnest.R.string.search_notes), tint = palette.dockIcon)
+                }
+                VerticalDivider(modifier = Modifier.height(20.dp), color = palette.dockDivider)
+                IconButton(onClick = { onCreateNote(noteOrigin, noteTopicId) }, modifier = Modifier.size(48.dp)) {
+                    Icon(Icons.Default.Edit, contentDescription = stringResource(com.clipnest.R.string.new_note), tint = palette.dockIcon)
+                }
+                VerticalDivider(modifier = Modifier.height(20.dp), color = palette.dockDivider)
+                Box {
+                    IconButton(onClick = { onOverflowExpandedChange(true) }, modifier = Modifier.size(48.dp)) {
+                        Icon(Icons.Default.MoreVert, contentDescription = stringResource(com.clipnest.R.string.more_options), tint = palette.dockIcon)
+                    }
+                    DropdownMenu(expanded = overflowExpanded, onDismissRequest = { onOverflowExpandedChange(false) }) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(com.clipnest.R.string.note_list_view)) },
+                            onClick = { onOverflowExpandedChange(false); onViewModeChange(com.clipnest.ui.note.NoteViewMode.LIST) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(com.clipnest.R.string.note_grid_view)) },
+                            onClick = { onOverflowExpandedChange(false); onViewModeChange(com.clipnest.ui.note.NoteViewMode.GRID) }
+                        )
+                        if (hasPinnedNotes) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(if (notePinnedExpanded) com.clipnest.R.string.collapse_pinned else com.clipnest.R.string.expand_pinned)) },
+                                onClick = { onOverflowExpandedChange(false); onPinnedExpandedChange(!notePinnedExpanded) }
+                            )
+                        }
+                        DropdownMenuItem(
+                            text = { Text(stringResource(com.clipnest.R.string.settings)) },
+                            onClick = { onOverflowExpandedChange(false); onOpenSettings() }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MainTopBar(
