@@ -46,6 +46,7 @@ fun EditorNoteBreadcrumbBar(
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .background(noteColors.headerSurface)
             .padding(horizontal = 4.dp, vertical = 1.5.dp)
             .testTag("note_breadcrumb_bar"),
         horizontalArrangement = Arrangement.SpaceBetween,
