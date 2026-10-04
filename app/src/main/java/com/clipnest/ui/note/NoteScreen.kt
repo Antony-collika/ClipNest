@@ -205,8 +205,8 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
                     topics = topics,
                     colors = MaterialTheme.colorScheme,
                     typography = MaterialTheme.typography,
-                    headerSurface = noteColors.headerSurface,
-                    headerContent = noteColors.headerContent,
+                    topBarBackground = noteColors.topBarBackground,
+                    topBarContent = noteColors.topBarContent,
                     breadcrumb = noteColors.breadcrumb,
                     breadcrumbBackground = noteColors.breadcrumbBackground,
                     sectionText = noteColors.sectionText,
@@ -268,9 +268,9 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
                     noteTagSurface = noteColors.tagSurface.toArgb(),
                     noteTagContent = noteColors.noteLabel.toArgb(),
                     sectionText = noteColors.sectionText.toArgb(),
-                    noteTitle = noteColors.noteTitle.toArgb(),
-                    notePreview = noteColors.notePreview.toArgb(),
-                    noteActionIcon = noteColors.noteActionIcon.toArgb()
+                    cardTitle = noteColors.noteTitle.toArgb(),
+                    cardPreview = noteColors.notePreview.toArgb(),
+                    cardActionIcon = noteColors.noteActionIcon.toArgb()
                 )
                 Box(Modifier.fillMaxWidth().weight(1f)) {
                     AndroidView(
