@@ -624,7 +624,8 @@ fun MainAppContent(
         },
         modifier = Modifier.fillMaxSize()
     ) { innerPadding ->
-        NavHost(navController = navController, startDestination = Screen.Vault.route, modifier = Modifier.padding(innerPadding)) {
+        Box(Modifier.fillMaxSize().padding(innerPadding)) {
+        NavHost(navController = navController, startDestination = Screen.Vault.route, modifier = Modifier.fillMaxSize()) {
             composable(Screen.Vault.route) {
                 androidx.compose.foundation.pager.HorizontalPager(state = pagerState, beyondViewportPageCount = 1, modifier = Modifier.fillMaxSize().testTag("main_content_pager")) { page ->
                     when (page) {
@@ -657,6 +658,11 @@ fun MainAppContent(
                             onOpenSettings = {
                                 navController.navigate(Screen.Settings.route) { launchSingleTop = true }
                             },
+                            onNoteOriginChanged = { noteOrigin = it },
+                            viewMode = noteViewMode,
+                            onViewModeChange = { noteViewMode = it },
+                            pinnedExpanded = notePinnedExpanded,
+                            onPinnedExpandedChange = { notePinnedExpanded = it },
                             modifier = Modifier.fillMaxSize()
                         )
                         1 -> VaultScreen(
