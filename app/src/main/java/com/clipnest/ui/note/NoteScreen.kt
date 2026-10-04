@@ -251,7 +251,6 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
                     )
                 }
             } else {
-                val semanticColors = palette.semanticColors
                 val colors = NoteRecyclerColors(
                     noteCardBackground = palette.noteCardBackground.toArgb(),
                     noteCardSelectedBackground = palette.noteCardSelectedBackground.toArgb(),
