@@ -68,6 +68,7 @@ import com.clipnest.data.repository.ClipboardRepositoryImpl
 import com.clipnest.domain.TextNormalizer
 import com.clipnest.ui.localization.withAppLanguage
 import com.clipnest.ui.theme.ClipNestTheme
+import com.clipnest.ui.theme.LocalThemePalette
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -302,11 +303,11 @@ fun ShareDialogOverlay(
                 if (hasClipboard) {
                     val isSelected = isClipboardSelected
                     val containerBg = if (isSelected) {
-                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+                        LocalThemePalette.current.shareOptionSelectedBackground
                     } else {
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                        LocalThemePalette.current.shareOptionBackground
                     }
-                    val borderColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
+                    val borderColor = if (isSelected) LocalThemePalette.current.shareOptionSelectedBorder else Color.Transparent
 
                     Card(
                         shape = RoundedCornerShape(14.dp),
@@ -326,7 +327,7 @@ fun ShareDialogOverlay(
                             Icon(
                                 imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Outlined.Circle,
                                 contentDescription = if (isSelected) stringResource(com.clipnest.R.string.selected) else stringResource(com.clipnest.R.string.not_selected),
-                                tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                tint = if (isSelected) LocalThemePalette.current.shareOptionAccent else LocalThemePalette.current.shareOptionHint,
                                 modifier = Modifier.size(22.dp)
                             )
 
@@ -373,11 +374,11 @@ fun ShareDialogOverlay(
                 if (hasShared) {
                     val isSelected = isSharedSelected
                     val containerBg = if (isSelected) {
-                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+                        LocalThemePalette.current.shareOptionSelectedBackground
                     } else {
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                        LocalThemePalette.current.shareOptionBackground
                     }
-                    val borderColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
+                    val borderColor = if (isSelected) LocalThemePalette.current.shareOptionSelectedBorder else Color.Transparent
 
                     Card(
                         shape = RoundedCornerShape(14.dp),
@@ -397,7 +398,7 @@ fun ShareDialogOverlay(
                             Icon(
                                 imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Outlined.Circle,
                                 contentDescription = if (isSelected) stringResource(com.clipnest.R.string.selected) else stringResource(com.clipnest.R.string.not_selected),
-                                tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                tint = if (isSelected) LocalThemePalette.current.shareOptionAccent else LocalThemePalette.current.shareOptionHint,
                                 modifier = Modifier.size(22.dp)
                             )
 
