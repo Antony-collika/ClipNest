@@ -746,7 +746,7 @@ private fun MainTopBar(
     LaunchedEffect(isSearchOpen) {
         if (isSearchOpen) { searchFocusRequester.requestFocus(); keyboardController?.show() }
     }
-    Surface(color = if (isNote) LocalThemePalette.current.noteColors().headerSurface else MaterialTheme.colorScheme.surface, contentColor = if (isNote) LocalThemePalette.current.noteColors().headerContent else MaterialTheme.colorScheme.onSurface, modifier = Modifier.fillMaxWidth()) {
+    Surface(color = if (isNote) LocalThemePalette.current.noteHeaderBackground else MaterialTheme.colorScheme.surface, contentColor = if (isNote) LocalThemePalette.current.noteHeaderContent else MaterialTheme.colorScheme.onSurface, modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth().statusBarsPadding().height(if (isSearchOpen && isEditor) 104.dp else 52.dp).padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
