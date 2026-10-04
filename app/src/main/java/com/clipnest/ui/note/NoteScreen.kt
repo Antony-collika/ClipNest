@@ -76,7 +76,7 @@ import com.clipnest.ui.theme.LocalThemePalette
 import kotlinx.coroutines.flow.flowOf
 
 @Composable
-fun NoteScreen(
+internal fun NoteScreen(
     noteDao: NoteDao,
     topicDao: TopicDao,
     onCreateNote: (EditorNoteOrigin?, Long?) -> Unit,
