@@ -29,14 +29,19 @@ import com.clipnest.data.model.ClipboardCardProjection
 import com.clipnest.domain.RelativeTimeFormatter
 
 internal data class VaultRecyclerColors(
-    val surface: Int,
-    val onSurface: Int,
-    val onSurfaceVariant: Int,
-    val primary: Int,
-    val primaryContainer: Int,
-    val outlineVariant: Int,
-    val pinned: Int,
-    val sensitive: Int
+    val vaultClipboardCardBackground: Int,
+    val vaultClipboardCardSelectedBackground: Int,
+    val vaultClipboardCardPressedBackground: Int,
+    val vaultClipboardCardDraggingBackground: Int,
+    val vaultClipboardPreviewText: Int,
+    val vaultClipboardMetaText: Int,
+    val vaultActionIcon: Int,
+    val vaultCheckboxChecked: Int,
+    val vaultCheckboxUnchecked: Int,
+    val vaultDragHandle: Int,
+    val pinnedIndicator: Int,
+    val sensitiveIndicator: Int,
+    val vaultGroupDivider: Int
 )
 
 internal data class VaultRecyclerCallbacks(
@@ -55,16 +60,7 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
     private val listAdapter = VaultAdapter(context)
     private val dragHelper: ItemTouchHelper
     private var callbacks = VaultRecyclerCallbacks({}, { _, _ -> }, {}, {}, {})
-    private var currentColors = VaultRecyclerColors(
-        surface = Color.WHITE,
-        onSurface = Color.BLACK,
-        onSurfaceVariant = Color.DKGRAY,
-        primary = Color.DKGRAY,
-        primaryContainer = Color.LTGRAY,
-        outlineVariant = Color.LTGRAY,
-        pinned = Color.rgb(21, 128, 61),
-        sensitive = Color.rgb(217, 119, 6)
-    )
+    private lateinit var currentColors: VaultRecyclerColors
     private var showPinnedFirst = false
     private var searchActive = false
     private var dragging = false
@@ -92,10 +88,10 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
         callbacks: VaultRecyclerCallbacks
     ) {
         this.callbacks = callbacks
-        val decorationChanged = currentColors.outlineVariant != colors.outlineVariant
+        val decorationChanged = ::currentColors.isInitialized && currentColors.vaultGroupDivider != colors.vaultGroupDivider
         this.currentColors = colors
         if (decorationChanged) {
-            spacingDecoration.setDividerColor(colors.outlineVariant)
+            spacingDecoration.setDividerColor(colors.vaultGroupDivider)
             invalidateItemDecorations()
         }
         this.showPinnedFirst = showPinnedFirst
@@ -497,20 +493,20 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
             minimumHeight = dp(if (showGroupBoundary) 78 else 72)
             checkbox.buttonTintList = ColorStateList(
                 arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
-                intArrayOf(colors.primary, colors.onSurfaceVariant)
+                intArrayOf(colors.vaultCheckboxChecked, colors.vaultCheckboxUnchecked)
             )
             checkbox.setOnClickListener { onToggleSelect() }
             checkbox.isChecked = selected
 
             val masked = card.isSensitive && isMaskingEnabled && !isSensitiveRevealed
             preview.text = if (masked) "•••••••••••••••• ${context.getString(com.clipnest.R.string.sensitive)}" else card.preview
-            preview.setTextColor(if (masked) colors.sensitive else colors.onSurface)
+            preview.setTextColor(if (masked) colors.sensitiveIndicatorIndicator else colors.vaultClipboardPreviewText)
             preview.setTypeface(Typeface.DEFAULT, if (masked) Typeface.BOLD else Typeface.NORMAL)
             sensitiveRow.visibility = if (card.isSensitive) VISIBLE else GONE
             sensitiveLabel.visibility = if (card.isSensitive && !masked) VISIBLE else GONE
             revealButton.visibility = if (card.isSensitive) VISIBLE else GONE
-            sensitiveLabel.setTextColor(colors.sensitive)
-            revealButton.imageTintList = ColorStateList.valueOf(colors.onSurfaceVariant)
+            sensitiveLabel.setTextColor(colors.sensitiveIndicator)
+            revealButton.imageTintList = ColorStateList.valueOf(colors.vaultActionIcon)
             revealButton.contentDescription = if (masked) context.getString(com.clipnest.R.string.reveal_sensitive) else context.getString(com.clipnest.R.string.mask_sensitive)
             revealButton.setOnClickListener { onToggleRevealSensitive() }
 
@@ -519,12 +515,12 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
                 context.getString(com.clipnest.R.string.today),
                 context.getString(com.clipnest.R.string.yesterday)
             )
-            timestamp.setTextColor(colors.onSurfaceVariant)
+            timestamp.setTextColor(colors.vaultClipboardMetaText)
             pinnedLabel.visibility = if (card.pinned) VISIBLE else GONE
-            pinnedLabel.setTextColor(colors.pinned)
-            copyButton.imageTintList = ColorStateList.valueOf(colors.onSurfaceVariant)
+            pinnedLabel.setTextColor(colors.pinnedIndicatorIndicator)
+            copyButton.imageTintList = ColorStateList.valueOf(colors.vaultActionIcon)
             copyButton.setOnClickListener { onCopy() }
-            dragHandle.setDotColor(colors.onSurfaceVariant)
+            dragHandle.setDotColor(colors.vaultDragHandle)
 
             setOnClickListener {
                 if (!longPressFired) onToggleSelect()
@@ -611,13 +607,10 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
                 setBackgroundDrawable(backgroundFor(colors, selectedState, false))
                 return
             }
-            val base = backgroundColor(colors, selectedState)
-            val target = blendColors(base, colors.primaryContainer, 0.22f)
-            val current = ArgbEvaluator().evaluate(pressProgress, base, target) as Int
             GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dp(16).toFloat()
-                setColor(current)
+                setColor(colors.vaultClipboardCardPressedBackground)
             }.also(::setBackgroundDrawable)
         }
 
@@ -628,15 +621,7 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
             scaleY = if (isDragging) 1.015f else 1f
         }
 
-        private fun backgroundColor(colors: VaultRecyclerColors, isSelected: Boolean): Int {
-            return if (isSelected) withAlpha(colors.primaryContainer, 90) else colors.surface
-        }
-
-        private fun blendColors(from: Int, to: Int, amount: Float): Int {
-            return ArgbEvaluator().evaluate(amount.coerceIn(0f, 1f), from, to) as Int
-        }
-
-        private fun backgroundFor(
+                private fun backgroundFor(
             colors: VaultRecyclerColors,
             isSelected: Boolean,
             isDragging: Boolean
@@ -646,8 +631,9 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
             background.cornerRadius = dp(16).toFloat()
             background.setColor(
                 when {
-                    isDragging -> colors.primaryContainer
-                    else -> backgroundColor(colors, isSelected)
+                    isDragging -> colors.vaultClipboardCardDraggingBackground
+                    isSelected -> colors.vaultClipboardCardSelectedBackground
+                    else -> colors.vaultClipboardCardBackground
                 }
             )
             return background
@@ -656,7 +642,7 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
         private class DragHandleView(context: Context) : View(context) {
             private val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG)
             private val density = resources.displayMetrics.density
-            private var dotColor = Color.DKGRAY
+            private var dotColor: Int? = null
 
             init {
                 setWillNotDraw(false)
@@ -669,7 +655,7 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
 
             override fun onDraw(canvas: Canvas) {
                 super.onDraw(canvas)
-                dotPaint.color = dotColor
+                dotPaint.color = dotColor ?: return
                 val centerX = width / 2f
                 val columnOffset = 4f * density
                 val rowOffset = 6f * density
@@ -686,10 +672,6 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
                     }
                 }
             }
-        }
-
-        private fun withAlpha(color: Int, alpha: Int): Int {
-            return (color and 0x00FFFFFF) or ((alpha.coerceIn(0, 255)) shl 24)
         }
 
         private fun dp(value: Int): Int = (value * density + 0.5f).toInt()
