@@ -61,8 +61,8 @@ fun VaultScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { viewModel.captureCurrentClipboard(context) },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
+                containerColor = palette.fabBackground,
+                contentColor = palette.fabIcon,
                 modifier = Modifier.testTag("vault_add_fab")
             ) {
                 Icon(
@@ -158,16 +158,22 @@ private fun VaultCardList(
     onToggleRevealSensitive: (Long) -> Unit,
     onReorder: (List<Long>) -> Unit
 ) {
-    val semanticColors = LocalThemePalette.current.semanticColors
+    val palette = LocalThemePalette.current
     val colors = VaultRecyclerColors(
-        surface = MaterialTheme.colorScheme.surface.toArgb(),
-        onSurface = MaterialTheme.colorScheme.onSurface.toArgb(),
-        onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant.toArgb(),
-        primary = MaterialTheme.colorScheme.primary.toArgb(),
-        primaryContainer = MaterialTheme.colorScheme.primaryContainer.toArgb(),
-        outlineVariant = MaterialTheme.colorScheme.outlineVariant.toArgb(),
-        pinned = semanticColors.pinned.toArgb(),
-        sensitive = semanticColors.sensitive.toArgb()
+        vaultClipboardCardBackground = palette.vaultClipboardCardBackground.toArgb(),
+        vaultClipboardCardSelectedBackground = palette.vaultClipboardCardSelectedBackground.toArgb(),
+        vaultClipboardCardPressedBackground = palette.vaultClipboardCardPressedBackground.toArgb(),
+        vaultClipboardCardDraggingBackground = palette.vaultClipboardCardDraggingBackground.toArgb(),
+        vaultClipboardPreviewText = palette.vaultClipboardPreviewText.toArgb(),
+        vaultClipboardMetaText = palette.vaultClipboardMetaText.toArgb(),
+        vaultActionIcon = palette.vaultActionIcon.toArgb(),
+        vaultCheckboxChecked = palette.vaultCheckboxChecked.toArgb(),
+        vaultCheckboxUnchecked = palette.vaultCheckboxUnchecked.toArgb(),
+        vaultDragHandle = palette.vaultDragHandle.toArgb(),
+        vaultDragHandleActive = palette.vaultDragHandleActive.toArgb(),
+        pinnedIndicator = palette.pinnedIndicator.toArgb(),
+        sensitiveIndicator = palette.sensitiveIndicator.toArgb(),
+        vaultGroupDivider = palette.vaultGroupDivider.toArgb()
     )
 
     AndroidView(
@@ -212,7 +218,7 @@ private fun VaultEmptyState(
         Icon(
             imageVector = if (isSearch) Icons.Default.FolderOpen else Icons.Default.ContentPaste,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+            tint = palette.vaultEmptyStateIcon,
             modifier = Modifier.padding(bottom = 16.dp)
         )
         Text(
