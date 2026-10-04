@@ -746,7 +746,7 @@ private fun MainTopBar(
     LaunchedEffect(isSearchOpen) {
         if (isSearchOpen) { searchFocusRequester.requestFocus(); keyboardController?.show() }
     }
-    Surface(color = if (isNote) LocalThemePalette.current.noteColors().headerSurface else MaterialTheme.colorScheme.surface, contentColor = if (isNote) LocalThemePalette.current.noteColors().headerContent else MaterialTheme.colorScheme.onSurface, modifier = Modifier.fillMaxWidth()) {
+    val noteColors = LocalThemePalette.current.noteColors()\n    val topBarSurface = if (isNote || isVault || isEditor) noteColors.headerSurface else MaterialTheme.colorScheme.surface\n    val topBarContent = if (isNote || isVault || isEditor) noteColors.headerContent else MaterialTheme.colorScheme.onSurface\n    Surface(color = topBarSurface, contentColor = topBarContent, modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth().statusBarsPadding().height(if (isSearchOpen && isEditor) 104.dp else 52.dp).padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -823,7 +823,7 @@ private fun MainTopBar(
                                 Text(
                                     text = stringResource(com.clipnest.R.string.selected_count, selectedCount),
                                     style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                                    color = if (isNote) LocalThemePalette.current.noteColors().headerContent else MaterialTheme.colorScheme.onSurface,
+                                    color = if (isNote || isVault || isEditor) noteColors.headerContent else MaterialTheme.colorScheme.onSurface,
                                     maxLines = 1,
                                     modifier = Modifier.testTag(if (isNote) "note_selected_count_text" else "vault_selected_count_text")
                                 )
