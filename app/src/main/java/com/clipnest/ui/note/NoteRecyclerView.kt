@@ -210,7 +210,6 @@ private fun ViewModeButton(
     selected: NoteViewMode,
     onViewModeChanged: (NoteViewMode) -> Unit
 ) {
-    val palette = LocalThemePalette.current
     Box(
         modifier = Modifier
             .size(width = 80.dp, height = 40.dp)
@@ -259,6 +258,7 @@ private fun ViewModeIconButton(
     selected: Boolean,
     onClick: () -> Unit
 ) {
+    val palette = LocalThemePalette.current
     Box(
         modifier = Modifier
             .size(40.dp)
