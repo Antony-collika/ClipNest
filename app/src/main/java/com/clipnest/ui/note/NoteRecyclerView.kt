@@ -555,7 +555,6 @@ internal class NoteRecyclerView(context: Context) : RecyclerView(context) {
             editButton.imageTintList = ColorStateList.valueOf(colors.noteActionIcon); editButton.setOnClickListener { onEdit() }
             setOnClickListener { onToggleSelect() }; setOnLongClickListener { onLongPress(); true }
         }
-        private fun withAlpha(color: Int, alpha: Int): Int = (color and 0x00FFFFFF) or ((alpha.coerceIn(0, 255)) shl 24)
         private fun dp(value: Int): Int = (value * density + 0.5f).toInt()
     }
 
