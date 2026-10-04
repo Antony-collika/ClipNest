@@ -20,6 +20,7 @@ data class ThemeNoteColors(
     val pinnedSurface: Color,
     val tagSurface: Color,
     val tagContent: Color,
+    val noteLabel: Color,
     val headerSurface: Color,
     val headerContent: Color,
     val dockSurface: Color,
@@ -83,7 +84,8 @@ data class ThemePalette(
             pinnedSurface = semanticColors.pinned.copy(alpha = 0.10f),
             // Label/tag background and content color.
             tagSurface = colorScheme.secondaryContainer.copy(alpha = 0.88f),
-            tagContent = noteLabelColor,
+            tagContent = colorScheme.onSecondaryContainer,
+            noteLabel = noteLabelColor,
             // Top bar surface and the content drawn on it.
             headerSurface = colorScheme.primary,
             headerContent = colorScheme.onPrimary,
