@@ -158,10 +158,12 @@ private fun VaultCardList(
     onToggleRevealSensitive: (Long) -> Unit,
     onReorder: (List<Long>) -> Unit
 ) {
-    val semanticColors = LocalThemePalette.current.semanticColors
+    val palette = LocalThemePalette.current
+    val semanticColors = palette.semanticColors
+    val noteColors = palette.noteColors()
     val colors = VaultRecyclerColors(
-        surface = MaterialTheme.colorScheme.surface.toArgb(),
-        onSurface = MaterialTheme.colorScheme.onSurface.toArgb(),
+        surface = noteColors.noteTitle.toArgb(),
+        onSurface = noteColors.noteTitle.toArgb(),
         onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant.toArgb(),
         primary = MaterialTheme.colorScheme.primary.toArgb(),
         primaryContainer = MaterialTheme.colorScheme.primaryContainer.toArgb(),
