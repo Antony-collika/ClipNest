@@ -36,6 +36,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -723,6 +724,7 @@ fun MainAppContent(
                     scope.launch { pagerState.animateScrollToPage(0, animationSpec = tween(durationMillis = 180)) }
                 },
                 onCreateNote = ::openNewNote,
+                onCaptureClipboard = { vaultViewModel.captureCurrentClipboard(context) },
                 onViewModeChange = { noteViewMode = it },
                 onPinnedExpandedChange = { notePinnedExpanded = it },
                 onOpenSettings = { navController.navigate(Screen.Settings.route) { launchSingleTop = true } }
@@ -747,6 +749,7 @@ private fun SharedMainDock(
     onOpenMenu: () -> Unit,
     onOpenSearch: () -> Unit,
     onCreateNote: (com.clipnest.ui.editor.EditorNoteOrigin?, Long?) -> Unit,
+    onCaptureClipboard: () -> Unit,
     onViewModeChange: (com.clipnest.ui.note.NoteViewMode) -> Unit,
     onPinnedExpandedChange: (Boolean) -> Unit,
     onOpenSettings: () -> Unit
@@ -795,6 +798,9 @@ private fun SharedMainDock(
                 VerticalDivider(modifier = Modifier.height(20.dp), color = palette.dockDivider)
                 IconButton(onClick = { onCreateNote(noteOrigin, noteTopicId) }, modifier = Modifier.size(48.dp)) {
                     Icon(Icons.Default.Edit, contentDescription = stringResource(com.clipnest.R.string.new_note), tint = palette.dockIcon)
+                }
+                IconButton(onClick = onCaptureClipboard, modifier = Modifier.size(48.dp).testTag("vault_add_clipboard")) {
+                    Icon(Icons.Default.ContentPaste, contentDescription = stringResource(com.clipnest.R.string.save_to_clipboard), tint = palette.dockIcon)
                 }
                 VerticalDivider(modifier = Modifier.height(20.dp), color = palette.dockDivider)
                 Box {
