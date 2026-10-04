@@ -283,6 +283,7 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
         )
     }
 }
+}
 
 @Composable
 private fun SearchOverlay(
