@@ -40,6 +40,7 @@ fun VaultScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val palette = LocalThemePalette.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) {
         viewModel.eventFlow.collect { event ->
