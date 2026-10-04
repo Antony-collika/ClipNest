@@ -40,7 +40,6 @@ fun VaultScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val palette = LocalThemePalette.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) {
         viewModel.eventFlow.collect { event ->
@@ -62,8 +61,8 @@ fun VaultScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { viewModel.captureCurrentClipboard(context) },
-                containerColor = palette.fabBackground,
-                contentColor = palette.fabIcon,
+                containerColor = LocalThemePalette.current.fabBackground,
+                contentColor = LocalThemePalette.current.fabIcon,
                 modifier = Modifier.testTag("vault_add_fab")
             ) {
                 Icon(
@@ -161,19 +160,19 @@ private fun VaultCardList(
 ) {
     val palette = LocalThemePalette.current
     val colors = VaultRecyclerColors(
-        vaultClipboardCardBackground = palette.vaultClipboardCardBackground.toArgb(),
-        vaultClipboardCardSelectedBackground = palette.vaultClipboardCardSelectedBackground.toArgb(),
-        vaultClipboardCardPressedBackground = palette.vaultClipboardCardPressedBackground.toArgb(),
-        vaultClipboardCardDraggingBackground = palette.vaultClipboardCardDraggingBackground.toArgb(),
-        vaultClipboardPreviewText = palette.vaultClipboardPreviewText.toArgb(),
-        vaultClipboardMetaText = palette.vaultClipboardMetaText.toArgb(),
-        vaultActionIcon = palette.vaultActionIcon.toArgb(),
-        vaultCheckboxChecked = palette.vaultCheckboxChecked.toArgb(),
-        vaultCheckboxUnchecked = palette.vaultCheckboxUnchecked.toArgb(),
-        vaultDragHandle = palette.vaultDragHandle.toArgb(),
-        pinnedIndicator = palette.pinnedIndicator.toArgb(),
-        sensitiveIndicator = palette.sensitiveIndicator.toArgb(),
-        vaultGroupDivider = palette.vaultGroupDivider.toArgb()
+        vaultClipboardCardBackground = LocalThemePalette.current.vaultClipboardCardBackground.toArgb(),
+        vaultClipboardCardSelectedBackground = LocalThemePalette.current.vaultClipboardCardSelectedBackground.toArgb(),
+        vaultClipboardCardPressedBackground = LocalThemePalette.current.vaultClipboardCardPressedBackground.toArgb(),
+        vaultClipboardCardDraggingBackground = LocalThemePalette.current.vaultClipboardCardDraggingBackground.toArgb(),
+        vaultClipboardPreviewText = LocalThemePalette.current.vaultClipboardPreviewText.toArgb(),
+        vaultClipboardMetaText = LocalThemePalette.current.vaultClipboardMetaText.toArgb(),
+        vaultActionIcon = LocalThemePalette.current.vaultActionIcon.toArgb(),
+        vaultCheckboxChecked = LocalThemePalette.current.vaultCheckboxChecked.toArgb(),
+        vaultCheckboxUnchecked = LocalThemePalette.current.vaultCheckboxUnchecked.toArgb(),
+        vaultDragHandle = LocalThemePalette.current.vaultDragHandle.toArgb(),
+        pinnedIndicator = LocalThemePalette.current.pinnedIndicator.toArgb(),
+        sensitiveIndicator = LocalThemePalette.current.sensitiveIndicator.toArgb(),
+        vaultGroupDivider = LocalThemePalette.current.vaultGroupDivider.toArgb()
     )
 
     AndroidView(
@@ -218,7 +217,7 @@ private fun VaultEmptyState(
         Icon(
             imageVector = if (isSearch) Icons.Default.FolderOpen else Icons.Default.ContentPaste,
             contentDescription = null,
-            tint = palette.vaultEmptyStateIcon,
+            tint = LocalThemePalette.current.vaultEmptyStateIcon,
             modifier = Modifier.padding(bottom = 16.dp)
         )
         Text(
