@@ -88,7 +88,7 @@ data class ThemePalette(
             tagContent = colorScheme.onSecondaryContainer,
             noteLabel = noteLabelColor,
             // Top bar surface and the content drawn on it.
-            headerSurface = breadcrumbBackground,
+            headerSurface = colorScheme.primary,
             headerContent = colorScheme.onPrimary,
             // Dock and decorative wave colors exposed to note UI.
             dockSurface = dockBg,
