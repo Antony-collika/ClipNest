@@ -22,6 +22,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -30,6 +31,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -64,6 +66,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -75,6 +78,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
@@ -629,12 +634,29 @@ fun MainAppContent(
         },
         modifier = Modifier.fillMaxSize()
     ) { innerPadding ->
-        Box(Modifier.fillMaxSize().padding(innerPadding)) {
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .clipToBounds()
+        ) {
+            val pagerProgress by remember {
+                derivedStateOf {
+                    pagerState.currentPage + pagerState.currentPageOffsetFraction
+                }
+            }
+            val panoramaWidth = maxHeight * PANORAMA_ASPECT_RATIO
             androidx.compose.foundation.Image(
                 painter = painterResource(id = com.clipnest.R.drawable.bg_forest),
                 contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
+                contentScale = ContentScale.FillBounds,
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .requiredWidth(panoramaWidth)
+                    .graphicsLayer {
+                        val maxTravel = (size.width - with(androidx.compose.ui.platform.LocalDensity.current) { maxWidth.toPx() }).coerceAtLeast(0f)
+                        translationX = -(pagerProgress / (MAIN_PAGE_COUNT - 1).toFloat()) * maxTravel * PANORAMA_PARALLAX
+                    }
             )
         NavHost(navController = navController, startDestination = Screen.Vault.route, modifier = Modifier.fillMaxSize()) {
             composable(Screen.Vault.route) {
@@ -1017,3 +1039,7 @@ private fun MainTabSlot(
 private fun VaultSelectionCheckbox(checked: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Checkbox(checked = checked, onCheckedChange = { onClick() }, colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary, uncheckedColor = MaterialTheme.colorScheme.onSurfaceVariant, checkmarkColor = MaterialTheme.colorScheme.onPrimary), modifier = modifier.size(32.dp))
 }
+
+private const val MAIN_PAGE_COUNT = 3
+private const val PANORAMA_ASPECT_RATIO = 3840f / 1080f
+private const val PANORAMA_PARALLAX = 0.72f
