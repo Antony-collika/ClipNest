@@ -646,6 +646,7 @@ fun MainAppContent(
                 }
             }
             val panoramaWidth = maxHeight * PANORAMA_ASPECT_RATIO
+            val viewportWidthPx = with(androidx.compose.ui.platform.LocalDensity.current) { maxWidth.toPx() }
             androidx.compose.foundation.Image(
                 painter = painterResource(id = com.clipnest.R.drawable.bg_forest),
                 contentDescription = null,
@@ -654,7 +655,7 @@ fun MainAppContent(
                     .fillMaxHeight()
                     .requiredWidth(panoramaWidth)
                     .graphicsLayer {
-                        val maxTravel = (size.width - with(androidx.compose.ui.platform.LocalDensity.current) { maxWidth.toPx() }).coerceAtLeast(0f)
+                        val maxTravel = (size.width - viewportWidthPx).coerceAtLeast(0f)
                         translationX = -(pagerProgress / (MAIN_PAGE_COUNT - 1).toFloat()) * maxTravel * PANORAMA_PARALLAX
                     }
             )
