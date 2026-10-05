@@ -19,7 +19,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -76,12 +75,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
@@ -630,6 +630,12 @@ fun MainAppContent(
         modifier = Modifier.fillMaxSize()
     ) { innerPadding ->
         Box(Modifier.fillMaxSize().padding(innerPadding)) {
+            androidx.compose.foundation.Image(
+                painter = painterResource(id = com.clipnest.R.drawable.bg_forest),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
         NavHost(navController = navController, startDestination = Screen.Vault.route, modifier = Modifier.fillMaxSize()) {
             composable(Screen.Vault.route) {
                 androidx.compose.foundation.pager.HorizontalPager(state = pagerState, beyondViewportPageCount = 1, modifier = Modifier.fillMaxSize().testTag("main_content_pager")) { page ->
@@ -755,79 +761,6 @@ private fun SharedMainDock(
     onOpenSettings: () -> Unit
 ) {
     Box(Modifier.fillMaxSize()) {
-        Canvas(
-            modifier = Modifier.fillMaxWidth().height(132.dp).align(Alignment.BottomCenter)
-        ) {
-            // Three broad, phase-shifted contours create one continuous wave mass.
-            val upperWave = Path().apply {
-                moveTo(0f, size.height * 0.08f)
-                cubicTo(
-                    size.width * 0.14f, size.height * 0.02f,
-                    size.width * 0.28f, size.height * 0.02f,
-                    size.width * 0.40f, size.height * 0.18f
-                )
-                cubicTo(
-                    size.width * 0.52f, size.height * 0.34f,
-                    size.width * 0.62f, size.height * 0.31f,
-                    size.width * 0.72f, size.height * 0.12f
-                )
-                cubicTo(
-                    size.width * 0.82f, size.height * 0.00f,
-                    size.width * 0.92f, size.height * 0.04f,
-                    size.width, size.height * 0.10f
-                )
-                lineTo(size.width, size.height)
-                lineTo(0f, size.height)
-                close()
-            }
-            val middleWave = Path().apply {
-                moveTo(0f, size.height * 0.28f)
-                cubicTo(
-                    size.width * 0.13f, size.height * 0.42f,
-                    size.width * 0.23f, size.height * 0.55f,
-                    size.width * 0.36f, size.height * 0.40f
-                )
-                cubicTo(
-                    size.width * 0.48f, size.height * 0.25f,
-                    size.width * 0.58f, size.height * 0.08f,
-                    size.width * 0.69f, size.height * 0.16f
-                )
-                cubicTo(
-                    size.width * 0.80f, size.height * 0.25f,
-                    size.width * 0.90f, size.height * 0.47f,
-                    size.width, size.height * 0.34f
-                )
-                lineTo(size.width, size.height)
-                lineTo(0f, size.height)
-                close()
-            }
-            val lowerWave = Path().apply {
-                moveTo(0f, size.height * 0.52f)
-                cubicTo(
-                    size.width * 0.14f, size.height * 0.62f,
-                    size.width * 0.28f, size.height * 0.72f,
-                    size.width * 0.41f, size.height * 0.56f
-                )
-                cubicTo(
-                    size.width * 0.54f, size.height * 0.40f,
-                    size.width * 0.65f, size.height * 0.26f,
-                    size.width * 0.76f, size.height * 0.38f
-                )
-                cubicTo(
-                    size.width * 0.86f, size.height * 0.49f,
-                    size.width * 0.94f, size.height * 0.56f,
-                    size.width, size.height * 0.46f
-                )
-                lineTo(size.width, size.height)
-                lineTo(0f, size.height)
-                close()
-            }
-
-            // Draw from back to front; alpha blending keeps notes subtly visible through the waves.
-            drawPath(upperWave, palette.noteWaveTertiary)
-            drawPath(middleWave, palette.noteWaveSecondary)
-            drawPath(lowerWave, palette.noteWavePrimary)
-        }
         Surface(
             modifier = Modifier.align(Alignment.BottomCenter).padding(horizontal = 18.dp, vertical = 18.dp),
             shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
