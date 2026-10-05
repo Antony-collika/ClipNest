@@ -29,9 +29,9 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -645,7 +645,7 @@ fun MainAppContent(
                     pagerState.currentPage + pagerState.currentPageOffsetFraction
                 }
             }
-            val panoramaWidth = maxHeight * PANORAMA_ASPECT_RATIO
+            val panoramaWidth = maxWidth * PANORAMA_WIDTH_FACTOR
             val viewportWidthPx = with(androidx.compose.ui.platform.LocalDensity.current) { maxWidth.toPx() }
             androidx.compose.foundation.Image(
                 painter = painterResource(id = com.clipnest.R.drawable.bg_forest),
@@ -653,7 +653,7 @@ fun MainAppContent(
                 contentScale = ContentScale.FillBounds,
                 modifier = Modifier
                     .fillMaxHeight()
-                    .requiredWidth(panoramaWidth)
+                    .width(panoramaWidth)
                     .graphicsLayer {
                         val maxTravel = (size.width - viewportWidthPx).coerceAtLeast(0f)
                         translationX = -(pagerProgress / (MAIN_PAGE_COUNT - 1).toFloat()) * maxTravel * PANORAMA_PARALLAX
@@ -1042,5 +1042,5 @@ private fun VaultSelectionCheckbox(checked: Boolean, onClick: () -> Unit, modifi
 }
 
 private const val MAIN_PAGE_COUNT = 3
-private const val PANORAMA_ASPECT_RATIO = 3840f / 1080f
 private const val PANORAMA_PARALLAX = 0.72f
+private const val PANORAMA_WIDTH_FACTOR = 1f + PANORAMA_PARALLAX * (MAIN_PAGE_COUNT - 1)
