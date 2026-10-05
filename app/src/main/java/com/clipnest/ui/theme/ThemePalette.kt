@@ -74,12 +74,6 @@ data class ThemePalette(
     val noteSectionChevron: Color,
     // Color used for note list divider.
     val noteListDivider: Color,
-    // Color used for note wave primary.
-    val noteWavePrimary: Color,
-    // Color used for note wave secondary.
-    val noteWaveSecondary: Color,
-    // Color used for the translucent upper note wave.
-    val noteWaveTertiary: Color,
 
     // ============================================================
     // SHARED NAVIGATION
@@ -250,9 +244,6 @@ val ForestThemePalette = ThemePalette(
     noteViewModeUnselectedIcon = Color(0xFF55635B),
     noteSectionChevron = Color(0xFF17201B),
     noteListDivider = Color(0xFFD6E5DB),
-    noteWavePrimary = Color(0x3316301F),
-    noteWaveSecondary = Color(0x1A16301F),
-    noteWaveTertiary = Color(0x0D16301F),
 
     // SHARED NAVIGATION
     dockBackground = Color(0xFFFDFAF3),
@@ -360,9 +351,6 @@ val NordThemePalette = ThemePalette(
     noteViewModeUnselectedIcon = Color(0xFF4C566A),
     noteSectionChevron = Color(0xFF2E3440),
     noteListDivider = Color(0xFFD8DEE9),
-    noteWavePrimary = Color(0x1AFFE2EA),
-    noteWaveSecondary = Color(0x0EFFE4E9),
-    noteWaveTertiary = Color(0x07FFE4E9),
 
     // SHARED NAVIGATION
     dockBackground = Color(0xFFFFFFFF),
@@ -471,9 +459,6 @@ val SnowSapphireThemePalette = ThemePalette(
     noteViewModeUnselectedIcon = Color(0xFF2C5282),
     noteSectionChevron = Color(0xFF0C2B5C),
     noteListDivider = Color(0xFFCFE3F7),
-    noteWavePrimary = Color(0x551E3A8A),
-    noteWaveSecondary = Color(0x332C5282),
-    noteWaveTertiary = Color(0x1A2C5282),
 
     // SHARED NAVIGATION
     dockBackground = Color(0xFFF4F9FE),
@@ -582,9 +567,6 @@ val SakuraThemePalette = ThemePalette(
     noteViewModeUnselectedIcon = Color(0xFF9D174D),
     noteSectionChevron = Color(0xFF500724),
     noteListDivider = Color(0xFFFBCFE8),
-    noteWavePrimary = Color(0x1AFFFCE5),
-    noteWaveSecondary = Color(0x0EFFFBE7),
-    noteWaveTertiary = Color(0x07FFFBE7),
 
     // SHARED NAVIGATION
     dockBackground = Color(0xFFFFFFFF),
@@ -693,9 +675,6 @@ val LavenderThemePalette = ThemePalette(
     noteViewModeUnselectedIcon = Color(0xFF6D28D9),
     noteSectionChevron = Color(0xFF2E1065),
     noteListDivider = Color(0xFFDDD6FE),
-    noteWavePrimary = Color(0x1AFFEDE9),
-    noteWaveSecondary = Color(0x0EFFEEE9),
-    noteWaveTertiary = Color(0x07FFEEE9),
 
     // SHARED NAVIGATION
     dockBackground = Color(0xFFFFFFFF),
@@ -804,9 +783,6 @@ val LightBasicThemePalette = ThemePalette(
     noteViewModeUnselectedIcon = Color(0xFF4B5563),
     noteSectionChevron = Color(0xFF111827),
     noteListDivider = Color(0xFFE5E7EB),
-    noteWavePrimary = Color(0x1AFFF5F6),
-    noteWaveSecondary = Color(0x0EFFF7F7),
-    noteWaveTertiary = Color(0x07FFF7F7),
 
     // SHARED NAVIGATION
     dockBackground = Color(0xFFFFFFFF),
@@ -915,9 +891,6 @@ val BasicDarkThemePalette = ThemePalette(
     noteViewModeUnselectedIcon = Color(0xFFCBD5E1),
     noteSectionChevron = Color(0xFFF9FAFB),
     noteListDivider = Color(0xFF374151),
-    noteWavePrimary = Color(0x1AFF171E),
-    noteWaveSecondary = Color(0x0EFF131A),
-    noteWaveTertiary = Color(0x07FF131A),
 
     // SHARED NAVIGATION
     dockBackground = Color(0xFFF9FAFB),
@@ -1026,9 +999,6 @@ val DeepOceanThemePalette = ThemePalette(
     noteViewModeUnselectedIcon = Color(0xFF90CAF9),
     noteSectionChevron = Color(0xFFE3F2FD),
     noteListDivider = Color(0xFF1E4976),
-    noteWavePrimary = Color(0x1AFF0B21),
-    noteWaveSecondary = Color(0x0EFF0A1C),
-    noteWaveTertiary = Color(0x07FF0A1C),
 
     // SHARED NAVIGATION
     dockBackground = Color(0xFFE3F2FD),
@@ -1137,9 +1107,6 @@ val CoffeeThemePalette = ThemePalette(
     noteViewModeUnselectedIcon = Color(0xFFD4A574),
     noteSectionChevron = Color(0xFFF5E6D3),
     noteListDivider = Color(0xFF6B4630),
-    noteWavePrimary = Color(0x1AFF3720),
-    noteWaveSecondary = Color(0x0EFF2F1C),
-    noteWaveTertiary = Color(0x07FF2F1C),
 
     // SHARED NAVIGATION
     dockBackground = Color(0xFFF5E6D3),
@@ -1248,9 +1215,6 @@ val ObsidianThemePalette = ThemePalette(
     noteViewModeUnselectedIcon = Color(0xFFC4B5FD),
     noteSectionChevron = Color(0xFFEDE9FE),
     noteListDivider = Color(0xFF4C2E6E),
-    noteWavePrimary = Color(0x1AFF2517),
-    noteWaveSecondary = Color(0x0EFF1E10),
-    noteWaveTertiary = Color(0x07FF1E10),
 
     // SHARED NAVIGATION
     dockBackground = Color(0xFFEDE9FE),
