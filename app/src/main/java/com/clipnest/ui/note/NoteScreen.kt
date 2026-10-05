@@ -219,7 +219,7 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
                 }
             } else {
                 val colors = NoteRecyclerColors(
-                    noteCardBackground = palette.noteCardBackground.toArgb(),
+                    noteCardBackground = palette.noteCardBackground.copy(alpha = 0.5f).toArgb(),
                     noteCardSelectedBackground = palette.noteCardSelectedBackground.toArgb(),
                     noteTagBackground = palette.noteTagBackground.toArgb(),
                     noteTagContent = palette.noteTagText.toArgb(),
