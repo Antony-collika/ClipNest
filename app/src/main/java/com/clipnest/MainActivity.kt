@@ -758,67 +758,65 @@ private fun SharedMainDock(
         Canvas(
             modifier = Modifier.fillMaxWidth().height(132.dp).align(Alignment.BottomCenter)
         ) {
-            // Upper wave: translucent and irregular so scrolling notes remain visible beneath it.
+            // Three broad, phase-shifted contours create one continuous wave mass.
             val upperWave = Path().apply {
-                moveTo(0f, size.height * 0.02f)
+                moveTo(0f, size.height * 0.08f)
                 cubicTo(
-                    size.width * 0.14f, size.height * 0.22f,
-                    size.width * 0.27f, size.height * 0.46f,
-                    size.width * 0.43f, size.height * 0.27f
+                    size.width * 0.14f, size.height * 0.02f,
+                    size.width * 0.28f, size.height * 0.02f,
+                    size.width * 0.40f, size.height * 0.18f
                 )
                 cubicTo(
-                    size.width * 0.59f, size.height * 0.08f,
-                    size.width * 0.70f, size.height * 0.42f,
-                    size.width * 0.82f, size.height * 0.24f
+                    size.width * 0.52f, size.height * 0.34f,
+                    size.width * 0.62f, size.height * 0.31f,
+                    size.width * 0.72f, size.height * 0.12f
                 )
                 cubicTo(
-                    size.width * 0.90f, size.height * 0.12f,
-                    size.width * 0.96f, size.height * 0.13f,
-                    size.width, size.height * 0.03f
+                    size.width * 0.82f, size.height * 0.00f,
+                    size.width * 0.92f, size.height * 0.04f,
+                    size.width, size.height * 0.10f
                 )
                 lineTo(size.width, size.height)
                 lineTo(0f, size.height)
                 close()
             }
-            // Middle wave crosses the upper contour at several points.
             val middleWave = Path().apply {
-                moveTo(0f, size.height * 0.31f)
+                moveTo(0f, size.height * 0.28f)
                 cubicTo(
-                    size.width * 0.13f, size.height * 0.08f,
-                    size.width * 0.28f, size.height * 0.13f,
-                    size.width * 0.43f, size.height * 0.42f
+                    size.width * 0.13f, size.height * 0.42f,
+                    size.width * 0.23f, size.height * 0.55f,
+                    size.width * 0.36f, size.height * 0.40f
                 )
                 cubicTo(
-                    size.width * 0.57f, size.height * 0.66f,
-                    size.width * 0.69f, size.height * 0.13f,
-                    size.width * 0.83f, size.height * 0.36f
+                    size.width * 0.48f, size.height * 0.25f,
+                    size.width * 0.58f, size.height * 0.08f,
+                    size.width * 0.69f, size.height * 0.16f
                 )
                 cubicTo(
-                    size.width * 0.91f, size.height * 0.48f,
-                    size.width * 0.96f, size.height * 0.27f,
-                    size.width, size.height * 0.20f
+                    size.width * 0.80f, size.height * 0.25f,
+                    size.width * 0.90f, size.height * 0.47f,
+                    size.width, size.height * 0.34f
                 )
                 lineTo(size.width, size.height)
                 lineTo(0f, size.height)
                 close()
             }
-            // Lower wave is the darkest layer and anchors the dock visually.
             val lowerWave = Path().apply {
                 moveTo(0f, size.height * 0.52f)
                 cubicTo(
-                    size.width * 0.15f, size.height * 0.30f,
-                    size.width * 0.27f, size.height * 0.18f,
-                    size.width * 0.42f, size.height * 0.49f
+                    size.width * 0.14f, size.height * 0.62f,
+                    size.width * 0.28f, size.height * 0.72f,
+                    size.width * 0.41f, size.height * 0.56f
                 )
                 cubicTo(
-                    size.width * 0.58f, size.height * 0.79f,
-                    size.width * 0.72f, size.height * 0.55f,
-                    size.width * 0.84f, size.height * 0.43f
+                    size.width * 0.54f, size.height * 0.40f,
+                    size.width * 0.65f, size.height * 0.26f,
+                    size.width * 0.76f, size.height * 0.38f
                 )
                 cubicTo(
-                    size.width * 0.91f, size.height * 0.36f,
-                    size.width * 0.96f, size.height * 0.47f,
-                    size.width, size.height * 0.39f
+                    size.width * 0.86f, size.height * 0.49f,
+                    size.width * 0.94f, size.height * 0.56f,
+                    size.width, size.height * 0.46f
                 )
                 lineTo(size.width, size.height)
                 lineTo(0f, size.height)
