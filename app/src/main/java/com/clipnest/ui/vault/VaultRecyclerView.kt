@@ -70,6 +70,7 @@ internal class VaultRecyclerView(context: Context) : RecyclerView(context) {
         layoutManager = androidx.recyclerview.widget.LinearLayoutManager(context)
         adapter = listAdapter
         setHasFixedSize(false)
+        setBackgroundColor(android.graphics.Color.TRANSPARENT)
         clipToPadding = false
         addItemDecoration(spacingDecoration)
         dragHelper = ItemTouchHelper(DragCallback())
