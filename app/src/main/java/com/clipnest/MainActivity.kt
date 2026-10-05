@@ -756,26 +756,79 @@ private fun SharedMainDock(
 ) {
     Box(Modifier.fillMaxSize()) {
         Canvas(
-            modifier = Modifier.fillMaxWidth().height(120.dp).align(Alignment.BottomCenter)
+            modifier = Modifier.fillMaxWidth().height(132.dp).align(Alignment.BottomCenter)
         ) {
-            val backWave = Path().apply {
-                moveTo(0f, size.height * 0.24f)
-                cubicTo(size.width * 0.16f, size.height * 0.02f, size.width * 0.30f, size.height * 0.40f, size.width * 0.48f, size.height * 0.18f)
-                cubicTo(size.width * 0.66f, -size.height * 0.02f, size.width * 0.82f, size.height * 0.34f, size.width, size.height * 0.12f)
+            // Upper wave: translucent and irregular so scrolling notes remain visible beneath it.
+            val upperWave = Path().apply {
+                moveTo(0f, size.height * 0.02f)
+                cubicTo(
+                    size.width * 0.14f, size.height * 0.22f,
+                    size.width * 0.27f, size.height * 0.46f,
+                    size.width * 0.43f, size.height * 0.27f
+                )
+                cubicTo(
+                    size.width * 0.59f, size.height * 0.08f,
+                    size.width * 0.70f, size.height * 0.42f,
+                    size.width * 0.82f, size.height * 0.24f
+                )
+                cubicTo(
+                    size.width * 0.90f, size.height * 0.12f,
+                    size.width * 0.96f, size.height * 0.13f,
+                    size.width, size.height * 0.03f
+                )
                 lineTo(size.width, size.height)
                 lineTo(0f, size.height)
                 close()
             }
-            val frontWave = Path().apply {
-                moveTo(0f, size.height * 0.42f)
-                cubicTo(size.width * 0.15f, size.height * 0.12f, size.width * 0.31f, size.height * 0.58f, size.width * 0.49f, size.height * 0.34f)
-                cubicTo(size.width * 0.67f, size.height * 0.10f, size.width * 0.83f, size.height * 0.50f, size.width, size.height * 0.28f)
+            // Middle wave crosses the upper contour at several points.
+            val middleWave = Path().apply {
+                moveTo(0f, size.height * 0.31f)
+                cubicTo(
+                    size.width * 0.13f, size.height * 0.08f,
+                    size.width * 0.28f, size.height * 0.13f,
+                    size.width * 0.43f, size.height * 0.42f
+                )
+                cubicTo(
+                    size.width * 0.57f, size.height * 0.66f,
+                    size.width * 0.69f, size.height * 0.13f,
+                    size.width * 0.83f, size.height * 0.36f
+                )
+                cubicTo(
+                    size.width * 0.91f, size.height * 0.48f,
+                    size.width * 0.96f, size.height * 0.27f,
+                    size.width, size.height * 0.20f
+                )
                 lineTo(size.width, size.height)
                 lineTo(0f, size.height)
                 close()
             }
-            drawPath(backWave, palette.noteWaveSecondary)
-            drawPath(frontWave, palette.noteWavePrimary)
+            // Lower wave is the darkest layer and anchors the dock visually.
+            val lowerWave = Path().apply {
+                moveTo(0f, size.height * 0.52f)
+                cubicTo(
+                    size.width * 0.15f, size.height * 0.30f,
+                    size.width * 0.27f, size.height * 0.18f,
+                    size.width * 0.42f, size.height * 0.49f
+                )
+                cubicTo(
+                    size.width * 0.58f, size.height * 0.79f,
+                    size.width * 0.72f, size.height * 0.55f,
+                    size.width * 0.84f, size.height * 0.43f
+                )
+                cubicTo(
+                    size.width * 0.91f, size.height * 0.36f,
+                    size.width * 0.96f, size.height * 0.47f,
+                    size.width, size.height * 0.39f
+                )
+                lineTo(size.width, size.height)
+                lineTo(0f, size.height)
+                close()
+            }
+
+            // Draw from back to front; alpha blending keeps notes subtly visible through the waves.
+            drawPath(upperWave, palette.noteWaveTertiary)
+            drawPath(middleWave, palette.noteWaveSecondary)
+            drawPath(lowerWave, palette.noteWavePrimary)
         }
         Surface(
             modifier = Modifier.align(Alignment.BottomCenter).padding(horizontal = 18.dp, vertical = 18.dp),
