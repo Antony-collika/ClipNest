@@ -21,7 +21,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -654,7 +653,7 @@ fun MainAppContent(
                 contentScale = ContentScale.FillBounds,
                 modifier = Modifier
                     .width(panoramaWidth)
-                    .aspectRatio(PANORAMA_IMAGE_ASPECT_RATIO)
+                    .fillMaxHeight()
                     .graphicsLayer {
                         val maxTravel = (size.width - viewportWidthPx).coerceAtLeast(0f)
                         translationX = -(pagerProgress / (MAIN_PAGE_COUNT - 1).toFloat()) * maxTravel
@@ -1043,4 +1042,3 @@ private fun VaultSelectionCheckbox(checked: Boolean, onClick: () -> Unit, modifi
 }
 
 private const val MAIN_PAGE_COUNT = 3
-private const val PANORAMA_IMAGE_ASPECT_RATIO = 1504f / 704f
