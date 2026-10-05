@@ -657,7 +657,7 @@ fun MainAppContent(
                     .fillMaxHeight()
                     .graphicsLayer {
                         val maxTravel = (size.width - viewportWidthPx).coerceAtLeast(0f)
-                        translationX = -(pagerProgress / (MAIN_PAGE_COUNT - 1).toFloat()) * maxTravel
+                        translationX = viewportWidthPx - (pagerProgress / (MAIN_PAGE_COUNT - 1).toFloat()) * maxTravel
                     }
             )
         NavHost(navController = navController, startDestination = Screen.Vault.route, modifier = Modifier.fillMaxSize()) {
