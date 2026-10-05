@@ -21,6 +21,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -645,18 +646,18 @@ fun MainAppContent(
                     pagerState.currentPage + pagerState.currentPageOffsetFraction
                 }
             }
-            val panoramaWidth = maxWidth * PANORAMA_WIDTH_FACTOR
+            val panoramaWidth = maxWidth * MAIN_PAGE_COUNT
             val viewportWidthPx = with(androidx.compose.ui.platform.LocalDensity.current) { maxWidth.toPx() }
             androidx.compose.foundation.Image(
                 painter = painterResource(id = com.clipnest.R.drawable.bg_forest),
                 contentDescription = null,
-                contentScale = ContentScale.Crop,
+                contentScale = ContentScale.FillBounds,
                 modifier = Modifier
-                    .fillMaxHeight()
                     .width(panoramaWidth)
+                    .aspectRatio(PANORAMA_IMAGE_ASPECT_RATIO)
                     .graphicsLayer {
                         val maxTravel = (size.width - viewportWidthPx).coerceAtLeast(0f)
-                        translationX = -(pagerProgress / (MAIN_PAGE_COUNT - 1).toFloat()) * maxTravel * PANORAMA_PARALLAX
+                        translationX = -(pagerProgress / (MAIN_PAGE_COUNT - 1).toFloat()) * maxTravel
                     }
             )
         NavHost(navController = navController, startDestination = Screen.Vault.route, modifier = Modifier.fillMaxSize()) {
@@ -1042,5 +1043,4 @@ private fun VaultSelectionCheckbox(checked: Boolean, onClick: () -> Unit, modifi
 }
 
 private const val MAIN_PAGE_COUNT = 3
-private const val PANORAMA_PARALLAX = 0.72f
-private const val PANORAMA_WIDTH_FACTOR = 1f + PANORAMA_PARALLAX * (MAIN_PAGE_COUNT - 1)
+private const val PANORAMA_IMAGE_ASPECT_RATIO = 1504f / 704f
