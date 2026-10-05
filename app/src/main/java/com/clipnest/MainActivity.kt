@@ -650,7 +650,7 @@ fun MainAppContent(
             androidx.compose.foundation.Image(
                 painter = painterResource(id = com.clipnest.R.drawable.bg_forest),
                 contentDescription = null,
-                contentScale = ContentScale.FillBounds,
+                contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxHeight()
                     .width(panoramaWidth)
