@@ -145,7 +145,7 @@ private fun VaultCardList(
 ) {
     val palette = LocalThemePalette.current
     val colors = VaultRecyclerColors(
-        vaultClipboardCardBackground = LocalThemePalette.current.vaultClipboardCardBackground.toArgb(),
+        vaultClipboardCardBackground = LocalThemePalette.current.vaultClipboardCardBackground.copy(alpha = 0.5f).toArgb(),
         vaultClipboardCardSelectedBackground = LocalThemePalette.current.vaultClipboardCardSelectedBackground.toArgb(),
         vaultClipboardCardPressedBackground = LocalThemePalette.current.vaultClipboardCardPressedBackground.toArgb(),
         vaultClipboardCardDraggingBackground = LocalThemePalette.current.vaultClipboardCardDraggingBackground.toArgb(),
