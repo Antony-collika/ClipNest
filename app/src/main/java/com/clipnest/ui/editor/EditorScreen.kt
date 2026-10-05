@@ -199,7 +199,12 @@ fun EditorScreen(
 
     LaunchedEffect(uiState.showMarkdownPreview) { viewModel.hideNativeKeyboard() }
 
-    Box(modifier.fillMaxSize().imePadding()) {
+    Box(
+        modifier
+            .fillMaxSize()
+            .imePadding()
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.88f))
+    ) {
         Column(Modifier.fillMaxSize()) {
             EditorNoteBreadcrumbBar(
                     mode = uiState.mode,
