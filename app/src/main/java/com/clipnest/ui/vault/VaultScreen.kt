@@ -56,7 +56,8 @@ fun VaultScreen(
     }
 
     Scaffold(
-        modifier = modifier.fillMaxSize()
+        modifier = modifier.fillMaxSize(),
+        containerColor = androidx.compose.ui.graphics.Color.Transparent
     ) { innerPadding ->
         Box(
             modifier = Modifier
@@ -161,7 +162,7 @@ private fun VaultCardList(
     )
 
     AndroidView(
-        factory = { context -> VaultRecyclerView(context) },
+        factory = { context -> VaultRecyclerView(context).apply { setBackgroundColor(android.graphics.Color.TRANSPARENT) } },
         update = { recyclerView ->
             recyclerView.render(
                 cards = cards,
