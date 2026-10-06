@@ -3,6 +3,13 @@ package com.clipnest.ui.settings
 import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.input.pointer.consume
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.window.Dialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
