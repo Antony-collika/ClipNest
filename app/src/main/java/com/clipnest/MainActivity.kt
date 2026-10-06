@@ -430,6 +430,7 @@ fun MainAppContent(
     viewerTextSize: ViewerTextSize,
     backgroundImageUri: String?,
     onRequestFolder: (((Uri) -> Unit) -> Unit),
+    onRequestBackgroundImage: () -> Unit,
     onRequestOpenFile: ((Uri) -> Unit) -> Unit,
     onRequestExternalSaveAs: (String, String, (Uri?) -> Unit) -> Unit,
     onShareText: (String, String) -> Unit,
