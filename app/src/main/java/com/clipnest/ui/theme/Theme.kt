@@ -49,7 +49,7 @@ fun themePaletteFor(preset: ThemePreset, userSettings: UserSettings? = null): Th
 
     val background = parse(userSettings.backgroundOverlayColorHex) ?: base.screenOverlayBackground
     return base.copy(
-        colorScheme = base.colorScheme.copy(background = background, surface = background),
+        colorScheme = base.colorScheme,
         screenOverlayBackground = background,
         noteCardBackground = parse(userSettings.noteCardBackgroundHex) ?: base.noteCardBackground,
         noteTitle = parse(userSettings.noteTitleTextHex) ?: base.noteTitle,
