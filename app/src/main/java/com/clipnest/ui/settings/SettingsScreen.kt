@@ -43,6 +43,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -68,6 +69,7 @@ import com.clipnest.data.local.ThemePreset
 import com.clipnest.data.local.ViewerTextSize
 import com.clipnest.ui.theme.LocalThemePalette
 import com.clipnest.ui.theme.themePaletteFor
+import com.clipnest.ui.theme.themeBackgroundFor
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import java.util.Locale
@@ -201,6 +203,9 @@ fun SettingsScreen(
                     }
                     if (advancedExpanded) {
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                        val presetBackground = themeBackgroundFor(userSettings.themePreset)
+                        val transparency = userSettings.backgroundOverlayTransparencyPercent
+                            ?: (presetBackground.overlayAlpha.let { ((1f - it) * 100f).toInt() })
                         Text(stringResource(com.clipnest.R.string.background), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             TextButton(onClick = onRequestBackgroundImage, modifier = Modifier.testTag("settings_background_image_button")) {
@@ -208,11 +213,39 @@ fun SettingsScreen(
                             }
                             if (userSettings.backgroundImageUri != null) {
                                 TextButton(onClick = { viewModel.setBackgroundImageUri(null) }, modifier = Modifier.testTag("settings_clear_background_image_button")) {
-                                    Text(stringResource(com.clipnest.R.string.clear_background_image))
+                                    Text(stringResource(com.clipnest.R.string.default_value))
                                 }
                             }
                         }
-                        ColorOverrideField(stringResource(com.clipnest.R.string.background_color), userSettings.backgroundColorHex, presetPalette.screenOverlayBackground, viewModel::setBackgroundColorHex)
+                        ColorOverrideField(
+                            stringResource(com.clipnest.R.string.background_overlay_color),
+                            userSettings.backgroundOverlayColorHex,
+                            presetBackground.overlayColor,
+                            viewModel::setBackgroundOverlayColorHex
+                        )
+                        Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(stringResource(com.clipnest.R.string.background_transparency))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("$transparency%")
+                                    TextButton(
+                                        onClick = { viewModel.setBackgroundOverlayTransparencyPercent(null) },
+                                        enabled = userSettings.backgroundOverlayTransparencyPercent != null
+                                    ) { Text(stringResource(com.clipnest.R.string.default_value)) }
+                                }
+                            }
+                            Slider(
+                                value = transparency.toFloat(),
+                                onValueChange = { viewModel.setBackgroundOverlayTransparencyPercent(it.toInt()) },
+                                valueRange = 0f..100f,
+                                steps = 99,
+                                modifier = Modifier.fillMaxWidth().testTag("settings_background_transparency_slider")
+                            )
+                        }
 
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(stringResource(com.clipnest.R.string.note_card), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold))
