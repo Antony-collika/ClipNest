@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.content.ContentResolver
 import android.content.Intent
 import android.net.Uri
+import android.graphics.BitmapFactory
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -81,6 +82,8 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
@@ -156,6 +159,16 @@ class MainActivity : ComponentActivity() {
         pendingFolderSelection = null
         if (uri != null) callback?.invoke(uri)
     }
+    private val backgroundImageLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            runCatching {
+                contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            lifecycleScope.launch {
+                settingsDataStore.setBackgroundImageUri(uri.toString())
+            }
+        }
+    }
     private val openFileLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             runCatching { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
@@ -204,14 +217,16 @@ class MainActivity : ComponentActivity() {
             val localizedContext = LocalContext.current.withAppLanguage(userSettings.language)
             val incomingRequest by incomingOpenRequest.collectAsStateWithLifecycle()
             CompositionLocalProvider(LocalContext provides localizedContext) {
-                ClipNestTheme(themePreset = userSettings.themePreset) {
+                ClipNestTheme(themePreset = userSettings.themePreset, userSettings = userSettings) {
                     MainAppContent(
                         vaultViewModel = vaultViewModel,
                         editorViewModelFactory = EditorViewModelFactory(fileManager, settingsDataStore, applicationContext, database.noteDao(), database.topicDao()),
                         settingsViewModelFactory = SettingsViewModelFactory(settingsDataStore, repository, fileManager, applicationContext),
                         editorTextSize = userSettings.editorTextSize,
                         viewerTextSize = userSettings.viewerTextSize,
+                        backgroundImageUri = userSettings.backgroundImageUri,
                         onRequestFolder = ::requestFolderSelection,
+                        onRequestBackgroundImage = ::requestBackgroundImage,
                         onRequestOpenFile = ::requestOpenFile,
                         onRequestExternalSaveAs = ::requestExternalSaveAs,
                         onShareText = ::shareTextExternally,
@@ -238,6 +253,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); handleIntent(intent) }
     private fun requestFolderSelection(onSelected: (Uri) -> Unit) { pendingFolderSelection = onSelected; folderPickerLauncher.launch(null) }
     private fun requestOpenFile(onSelected: (Uri) -> Unit) { pendingOpenFileSelection = onSelected; openFileLauncher.launch(arrayOf("*/*")) }
+    private fun requestBackgroundImage() { backgroundImageLauncher.launch(arrayOf("image/*")) }
     private fun requestExternalSaveAs(suggestedFileName: String, mimeType: String, callback: (Uri?) -> Unit) {
         pendingExternalSaveAs = callback
         externalSaveAsLauncher.launch(suggestedFileName)
@@ -412,6 +428,7 @@ fun MainAppContent(
     settingsViewModelFactory: ViewModelProvider.Factory,
     editorTextSize: EditorTextSize,
     viewerTextSize: ViewerTextSize,
+    backgroundImageUri: String?,
     onRequestFolder: (((Uri) -> Unit) -> Unit),
     onRequestOpenFile: ((Uri) -> Unit) -> Unit,
     onRequestExternalSaveAs: (String, String, (Uri?) -> Unit) -> Unit,
@@ -425,6 +442,16 @@ fun MainAppContent(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     val context = LocalContext.current
+    var backgroundBitmap by remember(backgroundImageUri) { mutableStateOf<ImageBitmap?>(null) }
+    LaunchedEffect(backgroundImageUri) {
+        backgroundBitmap = backgroundImageUri?.let { uriString ->
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.openInputStream(Uri.parse(uriString))?.use { BitmapFactory.decodeStream(it)?.asImageBitmap() }
+                }.getOrNull()
+            }
+        }
+    }
     val askAiCoordinator = remember { AskAiCoordinator(aiRepository = AiRepository(AiApi(BuildConfig.AI_API_BASE_URL)), clipboardRepository = ClipboardRepositoryImpl(AppDatabase.getInstance(context).clipboardDao())) }
     var askAiInProgress by remember { mutableStateOf(false) }
     val vaultState by vaultViewModel.uiState.collectAsStateWithLifecycle()
@@ -648,18 +675,33 @@ fun MainAppContent(
             }
             val panoramaWidth = maxWidth * MAIN_PAGE_COUNT
             val viewportWidthPx = with(androidx.compose.ui.platform.LocalDensity.current) { maxWidth.toPx() }
-            androidx.compose.foundation.Image(
-                painter = painterResource(id = com.clipnest.R.drawable.bg_forest),
-                contentDescription = null,
-                contentScale = ContentScale.FillBounds,
-                modifier = Modifier
-                    .requiredWidth(panoramaWidth)
-                    .fillMaxHeight()
-                    .graphicsLayer {
-                        val maxTravel = (size.width - viewportWidthPx).coerceAtLeast(0f)
-                        translationX = viewportWidthPx - (pagerProgress / (MAIN_PAGE_COUNT - 1).toFloat()) * maxTravel
-                    }
-            )
+            if (backgroundBitmap != null) {
+                androidx.compose.foundation.Image(
+                    bitmap = backgroundBitmap!!,
+                    contentDescription = null,
+                    contentScale = ContentScale.FillBounds,
+                    modifier = Modifier
+                        .requiredWidth(panoramaWidth)
+                        .fillMaxHeight()
+                        .graphicsLayer {
+                            val maxTravel = (size.width - viewportWidthPx).coerceAtLeast(0f)
+                            translationX = viewportWidthPx - (pagerProgress / (MAIN_PAGE_COUNT - 1).toFloat()) * maxTravel
+                        }
+                )
+            } else {
+                androidx.compose.foundation.Image(
+                    painter = painterResource(id = com.clipnest.R.drawable.bg_forest),
+                    contentDescription = null,
+                    contentScale = ContentScale.FillBounds,
+                    modifier = Modifier
+                        .requiredWidth(panoramaWidth)
+                        .fillMaxHeight()
+                        .graphicsLayer {
+                            val maxTravel = (size.width - viewportWidthPx).coerceAtLeast(0f)
+                            translationX = viewportWidthPx - (pagerProgress / (MAIN_PAGE_COUNT - 1).toFloat()) * maxTravel
+                        }
+                )
+            }
         NavHost(navController = navController, startDestination = Screen.Vault.route, modifier = Modifier.fillMaxSize()) {
             composable(Screen.Vault.route) {
                 androidx.compose.foundation.pager.HorizontalPager(state = pagerState, beyondViewportPageCount = 1, modifier = Modifier.fillMaxSize().testTag("main_content_pager")) { page ->
