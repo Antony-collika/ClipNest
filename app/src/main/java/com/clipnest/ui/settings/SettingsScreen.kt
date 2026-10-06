@@ -23,8 +23,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BrightnessMedium
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
@@ -201,7 +199,7 @@ fun SettingsScreen(
                             Text(stringResource(com.clipnest.R.string.advanced_theme_description), style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
                         }
                         IconButton(onClick = { advancedExpanded = !advancedExpanded }) {
-                            Icon(if (advancedExpanded) androidx.compose.material.icons.filled.KeyboardArrowUp else androidx.compose.material.icons.filled.KeyboardArrowDown, contentDescription = null)
+                            Text(if (advancedExpanded) "▲" else "▼", style = MaterialTheme.typography.titleMedium)
                         }
                     }
                     if (advancedExpanded) {
