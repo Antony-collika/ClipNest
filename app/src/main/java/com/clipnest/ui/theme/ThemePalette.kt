@@ -14,6 +14,12 @@ import com.clipnest.data.local.ThemePreset
  */
 data class ThemePalette(
     val colorScheme: ColorScheme,
+    // Shared transparency for Note/Vault card backgrounds.
+    val cardBackgroundAlpha: Float,
+    // Shared overlay background for Note/Vault screens.
+    val screenOverlayBackground: Color,
+    // Shared transparency for the Note/Vault screen overlay.
+    val screenOverlayBackgroundAlpha: Float,
 
     // ============================================================
     // NOTE SCREEN
@@ -215,6 +221,10 @@ val ForestThemePalette = ThemePalette(
         outline = Color(0xFF6C776F), outlineVariant = Color(0xFFD6E5DB)
     ),
 
+    cardBackgroundAlpha = 0.5f,
+    screenOverlayBackground = Color(0xFFF1E9DA),
+    screenOverlayBackgroundAlpha = 0.88f,
+
     // NOTE SCREEN
     noteCardBackground = Color(0xFFFDFAF3),
     noteCardSelectedBackground = Color(0xFFDCEBE1),
@@ -321,6 +331,10 @@ val NordThemePalette = ThemePalette(
         surfaceVariant = Color(0xFFE5E9F0), onSurfaceVariant = Color(0xFF4C566A),
         outline = Color(0xFF7B8794), outlineVariant = Color(0xFFD8DEE9)
     ),
+
+    cardBackgroundAlpha = 0.5f,
+    screenOverlayBackground = Color(0xFFECEFF4),
+    screenOverlayBackgroundAlpha = 0.88f,
 
     // NOTE SCREEN
     noteCardBackground = Color(0xFFFFFFFF),
@@ -430,6 +444,10 @@ val SnowSapphireThemePalette = ThemePalette(
         outline = Color(0xFF6A8AAE), outlineVariant = Color(0xFFCFE3F7)
     ),
 
+    cardBackgroundAlpha = 0.5f,
+    screenOverlayBackground = Color(0xFFEAF3FB),
+    screenOverlayBackgroundAlpha = 0.88f,
+
     // NOTE SCREEN
     noteCardBackground = Color(0xFFF4F9FE),
     noteCardSelectedBackground = Color(0xFFCFE3F7),
@@ -537,6 +555,10 @@ val SakuraThemePalette = ThemePalette(
         surfaceVariant = Color(0xFFFCE7F3), onSurfaceVariant = Color(0xFF9D174D),
         outline = Color(0xFF9CA3AF), outlineVariant = Color(0xFFFBCFE8)
     ),
+
+    cardBackgroundAlpha = 0.5f,
+    screenOverlayBackground = Color(0xFFFDF2F8),
+    screenOverlayBackgroundAlpha = 0.88f,
 
     // NOTE SCREEN
     noteCardBackground = Color(0xFFFFFFFF),
@@ -646,6 +668,10 @@ val LavenderThemePalette = ThemePalette(
         outline = Color(0xFF9CA3AF), outlineVariant = Color(0xFFDDD6FE)
     ),
 
+    cardBackgroundAlpha = 0.5f,
+    screenOverlayBackground = Color(0xFFF5F3FF),
+    screenOverlayBackgroundAlpha = 0.88f,
+
     // NOTE SCREEN
     noteCardBackground = Color(0xFFFFFFFF),
     noteCardSelectedBackground = Color(0xFFFFE4DE),
@@ -753,6 +779,10 @@ val LightBasicThemePalette = ThemePalette(
         surfaceVariant = Color(0xFFF3F4F6), onSurfaceVariant = Color(0xFF4B5563),
         outline = Color(0xFF9CA3AF), outlineVariant = Color(0xFFE5E7EB)
     ),
+
+    cardBackgroundAlpha = 0.5f,
+    screenOverlayBackground = Color(0xFFFFFFFF),
+    screenOverlayBackgroundAlpha = 0.88f,
 
     // NOTE SCREEN
     noteCardBackground = Color(0xFFF8FAFC),
@@ -862,6 +892,10 @@ val BasicDarkThemePalette = ThemePalette(
         outline = Color(0xFF6B7280), outlineVariant = Color(0xFF374151)
     ),
 
+    cardBackgroundAlpha = 0.5f,
+    screenOverlayBackground = Color(0xFF2D3A4D),
+    screenOverlayBackgroundAlpha = 0.88f,
+
     // NOTE SCREEN
     noteCardBackground = Color(0xFFFFFFFF),
     noteCardSelectedBackground = Color(0xFFFF2C36),
@@ -969,6 +1003,10 @@ val DeepOceanThemePalette = ThemePalette(
         surfaceVariant = Color(0xFF1E4976), onSurfaceVariant = Color(0xFF90CAF9),
         outline = Color(0xFF64B5F6), outlineVariant = Color(0xFF1E4976)
     ),
+
+    cardBackgroundAlpha = 0.5f,
+    screenOverlayBackground = Color(0xFF16385A),
+    screenOverlayBackgroundAlpha = 0.88f,
 
     // NOTE SCREEN
     noteCardBackground = Color(0xFFFFFFFF),
@@ -1078,6 +1116,10 @@ val CoffeeThemePalette = ThemePalette(
         outline = Color(0xFFB08968), outlineVariant = Color(0xFF6B4630)
     ),
 
+    cardBackgroundAlpha = 0.5f,
+    screenOverlayBackground = Color(0xFF5A3826),
+    screenOverlayBackgroundAlpha = 0.88f,
+
     // NOTE SCREEN
     noteCardBackground = Color(0xFFFFFFFF),
     noteCardSelectedBackground = Color(0xFFFF6432),
@@ -1185,6 +1227,10 @@ val ObsidianThemePalette = ThemePalette(
         surfaceVariant = Color(0xFF4C2E6E), onSurfaceVariant = Color(0xFFC4B5FD),
         outline = Color(0xFFA78BFA), outlineVariant = Color(0xFF4C2E6E)
     ),
+
+    cardBackgroundAlpha = 0.5f,
+    screenOverlayBackground = Color(0xFF3A2356),
+    screenOverlayBackgroundAlpha = 0.88f,
 
     // NOTE SCREEN
     noteCardBackground = Color(0xFFFFFFFF),
