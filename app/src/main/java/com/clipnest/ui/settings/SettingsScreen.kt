@@ -413,20 +413,187 @@ private fun ColorOverrideField(
     onValueChange: (String?) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val defaultHex = "#%08X".format(Locale.ROOT, defaultColor.toArgb())
+    var pickerOpen by remember { mutableStateOf(false) }
     val effectiveColor = value?.let {
         runCatching {
             val normalized = it.trim().removePrefix("#")
             if (normalized.length == 6 || normalized.length == 8) Color(android.graphics.Color.parseColor("#$normalized")) else null
         }.getOrNull()
     } ?: defaultColor
-    Row(modifier = modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Box(modifier = Modifier.size(32.dp).background(effectiveColor, RoundedCornerShape(8.dp)))
-        OutlinedTextField(value = value ?: "", onValueChange = { onValueChange(it.ifBlank { null }) }, label = { Text(label) }, placeholder = { Text(defaultHex) }, singleLine = true, modifier = Modifier.weight(1f))
-        TextButton(onClick = { onValueChange(null) }, enabled = value != null) { Text(stringResource(com.clipnest.R.string.default_value)) }
+
+    Row(
+        modifier = modifier.fillMaxWidth().padding(top = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .background(effectiveColor, RoundedCornerShape(10.dp))
+                .testTag("color_picker_swatch")
+                .pointerInput(Unit) { detectTapGestures { pickerOpen = true } }
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium))
+            Text(
+                "#%06X".format(Locale.ROOT, effectiveColor.toArgb() and 0xFFFFFF),
+                style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+            )
+        }
+        TextButton(onClick = { pickerOpen = true }) {
+            Text(stringResource(com.clipnest.R.string.choose_color))
+        }
+        TextButton(onClick = { onValueChange(null) }, enabled = value != null) {
+            Text(stringResource(com.clipnest.R.string.default_value))
+        }
+    }
+
+    if (pickerOpen) {
+        ColorPickerDialog(
+            title = label,
+            initialColor = effectiveColor,
+            onDismiss = { pickerOpen = false },
+            onConfirm = { color ->
+                onValueChange("#%06X".format(Locale.ROOT, color.toArgb() and 0xFFFFFF))
+                pickerOpen = false
+            }
+        )
     }
 }
 
+@Composable
+private fun ColorPickerDialog(
+    title: String,
+    initialColor: Color,
+    onDismiss: () -> Unit,
+    onConfirm: (Color) -> Unit
+) {
+    val hsv = remember(initialColor) {
+        FloatArray(3).also { android.graphics.Color.colorToHSV(initialColor.toArgb(), it) }
+    }
+    var hue by remember(initialColor) { mutableStateOf(hsv[0]) }
+    var saturation by remember(initialColor) { mutableStateOf(hsv[1]) }
+    var value by remember(initialColor) { mutableStateOf(hsv[2]) }
+    val selectedColor = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, saturation, value)))
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(shape = RoundedCornerShape(24.dp)) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Text(title, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold))
+                ColorSaturationValuePicker(
+                    hue = hue,
+                    saturation = saturation,
+                    value = value,
+                    onChanged = { s, v ->
+                        saturation = s
+                        value = v
+                    },
+                    modifier = Modifier.fillMaxWidth().height(220.dp)
+                )
+                ColorHuePicker(
+                    hue = hue,
+                    onChanged = { hue = it },
+                    modifier = Modifier.fillMaxWidth().height(28.dp)
+                )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(modifier = Modifier.size(48.dp).background(selectedColor, RoundedCornerShape(12.dp)))
+                    Column {
+                        Text(stringResource(com.clipnest.R.string.selected_color), style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            "#%06X".format(Locale.ROOT, selectedColor.toArgb() and 0xFFFFFF),
+                            style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        )
+                    }
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onDismiss) { Text(stringResource(com.clipnest.R.string.cancel)) }
+                    TextButton(onClick = { onConfirm(selectedColor) }) { Text(stringResource(com.clipnest.R.string.done)) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ColorSaturationValuePicker(
+    hue: Float,
+    saturation: Float,
+    value: Float,
+    onChanged: (Float, Float) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val hueColor = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, 1f, 1f)))
+    Box(
+        modifier = modifier
+            .background(Color.Transparent, RoundedCornerShape(14.dp))
+            .pointerInput(hue) {
+                detectDragGestures(
+                    onDragStart = { position ->
+                        val x = position.x.coerceIn(0f, size.width.toFloat())
+                        val y = position.y.coerceIn(0f, size.height.toFloat())
+                        onChanged(x / size.width, 1f - y / size.height)
+                    },
+                    onDrag = { change, _ ->
+                        change.consume()
+                        val x = change.position.x.coerceIn(0f, size.width.toFloat())
+                        val y = change.position.y.coerceIn(0f, size.height.toFloat())
+                        onChanged(x / size.width, 1f - y / size.height)
+                    }
+                )
+            }
+    ) {
+        androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
+            drawRect(brush = Brush.horizontalGradient(listOf(Color.White, hueColor)))
+            drawRect(brush = Brush.verticalGradient(listOf(Color.Transparent, Color.Black)))
+            val markerX = saturation * size.width
+            val markerY = (1f - value) * size.height
+            drawCircle(
+                color = Color.White,
+                radius = 9.dp.toPx(),
+                center = Offset(markerX, markerY)
+            )
+            drawCircle(
+                color = Color.Black,
+                radius = 7.dp.toPx(),
+                center = Offset(markerX, markerY)
+            )
+        }
+    }
+}
+
+@Composable
+private fun ColorHuePicker(
+    hue: Float,
+    onChanged: (Float) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val hueColors = listOf(Color.Red, Color.Yellow, Color.Green, Color.Cyan, Color.Blue, Color.Magenta, Color.Red)
+    Box(
+        modifier = modifier
+            .background(Color.Transparent, RoundedCornerShape(14.dp))
+            .pointerInput(Unit) {
+                detectDragGestures(
+                    onDragStart = { position ->
+                        onChanged((position.x / size.width * 360f).coerceIn(0f, 360f))
+                    },
+                    onDrag = { change, _ ->
+                        change.consume()
+                        onChanged((change.position.x / size.width * 360f).coerceIn(0f, 360f))
+                    }
+                )
+            }
+    ) {
+        androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
+            drawRect(brush = Brush.horizontalGradient(hueColors))
+            val markerX = hue / 360f * size.width
+            drawCircle(color = Color.White, radius = 9.dp.toPx(), center = Offset(markerX, size.height / 2f))
+            drawCircle(color = Color.Black, radius = 7.dp.toPx(), center = Offset(markerX, size.height / 2f))
+        }
+    }
+}
 @Composable
 private fun AiProviderModelRow(
     providerLabel: String,
