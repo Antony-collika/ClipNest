@@ -202,8 +202,15 @@ fun SettingsScreen(
                     if (advancedExpanded) {
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                         Text(stringResource(com.clipnest.R.string.background), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold))
-                        TextButton(onClick = onRequestBackgroundImage, modifier = Modifier.testTag("settings_background_image_button")) {
-                            Text(if (userSettings.backgroundImageUri == null) stringResource(com.clipnest.R.string.choose_background_image) else stringResource(com.clipnest.R.string.change_background_image))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            TextButton(onClick = onRequestBackgroundImage, modifier = Modifier.testTag("settings_background_image_button")) {
+                                Text(if (userSettings.backgroundImageUri == null) stringResource(com.clipnest.R.string.choose_background_image) else stringResource(com.clipnest.R.string.change_background_image))
+                            }
+                            if (userSettings.backgroundImageUri != null) {
+                                TextButton(onClick = { viewModel.setBackgroundImageUri(null) }, modifier = Modifier.testTag("settings_clear_background_image_button")) {
+                                    Text(stringResource(com.clipnest.R.string.clear_background_image))
+                                }
+                            }
                         }
                         ColorOverrideField(stringResource(com.clipnest.R.string.background_color), userSettings.backgroundColorHex, presetPalette.screenOverlayBackground, viewModel::setBackgroundColorHex)
 
@@ -373,8 +380,14 @@ private fun ColorOverrideField(
     modifier: Modifier = Modifier
 ) {
     val defaultHex = "#%08X".format(Locale.ROOT, defaultColor.toArgb())
+    val effectiveColor = value?.let {
+        runCatching {
+            val normalized = it.trim().removePrefix("#")
+            if (normalized.length == 6 || normalized.length == 8) Color(android.graphics.Color.parseColor("#$normalized")) else null
+        }.getOrNull()
+    } ?: defaultColor
     Row(modifier = modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Box(modifier = Modifier.size(32.dp).background(defaultColor, RoundedCornerShape(8.dp)))
+        Box(modifier = Modifier.size(32.dp).background(effectiveColor, RoundedCornerShape(8.dp)))
         OutlinedTextField(value = value ?: "", onValueChange = { onValueChange(it.ifBlank { null }) }, label = { Text(label) }, placeholder = { Text(defaultHex) }, singleLine = true, modifier = Modifier.weight(1f))
         TextButton(onClick = { onValueChange(null) }, enabled = value != null) { Text(stringResource(com.clipnest.R.string.default_value)) }
     }
