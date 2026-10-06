@@ -291,6 +291,8 @@
     <string name="change_background_image">Đổi ảnh nền</string>
     <string name="clear_background_image">Dùng màu nền</string>
     <string name="background_overlay_color">Màu phủ</string>
+    <string name="choose_color">Chọn màu</string>
+    <string name="selected_color">Màu đã chọn</string>
     <string name="background_transparency">Độ trong suốt</string>
     <string name="background_color">Màu nền</string>
     <string name="note_card">Card Note</string>
