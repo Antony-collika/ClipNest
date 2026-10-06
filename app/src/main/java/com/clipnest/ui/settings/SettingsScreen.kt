@@ -7,7 +7,6 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.input.pointer.consume
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.window.Dialog
 import androidx.compose.foundation.background
@@ -544,7 +543,6 @@ private fun ColorSaturationValuePicker(
                         onChanged(x / size.width, 1f - y / size.height)
                     },
                     onDrag = { change, _ ->
-                        change.consume()
                         val x = change.position.x.coerceIn(0f, size.width.toFloat())
                         val y = change.position.y.coerceIn(0f, size.height.toFloat())
                         onChanged(x / size.width, 1f - y / size.height)
