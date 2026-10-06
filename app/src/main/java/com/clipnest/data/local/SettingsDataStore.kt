@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -61,7 +62,8 @@ data class UserSettings(
     val isSensitivePreviewMasked: Boolean = true,
     val themePreset: ThemePreset = ThemePreset.FOREST,
     val backgroundImageUri: String? = null,
-    val backgroundColorHex: String? = null,
+    val backgroundOverlayColorHex: String? = null,
+    val backgroundOverlayTransparencyPercent: Int? = null,
     val noteCardBackgroundHex: String? = null,
     val noteTitleTextHex: String? = null,
     val notePreviewTextHex: String? = null,
@@ -88,7 +90,8 @@ class SettingsDataStore(private val context: Context) {
         val SENSITIVE_PREVIEW_MASKED = booleanPreferencesKey("sensitive_preview_masked")
         val THEME_PRESET = stringPreferencesKey("theme_preset")
         val BACKGROUND_IMAGE_URI = stringPreferencesKey("background_image_uri")
-        val BACKGROUND_COLOR_HEX = stringPreferencesKey("background_color_hex")
+        val BACKGROUND_OVERLAY_COLOR_HEX = stringPreferencesKey("background_overlay_color_hex")
+        val BACKGROUND_OVERLAY_TRANSPARENCY_PERCENT = intPreferencesKey("background_overlay_transparency_percent")
         val NOTE_CARD_BACKGROUND_HEX = stringPreferencesKey("note_card_background_hex")
         val NOTE_TITLE_TEXT_HEX = stringPreferencesKey("note_title_text_hex")
         val NOTE_PREVIEW_TEXT_HEX = stringPreferencesKey("note_preview_text_hex")
@@ -130,7 +133,8 @@ class SettingsDataStore(private val context: Context) {
             isSensitivePreviewMasked = preferences[PreferencesKeys.SENSITIVE_PREVIEW_MASKED] ?: true,
             themePreset = themePreset,
             backgroundImageUri = preferences[PreferencesKeys.BACKGROUND_IMAGE_URI],
-            backgroundColorHex = preferences[PreferencesKeys.BACKGROUND_COLOR_HEX],
+            backgroundOverlayColorHex = preferences[PreferencesKeys.BACKGROUND_OVERLAY_COLOR_HEX] ?: preferences[stringPreferencesKey("background_color_hex")],
+            backgroundOverlayTransparencyPercent = preferences[PreferencesKeys.BACKGROUND_OVERLAY_TRANSPARENCY_PERCENT],
             noteCardBackgroundHex = preferences[PreferencesKeys.NOTE_CARD_BACKGROUND_HEX],
             noteTitleTextHex = preferences[PreferencesKeys.NOTE_TITLE_TEXT_HEX],
             notePreviewTextHex = preferences[PreferencesKeys.NOTE_PREVIEW_TEXT_HEX],
@@ -156,7 +160,13 @@ class SettingsDataStore(private val context: Context) {
     suspend fun setThemePreset(preset: ThemePreset) { context.dataStore.edit { it[PreferencesKeys.THEME_PRESET] = preset.name } }
 
     suspend fun setBackgroundImageUri(uri: String?) = setOptionalString(PreferencesKeys.BACKGROUND_IMAGE_URI, uri)
-    suspend fun setBackgroundColorHex(value: String?) = setOptionalString(PreferencesKeys.BACKGROUND_COLOR_HEX, value)
+    suspend fun setBackgroundOverlayColorHex(value: String?) = setOptionalString(PreferencesKeys.BACKGROUND_OVERLAY_COLOR_HEX, value)
+    suspend fun setBackgroundOverlayTransparencyPercent(value: Int?) {
+        context.dataStore.edit { preferences ->
+            if (value == null) preferences.remove(PreferencesKeys.BACKGROUND_OVERLAY_TRANSPARENCY_PERCENT)
+            else preferences[PreferencesKeys.BACKGROUND_OVERLAY_TRANSPARENCY_PERCENT] = value.coerceIn(0, 100)
+        }
+    }
     suspend fun setNoteCardBackgroundHex(value: String?) = setOptionalString(PreferencesKeys.NOTE_CARD_BACKGROUND_HEX, value)
     suspend fun setNoteTitleTextHex(value: String?) = setOptionalString(PreferencesKeys.NOTE_TITLE_TEXT_HEX, value)
     suspend fun setNotePreviewTextHex(value: String?) = setOptionalString(PreferencesKeys.NOTE_PREVIEW_TEXT_HEX, value)
