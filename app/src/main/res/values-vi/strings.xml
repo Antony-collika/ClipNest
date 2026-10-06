@@ -282,4 +282,21 @@
     <string name="trash_delete_forever">Xóa vĩnh viễn</string>
     <string name="trash_delete_forever_confirm_title">Xóa vĩnh viễn %1$d Note?</string>
     <string name="trash_delete_forever_confirm_message">Bạn có chắc muốn xóa vĩnh viễn %1$d Note đã chọn không? Hành động này không thể hoàn tác.</string>
+
+    <string name="advanced">Nâng cao</string>
+    <string name="advanced_theme">Tùy chỉnh giao diện</string>
+    <string name="advanced_theme_description">Tùy chỉnh nền và màu card của Note/Vault mà không đổi theme đã chọn.</string>
+    <string name="background">Nền</string>
+    <string name="choose_background_image">Chọn ảnh nền</string>
+    <string name="change_background_image">Đổi ảnh nền</string>
+    <string name="background_color">Màu nền</string>
+    <string name="note_card">Card Note</string>
+    <string name="vault_card">Card Vault</string>
+    <string name="card_background">Màu nền card</string>
+    <string name="title_text">Màu chữ tiêu đề</string>
+    <string name="preview_text">Màu chữ preview</string>
+    <string name="meta_text">Màu chữ thông tin</string>
+    <string name="default_value">Mặc định</string>
+    <string name="text_size">Cỡ chữ</string>
+
 </resources>
