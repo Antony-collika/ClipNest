@@ -60,6 +60,14 @@ data class UserSettings(
     val showPinnedFirst: Boolean = false,
     val isSensitivePreviewMasked: Boolean = true,
     val themePreset: ThemePreset = ThemePreset.FOREST,
+    val backgroundImageUri: String? = null,
+    val backgroundColorHex: String? = null,
+    val noteCardBackgroundHex: String? = null,
+    val noteTitleTextHex: String? = null,
+    val notePreviewTextHex: String? = null,
+    val vaultCardBackgroundHex: String? = null,
+    val vaultPreviewTextHex: String? = null,
+    val vaultMetaTextHex: String? = null,
     val editorTextSize: EditorTextSize = EditorTextSize.DEFAULT,
     val viewerTextSize: ViewerTextSize = ViewerTextSize.DEFAULT,
     val notificationEnabled: Boolean = true,
@@ -79,6 +87,14 @@ class SettingsDataStore(private val context: Context) {
         val SHOW_PINNED_FIRST = booleanPreferencesKey("show_pinned_first")
         val SENSITIVE_PREVIEW_MASKED = booleanPreferencesKey("sensitive_preview_masked")
         val THEME_PRESET = stringPreferencesKey("theme_preset")
+        val BACKGROUND_IMAGE_URI = stringPreferencesKey("background_image_uri")
+        val BACKGROUND_COLOR_HEX = stringPreferencesKey("background_color_hex")
+        val NOTE_CARD_BACKGROUND_HEX = stringPreferencesKey("note_card_background_hex")
+        val NOTE_TITLE_TEXT_HEX = stringPreferencesKey("note_title_text_hex")
+        val NOTE_PREVIEW_TEXT_HEX = stringPreferencesKey("note_preview_text_hex")
+        val VAULT_CARD_BACKGROUND_HEX = stringPreferencesKey("vault_card_background_hex")
+        val VAULT_PREVIEW_TEXT_HEX = stringPreferencesKey("vault_preview_text_hex")
+        val VAULT_META_TEXT_HEX = stringPreferencesKey("vault_meta_text_hex")
         val EDITOR_TEXT_SIZE = stringPreferencesKey("editor_text_size")
         val VIEWER_TEXT_SIZE = stringPreferencesKey("viewer_text_size")
         val NOTIFICATION_ENABLED = booleanPreferencesKey("notification_enabled")
@@ -113,6 +129,14 @@ class SettingsDataStore(private val context: Context) {
             showPinnedFirst = preferences[PreferencesKeys.SHOW_PINNED_FIRST] ?: false,
             isSensitivePreviewMasked = preferences[PreferencesKeys.SENSITIVE_PREVIEW_MASKED] ?: true,
             themePreset = themePreset,
+            backgroundImageUri = preferences[PreferencesKeys.BACKGROUND_IMAGE_URI],
+            backgroundColorHex = preferences[PreferencesKeys.BACKGROUND_COLOR_HEX],
+            noteCardBackgroundHex = preferences[PreferencesKeys.NOTE_CARD_BACKGROUND_HEX],
+            noteTitleTextHex = preferences[PreferencesKeys.NOTE_TITLE_TEXT_HEX],
+            notePreviewTextHex = preferences[PreferencesKeys.NOTE_PREVIEW_TEXT_HEX],
+            vaultCardBackgroundHex = preferences[PreferencesKeys.VAULT_CARD_BACKGROUND_HEX],
+            vaultPreviewTextHex = preferences[PreferencesKeys.VAULT_PREVIEW_TEXT_HEX],
+            vaultMetaTextHex = preferences[PreferencesKeys.VAULT_META_TEXT_HEX],
             editorTextSize = editorTextSize,
             viewerTextSize = viewerTextSize,
             notificationEnabled = preferences[PreferencesKeys.NOTIFICATION_ENABLED] ?: true,
@@ -130,6 +154,21 @@ class SettingsDataStore(private val context: Context) {
     suspend fun setShowPinnedFirst(enabled: Boolean) { context.dataStore.edit { it[PreferencesKeys.SHOW_PINNED_FIRST] = enabled } }
     suspend fun setSensitivePreviewMasked(masked: Boolean) { context.dataStore.edit { it[PreferencesKeys.SENSITIVE_PREVIEW_MASKED] = masked } }
     suspend fun setThemePreset(preset: ThemePreset) { context.dataStore.edit { it[PreferencesKeys.THEME_PRESET] = preset.name } }
+
+    suspend fun setBackgroundImageUri(uri: String?) = setOptionalString(PreferencesKeys.BACKGROUND_IMAGE_URI, uri)
+    suspend fun setBackgroundColorHex(value: String?) = setOptionalString(PreferencesKeys.BACKGROUND_COLOR_HEX, value)
+    suspend fun setNoteCardBackgroundHex(value: String?) = setOptionalString(PreferencesKeys.NOTE_CARD_BACKGROUND_HEX, value)
+    suspend fun setNoteTitleTextHex(value: String?) = setOptionalString(PreferencesKeys.NOTE_TITLE_TEXT_HEX, value)
+    suspend fun setNotePreviewTextHex(value: String?) = setOptionalString(PreferencesKeys.NOTE_PREVIEW_TEXT_HEX, value)
+    suspend fun setVaultCardBackgroundHex(value: String?) = setOptionalString(PreferencesKeys.VAULT_CARD_BACKGROUND_HEX, value)
+    suspend fun setVaultPreviewTextHex(value: String?) = setOptionalString(PreferencesKeys.VAULT_PREVIEW_TEXT_HEX, value)
+    suspend fun setVaultMetaTextHex(value: String?) = setOptionalString(PreferencesKeys.VAULT_META_TEXT_HEX, value)
+
+    private suspend fun setOptionalString(key: Preferences.Key<String>, value: String?) {
+        context.dataStore.edit { preferences ->
+            if (value.isNullOrBlank()) preferences.remove(key) else preferences[key] = value.trim()
+        }
+    }
     suspend fun setEditorTextSize(size: EditorTextSize) { context.dataStore.edit { it[PreferencesKeys.EDITOR_TEXT_SIZE] = size.name } }
     suspend fun setViewerTextSize(size: ViewerTextSize) { context.dataStore.edit { it[PreferencesKeys.VIEWER_TEXT_SIZE] = size.name } }
     suspend fun setNotificationEnabled(enabled: Boolean) { context.dataStore.edit { it[PreferencesKeys.NOTIFICATION_ENABLED] = enabled } }
