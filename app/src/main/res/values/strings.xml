@@ -285,4 +285,21 @@
     <string name="trash_delete_forever">Delete permanently</string>
     <string name="trash_delete_forever_confirm_title">Delete %1$d note permanently?</string>
     <string name="trash_delete_forever_confirm_message">Are you sure you want to permanently delete %1$d selected note(s)? This action cannot be undone.</string>
+
+    <string name="advanced">Advanced</string>
+    <string name="advanced_theme">Advanced theme</string>
+    <string name="advanced_theme_description">Customize the background and Note/Vault card colors without changing the selected preset.</string>
+    <string name="background">Background</string>
+    <string name="choose_background_image">Choose background image</string>
+    <string name="change_background_image">Change background image</string>
+    <string name="background_color">Background color</string>
+    <string name="note_card">Note card</string>
+    <string name="vault_card">Vault card</string>
+    <string name="card_background">Card background</string>
+    <string name="title_text">Title text</string>
+    <string name="preview_text">Preview text</string>
+    <string name="meta_text">Meta text</string>
+    <string name="default_value">Default</string>
+    <string name="text_size">Text size</string>
+
 </resources>
