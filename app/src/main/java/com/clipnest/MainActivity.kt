@@ -82,6 +82,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.platform.LocalContext
@@ -124,6 +125,7 @@ import com.clipnest.ui.settings.SettingsViewModel
 import com.clipnest.ui.settings.SettingsViewModelFactory
 import com.clipnest.ui.theme.ClipNestTheme
 import com.clipnest.ui.theme.LocalThemePalette
+import com.clipnest.ui.theme.themeBackgroundFor
 import com.clipnest.ui.vault.BackupPasswordDialog
 import com.clipnest.ui.vault.VaultScreen
 import com.clipnest.ui.vault.VaultViewModel
@@ -218,6 +220,7 @@ class MainActivity : ComponentActivity() {
             val incomingRequest by incomingOpenRequest.collectAsStateWithLifecycle()
             CompositionLocalProvider(LocalContext provides localizedContext) {
                 ClipNestTheme(themePreset = userSettings.themePreset, userSettings = userSettings) {
+                    val backgroundDefaults = themeBackgroundFor(userSettings.themePreset, userSettings)
                     MainAppContent(
                         vaultViewModel = vaultViewModel,
                         editorViewModelFactory = EditorViewModelFactory(fileManager, settingsDataStore, applicationContext, database.noteDao(), database.topicDao()),
@@ -225,6 +228,9 @@ class MainActivity : ComponentActivity() {
                         editorTextSize = userSettings.editorTextSize,
                         viewerTextSize = userSettings.viewerTextSize,
                         backgroundImageUri = userSettings.backgroundImageUri,
+                        backgroundImageResId = backgroundDefaults.imageResId,
+                        backgroundOverlayColor = backgroundDefaults.overlayColor,
+                        backgroundOverlayAlpha = backgroundDefaults.overlayAlpha,
                         onRequestFolder = ::requestFolderSelection,
                         onRequestBackgroundImage = ::requestBackgroundImage,
                         onRequestOpenFile = ::requestOpenFile,
@@ -429,6 +435,9 @@ fun MainAppContent(
     editorTextSize: EditorTextSize,
     viewerTextSize: ViewerTextSize,
     backgroundImageUri: String?,
+    backgroundImageResId: Int?,
+    backgroundOverlayColor: Color,
+    backgroundOverlayAlpha: Float,
     onRequestFolder: (((Uri) -> Unit) -> Unit),
     onRequestBackgroundImage: () -> Unit,
     onRequestOpenFile: ((Uri) -> Unit) -> Unit,
@@ -661,7 +670,8 @@ fun MainAppContent(
                 onTabSelected = { page -> scope.launch { pagerState.animateScrollToPage(page, animationSpec = tween(durationMillis = 180)) } }
             )
         },
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier.fillMaxSize(),
+        containerColor = Color.Transparent
     ) { innerPadding ->
         BoxWithConstraints(
             modifier = Modifier
@@ -676,8 +686,8 @@ fun MainAppContent(
             }
             val panoramaWidth = maxWidth * MAIN_PAGE_COUNT
             val viewportWidthPx = with(androidx.compose.ui.platform.LocalDensity.current) { maxWidth.toPx() }
-            if (backgroundBitmap != null) {
-                androidx.compose.foundation.Image(
+            when {
+                backgroundBitmap != null -> androidx.compose.foundation.Image(
                     bitmap = backgroundBitmap!!,
                     contentDescription = null,
                     contentScale = ContentScale.FillBounds,
@@ -689,9 +699,8 @@ fun MainAppContent(
                             translationX = viewportWidthPx - (pagerProgress / (MAIN_PAGE_COUNT - 1).toFloat()) * maxTravel
                         }
                 )
-            } else {
-                androidx.compose.foundation.Image(
-                    painter = painterResource(id = com.clipnest.R.drawable.bg_forest),
+                backgroundImageResId != null -> androidx.compose.foundation.Image(
+                    painter = painterResource(id = backgroundImageResId),
                     contentDescription = null,
                     contentScale = ContentScale.FillBounds,
                     modifier = Modifier
@@ -703,6 +712,11 @@ fun MainAppContent(
                         }
                 )
             }
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(backgroundOverlayColor.copy(alpha = backgroundOverlayAlpha))
+            )
         NavHost(navController = navController, startDestination = Screen.Vault.route, modifier = Modifier.fillMaxSize()) {
             composable(Screen.Vault.route) {
                 androidx.compose.foundation.pager.HorizontalPager(state = pagerState, beyondViewportPageCount = 1, modifier = Modifier.fillMaxSize().testTag("main_content_pager")) { page ->
