@@ -289,6 +289,7 @@
     <string name="background">Nền</string>
     <string name="choose_background_image">Chọn ảnh nền</string>
     <string name="change_background_image">Đổi ảnh nền</string>
+    <string name="clear_background_image">Dùng màu nền</string>
     <string name="background_color">Màu nền</string>
     <string name="note_card">Card Note</string>
     <string name="vault_card">Card Vault</string>
