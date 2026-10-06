@@ -3,6 +3,7 @@ package com.clipnest.ui.settings
 import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -66,6 +67,9 @@ import com.clipnest.data.local.EditorTextSize
 import com.clipnest.data.local.ThemePreset
 import com.clipnest.data.local.ViewerTextSize
 import com.clipnest.ui.theme.LocalThemePalette
+import com.clipnest.ui.theme.themePaletteFor
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -73,6 +77,7 @@ import java.util.Locale
 fun SettingsScreen(
     viewModel: SettingsViewModel,
     onRequestSaveFolder: () -> Unit,
+    onRequestBackgroundImage: () -> Unit,
     onRequestBackup: () -> Unit,
     onRequestRestore: () -> Unit,
     modifier: Modifier = Modifier
@@ -170,8 +175,58 @@ fun SettingsScreen(
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(stringResource(com.clipnest.R.string.theme_preset), style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium))
                     Text(stringResource(com.clipnest.R.string.theme_preset_description), style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant), modifier = Modifier.padding(top = 4.dp))
-                    Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { ThemePreset.entries.forEach { preset -> ThemeChip(themePresetLabel(preset), userSettings.themePreset == preset, { viewModel.setThemePreset(preset) }, Modifier.testTag("theme_preset_${preset.name.lowercase(Locale.ROOT)}")) } }
-                    Spacer(modifier = Modifier.height(18.dp))
+                    Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ThemePreset.entries.forEach { preset ->
+                            ThemeChip(themePresetLabel(preset), userSettings.themePreset == preset, { viewModel.setThemePreset(preset) }, Modifier.testTag("theme_preset_${preset.name.lowercase(Locale.ROOT)}"))
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
+            var advancedExpanded by remember { mutableStateOf(false) }
+            val presetPalette = themePaletteFor(userSettings.themePreset)
+            SettingsSectionHeader(title = stringResource(com.clipnest.R.string.advanced), icon = Icons.Default.BrightnessMedium)
+            OutlinedCard(shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth().testTag("advanced_theme_toggle"), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(stringResource(com.clipnest.R.string.advanced_theme), style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium))
+                            Text(stringResource(com.clipnest.R.string.advanced_theme_description), style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
+                        }
+                        IconButton(onClick = { advancedExpanded = !advancedExpanded }) {
+                            Icon(if (advancedExpanded) androidx.compose.material.icons.filled.KeyboardArrowUp else androidx.compose.material.icons.filled.KeyboardArrowDown, contentDescription = null)
+                        }
+                    }
+                    if (advancedExpanded) {
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                        Text(stringResource(com.clipnest.R.string.background), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold))
+                        TextButton(onClick = onRequestBackgroundImage, modifier = Modifier.testTag("settings_background_image_button")) {
+                            Text(if (userSettings.backgroundImageUri == null) stringResource(com.clipnest.R.string.choose_background_image) else stringResource(com.clipnest.R.string.change_background_image))
+                        }
+                        ColorOverrideField(stringResource(com.clipnest.R.string.background_color), userSettings.backgroundColorHex, presetPalette.screenOverlayBackground, viewModel::setBackgroundColorHex)
+
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(stringResource(com.clipnest.R.string.note_card), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold))
+                        ColorOverrideField(stringResource(com.clipnest.R.string.card_background), userSettings.noteCardBackgroundHex, presetPalette.noteCardBackground, viewModel::setNoteCardBackgroundHex)
+                        ColorOverrideField(stringResource(com.clipnest.R.string.title_text), userSettings.noteTitleTextHex, presetPalette.noteTitle, viewModel::setNoteTitleTextHex)
+                        ColorOverrideField(stringResource(com.clipnest.R.string.preview_text), userSettings.notePreviewTextHex, presetPalette.notePreviewText, viewModel::setNotePreviewTextHex)
+
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(stringResource(com.clipnest.R.string.vault_card), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold))
+                        ColorOverrideField(stringResource(com.clipnest.R.string.card_background), userSettings.vaultCardBackgroundHex, presetPalette.vaultClipboardCardBackground, viewModel::setVaultCardBackgroundHex)
+                        ColorOverrideField(stringResource(com.clipnest.R.string.preview_text), userSettings.vaultPreviewTextHex, presetPalette.vaultClipboardPreviewText, viewModel::setVaultPreviewTextHex)
+                        ColorOverrideField(stringResource(com.clipnest.R.string.meta_text), userSettings.vaultMetaTextHex, presetPalette.vaultClipboardMetaText, viewModel::setVaultMetaTextHex)
+                    }
+                }
+            }
+        }
+
+        item {
+            SettingsSectionHeader(title = stringResource(com.clipnest.R.string.text_size), icon = Icons.Default.BrightnessMedium)
+            OutlinedCard(shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
                     Text(stringResource(com.clipnest.R.string.editor_text_size), style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium))
                     Text(stringResource(com.clipnest.R.string.editor_text_size_description), style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant), modifier = Modifier.padding(top = 4.dp))
                     Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { EditorTextSize.entries.forEach { size -> TextSizeChip("${size.sp}sp", userSettings.editorTextSize == size, { viewModel.setEditorTextSize(size) }, Modifier.testTag("editor_text_size_${size.name.lowercase(Locale.ROOT)}")) } }
@@ -306,6 +361,22 @@ fun SettingsScreen(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun ColorOverrideField(
+    label: String,
+    value: String?,
+    defaultColor: Color,
+    onValueChange: (String?) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val defaultHex = "#%08X".format(Locale.ROOT, defaultColor.toArgb())
+    Row(modifier = modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Box(modifier = Modifier.size(32.dp).background(defaultColor, RoundedCornerShape(8.dp)))
+        OutlinedTextField(value = value ?: "", onValueChange = { onValueChange(it.ifBlank { null }) }, label = { Text(label) }, placeholder = { Text(defaultHex) }, singleLine = true, modifier = Modifier.weight(1f))
+        TextButton(onClick = { onValueChange(null) }, enabled = value != null) { Text(stringResource(com.clipnest.R.string.default_value)) }
     }
 }
 
