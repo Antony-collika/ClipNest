@@ -56,7 +56,8 @@ class SettingsViewModel(
     fun setLanguage(language: AppLanguage) { viewModelScope.launch { settingsDataStore.setLanguage(language) } }
     fun setThemePreset(themePreset: ThemePreset) { viewModelScope.launch { settingsDataStore.setThemePreset(themePreset) } }
     fun setBackgroundImageUri(uri: String?) { viewModelScope.launch { settingsDataStore.setBackgroundImageUri(uri) } }
-    fun setBackgroundColorHex(value: String?) { viewModelScope.launch { settingsDataStore.setBackgroundColorHex(value) } }
+    fun setBackgroundOverlayColorHex(value: String?) { viewModelScope.launch { settingsDataStore.setBackgroundOverlayColorHex(value) } }
+    fun setBackgroundOverlayTransparencyPercent(value: Int?) { viewModelScope.launch { settingsDataStore.setBackgroundOverlayTransparencyPercent(value) } }
     fun setNoteCardBackgroundHex(value: String?) { viewModelScope.launch { settingsDataStore.setNoteCardBackgroundHex(value) } }
     fun setNoteTitleTextHex(value: String?) { viewModelScope.launch { settingsDataStore.setNoteTitleTextHex(value) } }
     fun setNotePreviewTextHex(value: String?) { viewModelScope.launch { settingsDataStore.setNotePreviewTextHex(value) } }
