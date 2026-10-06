@@ -221,9 +221,9 @@ val ForestThemePalette = ThemePalette(
         outline = Color(0xFF6C776F), outlineVariant = Color(0xFFD6E5DB)
     ),
 
-    cardBackgroundAlpha = 0.5f,
+    cardBackgroundAlpha = 0.95f,
     screenOverlayBackground = Color(0xFFF1E9DA),
-    screenOverlayBackgroundAlpha = 0.88f,
+    screenOverlayBackgroundAlpha = 0.5f,
 
     // NOTE SCREEN
     noteCardBackground = Color(0xFFFDFAF3),
@@ -233,7 +233,7 @@ val ForestThemePalette = ThemePalette(
     noteTagText = Color(0xFF16301F),
     noteHeaderBackground = Color(0xFF16301F),
     noteHeaderContent = Color(0xFFFFFFFF),
-    noteBreadcrumbBackground = Color(0xFFE4F0E8),
+    noteBreadcrumbBackground = Color(0xFFF1E9DA),
     noteBreadcrumbText = Color(0xFF234A32),
     noteBreadcrumbDivider = Color(0xFF234A32),
     noteSectionTitle = Color(0xFF55635B),
@@ -248,7 +248,7 @@ val ForestThemePalette = ThemePalette(
     notePopupContent = Color(0xFF17201B),
     notePopupSecondaryText = Color(0xFF55635B),
     notePopupDivider = Color(0xFFD6E5DB),
-    noteViewModeBackground = Color(0xFFE5DAC7),
+    noteViewModeBackground = Color(0xFFE5E7EB),
     noteViewModeSelectedBackground = Color(0xFFFDFAF3),
     noteViewModeSelectedIcon = Color(0xFF16301F),
     noteViewModeUnselectedIcon = Color(0xFF55635B),
@@ -332,9 +332,9 @@ val NordThemePalette = ThemePalette(
         outline = Color(0xFF7B8794), outlineVariant = Color(0xFFD8DEE9)
     ),
 
-    cardBackgroundAlpha = 0.5f,
+    cardBackgroundAlpha = 0.95f,
     screenOverlayBackground = Color(0xFFECEFF4),
-    screenOverlayBackgroundAlpha = 0.88f,
+    screenOverlayBackgroundAlpha = 0.5f,
 
     // NOTE SCREEN
     noteCardBackground = Color(0xFFFFFFFF),
@@ -359,7 +359,7 @@ val NordThemePalette = ThemePalette(
     notePopupContent = Color(0xFF2E3440),
     notePopupSecondaryText = Color(0xFF4C566A),
     notePopupDivider = Color(0xFFFFE2E7),
-    noteViewModeBackground = Color(0xFFE5E9F0),
+    noteViewModeBackground = Color(0xFFE5E7EB),
     noteViewModeSelectedBackground = Color(0xFFECEFF4),
     noteViewModeSelectedIcon = Color(0xFF2E3440),
     noteViewModeUnselectedIcon = Color(0xFF4C566A),
@@ -444,9 +444,9 @@ val SnowSapphireThemePalette = ThemePalette(
         outline = Color(0xFF6A8AAE), outlineVariant = Color(0xFFCFE3F7)
     ),
 
-    cardBackgroundAlpha = 0.5f,
+    cardBackgroundAlpha = 0.95f,
     screenOverlayBackground = Color(0xFFEAF3FB),
-    screenOverlayBackgroundAlpha = 0.88f,
+    screenOverlayBackgroundAlpha = 0.5f,
 
     // NOTE SCREEN
     noteCardBackground = Color(0xFFF4F9FE),
@@ -456,7 +456,7 @@ val SnowSapphireThemePalette = ThemePalette(
     noteTagText = Color(0xFF0C2B5C),
     noteHeaderBackground = Color(0xFF1E3A8A),
     noteHeaderContent = Color(0xFFFFFFFF),
-    noteBreadcrumbBackground = Color(0xFFDCEAF7),
+    noteBreadcrumbBackground = Color(0xFFEAF3FB),
     noteBreadcrumbText = Color(0xFF2C5282),
     noteBreadcrumbDivider = Color(0xFF2C5282),
     noteSectionTitle = Color(0xFF2C5282),
@@ -471,7 +471,7 @@ val SnowSapphireThemePalette = ThemePalette(
     notePopupContent = Color(0xFF0C2B5C),
     notePopupSecondaryText = Color(0xFF2C5282),
     notePopupDivider = Color(0xFFCFE3F7),
-    noteViewModeBackground = Color(0xFFD6E6F5),
+    noteViewModeBackground = Color(0xFFE5E7EB),
     noteViewModeSelectedBackground = Color(0xFFF4F9FE),
     noteViewModeSelectedIcon = Color(0xFF1E3A8A),
     noteViewModeUnselectedIcon = Color(0xFF2C5282),
@@ -556,9 +556,9 @@ val SakuraThemePalette = ThemePalette(
         outline = Color(0xFF9CA3AF), outlineVariant = Color(0xFFFBCFE8)
     ),
 
-    cardBackgroundAlpha = 0.5f,
+    cardBackgroundAlpha = 0.95f,
     screenOverlayBackground = Color(0xFFFDF2F8),
-    screenOverlayBackgroundAlpha = 0.88f,
+    screenOverlayBackgroundAlpha = 0.5f,
 
     // NOTE SCREEN
     noteCardBackground = Color(0xFFFFFFFF),
@@ -568,7 +568,7 @@ val SakuraThemePalette = ThemePalette(
     noteTagText = Color(0xFF500724),
     noteHeaderBackground = Color(0xFF9D174D),
     noteHeaderContent = Color(0xFFFFFFFF),
-    noteBreadcrumbBackground = Color(0xFFFCE7F3),
+    noteBreadcrumbBackground = Color(0xFFFDF2F8),
     noteBreadcrumbText = Color(0xFFDB2777),
     noteBreadcrumbDivider = Color(0xFFFFBC1F),
     noteSectionTitle = Color(0xFF9D174D),
@@ -583,7 +583,7 @@ val SakuraThemePalette = ThemePalette(
     notePopupContent = Color(0xFF500724),
     notePopupSecondaryText = Color(0xFF9D174D),
     notePopupDivider = Color(0xFFFFFCE1),
-    noteViewModeBackground = Color(0xFFFCE7F3),
+    noteViewModeBackground = Color(0xFFE5E7EB),
     noteViewModeSelectedBackground = Color(0xFFFDF2F8),
     noteViewModeSelectedIcon = Color(0xFF9D174D),
     noteViewModeUnselectedIcon = Color(0xFF9D174D),
@@ -668,9 +668,9 @@ val LavenderThemePalette = ThemePalette(
         outline = Color(0xFF9CA3AF), outlineVariant = Color(0xFFDDD6FE)
     ),
 
-    cardBackgroundAlpha = 0.5f,
+    cardBackgroundAlpha = 0.95f,
     screenOverlayBackground = Color(0xFFF5F3FF),
-    screenOverlayBackgroundAlpha = 0.88f,
+    screenOverlayBackgroundAlpha = 0.5f,
 
     // NOTE SCREEN
     noteCardBackground = Color(0xFFFFFFFF),
@@ -680,7 +680,7 @@ val LavenderThemePalette = ThemePalette(
     noteTagText = Color(0xFF2E1065),
     noteHeaderBackground = Color(0xFF6D28D9),
     noteHeaderContent = Color(0xFFFFFFFF),
-    noteBreadcrumbBackground = Color(0xFFEDE9FE),
+    noteBreadcrumbBackground = Color(0xFFF5F3FF),
     noteBreadcrumbText = Color(0xFF7C3AED),
     noteBreadcrumbDivider = Color(0xFFFF7531),
     noteSectionTitle = Color(0xFF6D28D9),
@@ -695,7 +695,7 @@ val LavenderThemePalette = ThemePalette(
     notePopupContent = Color(0xFF2E1065),
     notePopupSecondaryText = Color(0xFF6D28D9),
     notePopupDivider = Color(0xFFFFE9E5),
-    noteViewModeBackground = Color(0xFFEDE9FE),
+    noteViewModeBackground = Color(0xFFE5E7EB),
     noteViewModeSelectedBackground = Color(0xFFF5F3FF),
     noteViewModeSelectedIcon = Color(0xFF6D28D9),
     noteViewModeUnselectedIcon = Color(0xFF6D28D9),
@@ -780,9 +780,9 @@ val LightBasicThemePalette = ThemePalette(
         outline = Color(0xFF9CA3AF), outlineVariant = Color(0xFFE5E7EB)
     ),
 
-    cardBackgroundAlpha = 0.5f,
+    cardBackgroundAlpha = 0.95f,
     screenOverlayBackground = Color(0xFFFFFFFF),
-    screenOverlayBackgroundAlpha = 0.88f,
+    screenOverlayBackgroundAlpha = 0.5f,
 
     // NOTE SCREEN
     noteCardBackground = Color(0xFFF8FAFC),
@@ -792,7 +792,7 @@ val LightBasicThemePalette = ThemePalette(
     noteTagText = Color(0xFF111827),
     noteHeaderBackground = Color(0xFF374151),
     noteHeaderContent = Color(0xFFFFFFFF),
-    noteBreadcrumbBackground = Color(0xFFF3F4F6),
+    noteBreadcrumbBackground = Color(0xFFFFFFFF),
     noteBreadcrumbText = Color(0xFF6B7280),
     noteBreadcrumbDivider = Color(0xFFFF515A),
     noteSectionTitle = Color(0xFF4B5563),
@@ -807,7 +807,7 @@ val LightBasicThemePalette = ThemePalette(
     notePopupContent = Color(0xFF111827),
     notePopupSecondaryText = Color(0xFF4B5563),
     notePopupDivider = Color(0xFFFFF2F3),
-    noteViewModeBackground = Color(0xFFF3F4F6),
+    noteViewModeBackground = Color(0xFFE5E7EB),
     noteViewModeSelectedBackground = Color(0xFFFFFFFF),
     noteViewModeSelectedIcon = Color(0xFF374151),
     noteViewModeUnselectedIcon = Color(0xFF4B5563),
@@ -892,9 +892,9 @@ val BasicDarkThemePalette = ThemePalette(
         outline = Color(0xFF6B7280), outlineVariant = Color(0xFF374151)
     ),
 
-    cardBackgroundAlpha = 0.5f,
+    cardBackgroundAlpha = 0.95f,
     screenOverlayBackground = Color(0xFF2D3A4D),
-    screenOverlayBackgroundAlpha = 0.88f,
+    screenOverlayBackgroundAlpha = 0.5f,
 
     // NOTE SCREEN
     noteCardBackground = Color(0xFFFFFFFF),
@@ -904,7 +904,7 @@ val BasicDarkThemePalette = ThemePalette(
     noteTagText = Color(0xFFF9FAFB),
     noteHeaderBackground = Color(0xFF111827),
     noteHeaderContent = Color(0xFFF9FAFB),
-    noteBreadcrumbBackground = Color(0xFF1F2937),
+    noteBreadcrumbBackground = Color(0xFF111827),
     noteBreadcrumbText = Color(0xFF94A3B8),
     noteBreadcrumbDivider = Color(0xFFFF535E),
     noteSectionTitle = Color(0xFFCBD5E1),
@@ -919,7 +919,7 @@ val BasicDarkThemePalette = ThemePalette(
     notePopupContent = Color(0xFFF9FAFB),
     notePopupSecondaryText = Color(0xFFCBD5E1),
     notePopupDivider = Color(0xFFFF4C56),
-    noteViewModeBackground = Color(0xFF374151),
+    noteViewModeBackground = Color(0xFF4B5563),
     noteViewModeSelectedBackground = Color(0xFF2D3A4D),
     noteViewModeSelectedIcon = Color(0xFF111827),
     noteViewModeUnselectedIcon = Color(0xFFCBD5E1),
@@ -1004,9 +1004,9 @@ val DeepOceanThemePalette = ThemePalette(
         outline = Color(0xFF64B5F6), outlineVariant = Color(0xFF1E4976)
     ),
 
-    cardBackgroundAlpha = 0.5f,
+    cardBackgroundAlpha = 0.95f,
     screenOverlayBackground = Color(0xFF16385A),
-    screenOverlayBackgroundAlpha = 0.88f,
+    screenOverlayBackgroundAlpha = 0.5f,
 
     // NOTE SCREEN
     noteCardBackground = Color(0xFFFFFFFF),
@@ -1016,7 +1016,7 @@ val DeepOceanThemePalette = ThemePalette(
     noteTagText = Color(0xFFE3F2FD),
     noteHeaderBackground = Color(0xFF0A1929),
     noteHeaderContent = Color(0xFFE3F2FD),
-    noteBreadcrumbBackground = Color(0xFF12304A),
+    noteBreadcrumbBackground = Color(0xFF0A1929),
     noteBreadcrumbText = Color(0xFF38BDF8),
     noteBreadcrumbDivider = Color(0xFFFF216B),
     noteSectionTitle = Color(0xFF90CAF9),
@@ -1031,7 +1031,7 @@ val DeepOceanThemePalette = ThemePalette(
     notePopupContent = Color(0xFFE3F2FD),
     notePopupSecondaryText = Color(0xFF90CAF9),
     notePopupDivider = Color(0xFFFF3D77),
-    noteViewModeBackground = Color(0xFF1E4976),
+    noteViewModeBackground = Color(0xFF4B5563),
     noteViewModeSelectedBackground = Color(0xFF16385A),
     noteViewModeSelectedIcon = Color(0xFF0A1929),
     noteViewModeUnselectedIcon = Color(0xFF90CAF9),
@@ -1116,9 +1116,9 @@ val CoffeeThemePalette = ThemePalette(
         outline = Color(0xFFB08968), outlineVariant = Color(0xFF6B4630)
     ),
 
-    cardBackgroundAlpha = 0.5f,
+    cardBackgroundAlpha = 0.95f,
     screenOverlayBackground = Color(0xFF5A3826),
-    screenOverlayBackgroundAlpha = 0.88f,
+    screenOverlayBackgroundAlpha = 0.5f,
 
     // NOTE SCREEN
     noteCardBackground = Color(0xFFFFFFFF),
@@ -1128,7 +1128,7 @@ val CoffeeThemePalette = ThemePalette(
     noteTagText = Color(0xFFF5E6D3),
     noteHeaderBackground = Color(0xFF2B1A12),
     noteHeaderContent = Color(0xFFF5E6D3),
-    noteBreadcrumbBackground = Color(0xFF3A251B),
+    noteBreadcrumbBackground = Color(0xFF2B1A12),
     noteBreadcrumbText = Color(0xFFE8A87C),
     noteBreadcrumbDivider = Color(0xFFFF8A61),
     noteSectionTitle = Color(0xFFD4A574),
@@ -1143,7 +1143,7 @@ val CoffeeThemePalette = ThemePalette(
     notePopupContent = Color(0xFFF5E6D3),
     notePopupSecondaryText = Color(0xFFD4A574),
     notePopupDivider = Color(0xFFFF8561),
-    noteViewModeBackground = Color(0xFF6B4630),
+    noteViewModeBackground = Color(0xFF4B5563),
     noteViewModeSelectedBackground = Color(0xFF5A3826),
     noteViewModeSelectedIcon = Color(0xFF2B1A12),
     noteViewModeUnselectedIcon = Color(0xFFD4A574),
@@ -1228,9 +1228,9 @@ val ObsidianThemePalette = ThemePalette(
         outline = Color(0xFFA78BFA), outlineVariant = Color(0xFF4C2E6E)
     ),
 
-    cardBackgroundAlpha = 0.5f,
+    cardBackgroundAlpha = 0.95f,
     screenOverlayBackground = Color(0xFF3A2356),
-    screenOverlayBackgroundAlpha = 0.88f,
+    screenOverlayBackgroundAlpha = 0.5f,
 
     // NOTE SCREEN
     noteCardBackground = Color(0xFFFFFFFF),
@@ -1240,7 +1240,7 @@ val ObsidianThemePalette = ThemePalette(
     noteTagText = Color(0xFFEDE9FE),
     noteHeaderBackground = Color(0xFF1A0F2E),
     noteHeaderContent = Color(0xFFEDE9FE),
-    noteBreadcrumbBackground = Color(0xFF2A1945),
+    noteBreadcrumbBackground = Color(0xFF1A0F2E),
     noteBreadcrumbText = Color(0xFFA78BFA),
     noteBreadcrumbDivider = Color(0xFFFF614D),
     noteSectionTitle = Color(0xFFC4B5FD),
@@ -1255,7 +1255,7 @@ val ObsidianThemePalette = ThemePalette(
     notePopupContent = Color(0xFFEDE9FE),
     notePopupSecondaryText = Color(0xFFC4B5FD),
     notePopupDivider = Color(0xFFFF8C7D),
-    noteViewModeBackground = Color(0xFF4C2E6E),
+    noteViewModeBackground = Color(0xFF4B5563),
     noteViewModeSelectedBackground = Color(0xFF3A2356),
     noteViewModeSelectedIcon = Color(0xFF1A0F2E),
     noteViewModeUnselectedIcon = Color(0xFFC4B5FD),
