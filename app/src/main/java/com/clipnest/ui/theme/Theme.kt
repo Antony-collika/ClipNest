@@ -47,7 +47,7 @@ fun themePaletteFor(preset: ThemePreset, userSettings: UserSettings? = null): Th
         }.getOrNull()
     }
 
-    val background = parse(userSettings.backgroundColorHex) ?: base.screenOverlayBackground
+    val background = parse(userSettings.backgroundOverlayColorHex) ?: base.screenOverlayBackground
     return base.copy(
         colorScheme = base.colorScheme.copy(background = background, surface = background),
         screenOverlayBackground = background,
@@ -57,5 +57,35 @@ fun themePaletteFor(preset: ThemePreset, userSettings: UserSettings? = null): Th
         vaultClipboardCardBackground = parse(userSettings.vaultCardBackgroundHex) ?: base.vaultClipboardCardBackground,
         vaultClipboardPreviewText = parse(userSettings.vaultPreviewTextHex) ?: base.vaultClipboardPreviewText,
         vaultClipboardMetaText = parse(userSettings.vaultMetaTextHex) ?: base.vaultClipboardMetaText
+    )
+}
+
+
+data class ThemeBackgroundDefaults(
+    val imageResId: Int?,
+    val overlayColor: Color,
+    val overlayAlpha: Float
+)
+
+fun themeBackgroundFor(preset: ThemePreset, userSettings: UserSettings? = null): ThemeBackgroundDefaults {
+    val basePalette = themePaletteFor(preset)
+    val defaultImageResId = when (preset) {
+        ThemePreset.FOREST -> com.clipnest.R.drawable.bg_forest
+        else -> null
+    }
+    val overlayColor = userSettings?.backgroundOverlayColorHex?.let { value ->
+        runCatching {
+            val normalized = value.trim().removePrefix("#")
+            if (normalized.length == 6 || normalized.length == 8) {
+                Color(android.graphics.Color.parseColor("#$normalized")).copy(alpha = 1f)
+            } else null
+        }.getOrNull()
+    } ?: basePalette.screenOverlayBackground.copy(alpha = 1f)
+    val transparency = userSettings?.backgroundOverlayTransparencyPercent ?: (SCREEN_OVERLAY_BACKGROUND_ALPHA * 100f).toInt()
+    val overlayAlpha = 1f - transparency.coerceIn(0, 100) / 100f
+    return ThemeBackgroundDefaults(
+        imageResId = defaultImageResId,
+        overlayColor = overlayColor,
+        overlayAlpha = overlayAlpha
     )
 }
