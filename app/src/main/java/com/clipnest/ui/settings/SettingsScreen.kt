@@ -7,6 +7,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.window.Dialog
 import androidx.compose.foundation.background
@@ -432,6 +433,14 @@ private fun ColorOverrideField(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                "$label  #%06X".format(Locale.ROOT, effectiveColor.toArgb() and 0xFFFFFF),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium)
+            )
+        }
         Box(
             modifier = Modifier
                 .size(44.dp)
@@ -439,16 +448,6 @@ private fun ColorOverrideField(
                 .testTag("color_picker_swatch")
                 .pointerInput(Unit) { detectTapGestures { pickerOpen = true } }
         )
-        Column(modifier = Modifier.weight(1f)) {
-            Text(label, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium))
-            Text(
-                "#%06X".format(Locale.ROOT, effectiveColor.toArgb() and 0xFFFFFF),
-                style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-            )
-        }
-        TextButton(onClick = { pickerOpen = true }) {
-            Text(stringResource(com.clipnest.R.string.choose_color))
-        }
         TextButton(onClick = { onValueChange(null) }, enabled = value != null) {
             Text(stringResource(com.clipnest.R.string.default_value))
         }
