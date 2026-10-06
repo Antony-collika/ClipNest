@@ -169,6 +169,13 @@ internal fun NoteScreen(
     val palette = LocalThemePalette.current
 
     Box(modifier.fillMaxSize()) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(
+                    palette.screenOverlayBackground.copy(alpha = palette.screenOverlayBackgroundAlpha)
+                )
+        )
         Column(Modifier.fillMaxSize()) {
                 val headerState = NoteHeaderState(
                     avatarIcon = androidx.compose.material.icons.Icons.Default.Person,
@@ -219,7 +226,7 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
                 }
             } else {
                 val colors = NoteRecyclerColors(
-                    noteCardBackground = palette.noteCardBackground.copy(alpha = 0.5f).toArgb(),
+                    noteCardBackground = palette.noteCardBackground.copy(alpha = palette.cardBackgroundAlpha).toArgb(),
                     noteCardSelectedBackground = palette.noteCardSelectedBackground.toArgb(),
                     noteTagBackground = palette.noteTagBackground.toArgb(),
                     noteTagContent = palette.noteTagText.toArgb(),
