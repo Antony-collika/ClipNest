@@ -73,6 +73,8 @@ import com.clipnest.domain.RelativeDateLabels
 import com.clipnest.domain.RelativeTimeFormatter
 import com.clipnest.domain.FtsSearchQuery
 import com.clipnest.ui.editor.EditorNoteOrigin
+import com.clipnest.ui.theme.CARD_BACKGROUND_ALPHA
+import com.clipnest.ui.theme.SCREEN_OVERLAY_BACKGROUND_ALPHA
 import com.clipnest.ui.theme.LocalThemePalette
 import kotlinx.coroutines.flow.flowOf
 
@@ -174,7 +176,7 @@ internal fun NoteScreen(
             Modifier
                 .fillMaxSize()
                 .background(
-                    palette.screenOverlayBackground.copy(alpha = palette.screenOverlayBackgroundAlpha)
+                    palette.screenOverlayBackground.copy(alpha = SCREEN_OVERLAY_BACKGROUND_ALPHA)
                 )
         )
         Column(Modifier.fillMaxSize()) {
@@ -227,7 +229,7 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
                 }
             } else {
                 val colors = NoteRecyclerColors(
-                    noteCardBackground = palette.noteCardBackground.copy(alpha = palette.cardBackgroundAlpha).toArgb(),
+                    noteCardBackground = palette.noteCardBackground.copy(alpha = CARD_BACKGROUND_ALPHA).toArgb(),
                     noteCardSelectedBackground = palette.noteCardSelectedBackground.toArgb(),
                     noteTagBackground = palette.noteTagBackground.toArgb(),
                     noteTagContent = palette.noteTagText.toArgb(),
