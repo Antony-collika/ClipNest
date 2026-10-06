@@ -776,6 +776,7 @@ fun MainAppContent(
                 SettingsScreen(
                     viewModel = settingsViewModel,
                     onRequestSaveFolder = { onRequestFolder { uri -> settingsViewModel.setDefaultSaveFolder(uri, context.contentResolver) } },
+                    onRequestBackgroundImage = onRequestBackgroundImage,
                     onRequestBackup = onRequestBackup,
                     onRequestRestore = onRequestRestore
                 )
