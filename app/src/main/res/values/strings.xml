@@ -301,6 +301,7 @@
     <string name="note_card">Note card</string>
     <string name="vault_card">Vault card</string>
     <string name="card_background">Card background</string>
+    <string name="card_transparency">Card transparency</string>
     <string name="title_text">Title text</string>
     <string name="preview_text">Preview text</string>
     <string name="meta_text">Meta text</string>
