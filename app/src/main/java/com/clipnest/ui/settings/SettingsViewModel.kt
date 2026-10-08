@@ -59,9 +59,11 @@ class SettingsViewModel(
     fun setBackgroundOverlayColorHex(value: String?) { viewModelScope.launch { settingsDataStore.setBackgroundOverlayColorHex(value) } }
     fun setBackgroundOverlayTransparencyPercent(value: Int?) { viewModelScope.launch { settingsDataStore.setBackgroundOverlayTransparencyPercent(value) } }
     fun setNoteCardBackgroundHex(value: String?) { viewModelScope.launch { settingsDataStore.setNoteCardBackgroundHex(value) } }
+    fun setNoteCardBackgroundTransparencyPercent(value: Int?) { viewModelScope.launch { settingsDataStore.setNoteCardBackgroundTransparencyPercent(value) } }
     fun setNoteTitleTextHex(value: String?) { viewModelScope.launch { settingsDataStore.setNoteTitleTextHex(value) } }
     fun setNotePreviewTextHex(value: String?) { viewModelScope.launch { settingsDataStore.setNotePreviewTextHex(value) } }
     fun setVaultCardBackgroundHex(value: String?) { viewModelScope.launch { settingsDataStore.setVaultCardBackgroundHex(value) } }
+    fun setVaultCardBackgroundTransparencyPercent(value: Int?) { viewModelScope.launch { settingsDataStore.setVaultCardBackgroundTransparencyPercent(value) } }
     fun setVaultPreviewTextHex(value: String?) { viewModelScope.launch { settingsDataStore.setVaultPreviewTextHex(value) } }
     fun setVaultMetaTextHex(value: String?) { viewModelScope.launch { settingsDataStore.setVaultMetaTextHex(value) } }
     fun setEditorTextSize(size: EditorTextSize) { viewModelScope.launch { settingsDataStore.setEditorTextSize(size) } }
