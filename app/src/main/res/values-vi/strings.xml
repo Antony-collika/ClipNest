@@ -298,6 +298,7 @@
     <string name="note_card">Card Note</string>
     <string name="vault_card">Card Vault</string>
     <string name="card_background">Màu nền card</string>
+    <string name="card_transparency">Độ trong suốt card</string>
     <string name="title_text">Màu chữ tiêu đề</string>
     <string name="preview_text">Màu chữ preview</string>
     <string name="meta_text">Màu chữ thông tin</string>
