@@ -251,7 +251,7 @@ fun SettingsScreen(
                                 onValueChange = { viewModel.setBackgroundOverlayTransparencyPercent(it.toInt()) },
                                 valueRange = 0f..100f,
                                 steps = 99,
-                                modifier = Modifier.fillMaxWidth().testTag("settings_background_transparency_slider")
+                                modifier = Modifier.fillMaxWidth().height(28.dp).testTag("settings_background_transparency_slider")
                             )
                         }
 
@@ -260,10 +260,20 @@ fun SettingsScreen(
                         ColorOverrideField(stringResource(com.clipnest.R.string.card_background), userSettings.noteCardBackgroundHex, presetPalette.noteCardBackground, viewModel::setNoteCardBackgroundHex)
                         ColorOverrideField(stringResource(com.clipnest.R.string.title_text), userSettings.noteTitleTextHex, presetPalette.noteTitle, viewModel::setNoteTitleTextHex)
                         ColorOverrideField(stringResource(com.clipnest.R.string.preview_text), userSettings.notePreviewTextHex, presetPalette.notePreviewText, viewModel::setNotePreviewTextHex)
+                        CardTransparencyField(
+                            userSettings.noteCardBackgroundTransparencyPercent,
+                            presetPalette.noteCardBackground.alpha,
+                            viewModel::setNoteCardBackgroundTransparencyPercent
+                        )
 
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(stringResource(com.clipnest.R.string.vault_card), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold))
                         ColorOverrideField(stringResource(com.clipnest.R.string.card_background), userSettings.vaultCardBackgroundHex, presetPalette.vaultClipboardCardBackground, viewModel::setVaultCardBackgroundHex)
+                        CardTransparencyField(
+                            userSettings.vaultCardBackgroundTransparencyPercent,
+                            presetPalette.vaultClipboardCardBackground.alpha,
+                            viewModel::setVaultCardBackgroundTransparencyPercent
+                        )
                         ColorOverrideField(stringResource(com.clipnest.R.string.preview_text), userSettings.vaultPreviewTextHex, presetPalette.vaultClipboardPreviewText, viewModel::setVaultPreviewTextHex)
                         ColorOverrideField(stringResource(com.clipnest.R.string.meta_text), userSettings.vaultMetaTextHex, presetPalette.vaultClipboardMetaText, viewModel::setVaultMetaTextHex)
                     }
@@ -462,6 +472,49 @@ private fun ColorOverrideField(
                 onValueChange("#%06X".format(Locale.ROOT, color.toArgb() and 0xFFFFFF))
                 pickerOpen = false
             }
+        )
+    }
+}
+
+@Composable
+private fun CardTransparencyField(
+    value: Int?,
+    defaultAlpha: Float,
+    onValueChange: (Int?) -> Unit
+) {
+    val defaultTransparency = ((1f - defaultAlpha.coerceIn(0f, 1f)) * 100f).toInt()
+    val transparency = value ?: defaultTransparency
+
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                stringResource(com.clipnest.R.string.card_transparency),
+                style = MaterialTheme.typography.bodySmall
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("$transparency%", style = MaterialTheme.typography.bodySmall)
+                TextButton(
+                    onClick = { onValueChange(null) },
+                    enabled = value != null,
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                ) {
+                    Text(stringResource(com.clipnest.R.string.default_value))
+                }
+            }
+        }
+        Slider(
+            value = transparency.toFloat(),
+            onValueChange = { onValueChange(it.toInt()) },
+            valueRange = 0f..100f,
+            steps = 99,
+            modifier = Modifier.fillMaxWidth().height(28.dp)
         )
     }
 }
