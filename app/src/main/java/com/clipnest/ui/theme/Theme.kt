@@ -47,14 +47,25 @@ fun themePaletteFor(preset: ThemePreset, userSettings: UserSettings? = null): Th
         }.getOrNull()
     }
 
+    fun withTransparency(color: Color, transparencyPercent: Int?): Color {
+        val transparency = transparencyPercent ?: ((1f - color.alpha) * 100f).toInt()
+        return color.copy(alpha = 1f - transparency.coerceIn(0, 100) / 100f)
+    }
+
     val background = parse(userSettings.backgroundOverlayColorHex) ?: base.screenOverlayBackground
     return base.copy(
         colorScheme = base.colorScheme,
         screenOverlayBackground = background,
-        noteCardBackground = parse(userSettings.noteCardBackgroundHex) ?: base.noteCardBackground,
+        noteCardBackground = withTransparency(
+            parse(userSettings.noteCardBackgroundHex) ?: base.noteCardBackground,
+            userSettings.noteCardBackgroundTransparencyPercent
+        ),
         noteTitle = parse(userSettings.noteTitleTextHex) ?: base.noteTitle,
         notePreviewText = parse(userSettings.notePreviewTextHex) ?: base.notePreviewText,
-        vaultClipboardCardBackground = parse(userSettings.vaultCardBackgroundHex) ?: base.vaultClipboardCardBackground,
+        vaultClipboardCardBackground = withTransparency(
+            parse(userSettings.vaultCardBackgroundHex) ?: base.vaultClipboardCardBackground,
+            userSettings.vaultCardBackgroundTransparencyPercent
+        ),
         vaultClipboardPreviewText = parse(userSettings.vaultPreviewTextHex) ?: base.vaultClipboardPreviewText,
         vaultClipboardMetaText = parse(userSettings.vaultMetaTextHex) ?: base.vaultClipboardMetaText
     )
