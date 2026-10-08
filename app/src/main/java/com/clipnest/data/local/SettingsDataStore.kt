@@ -65,9 +65,11 @@ data class UserSettings(
     val backgroundOverlayColorHex: String? = null,
     val backgroundOverlayTransparencyPercent: Int? = null,
     val noteCardBackgroundHex: String? = null,
+    val noteCardBackgroundTransparencyPercent: Int? = null,
     val noteTitleTextHex: String? = null,
     val notePreviewTextHex: String? = null,
     val vaultCardBackgroundHex: String? = null,
+    val vaultCardBackgroundTransparencyPercent: Int? = null,
     val vaultPreviewTextHex: String? = null,
     val vaultMetaTextHex: String? = null,
     val editorTextSize: EditorTextSize = EditorTextSize.DEFAULT,
@@ -93,9 +95,11 @@ class SettingsDataStore(private val context: Context) {
         val BACKGROUND_OVERLAY_COLOR_HEX = stringPreferencesKey("background_overlay_color_hex")
         val BACKGROUND_OVERLAY_TRANSPARENCY_PERCENT = intPreferencesKey("background_overlay_transparency_percent")
         val NOTE_CARD_BACKGROUND_HEX = stringPreferencesKey("note_card_background_hex")
+        val NOTE_CARD_BACKGROUND_TRANSPARENCY_PERCENT = intPreferencesKey("note_card_background_transparency_percent")
         val NOTE_TITLE_TEXT_HEX = stringPreferencesKey("note_title_text_hex")
         val NOTE_PREVIEW_TEXT_HEX = stringPreferencesKey("note_preview_text_hex")
         val VAULT_CARD_BACKGROUND_HEX = stringPreferencesKey("vault_card_background_hex")
+        val VAULT_CARD_BACKGROUND_TRANSPARENCY_PERCENT = intPreferencesKey("vault_card_background_transparency_percent")
         val VAULT_PREVIEW_TEXT_HEX = stringPreferencesKey("vault_preview_text_hex")
         val VAULT_META_TEXT_HEX = stringPreferencesKey("vault_meta_text_hex")
         val EDITOR_TEXT_SIZE = stringPreferencesKey("editor_text_size")
@@ -136,9 +140,11 @@ class SettingsDataStore(private val context: Context) {
             backgroundOverlayColorHex = preferences[PreferencesKeys.BACKGROUND_OVERLAY_COLOR_HEX] ?: preferences[stringPreferencesKey("background_color_hex")],
             backgroundOverlayTransparencyPercent = preferences[PreferencesKeys.BACKGROUND_OVERLAY_TRANSPARENCY_PERCENT],
             noteCardBackgroundHex = preferences[PreferencesKeys.NOTE_CARD_BACKGROUND_HEX],
+            noteCardBackgroundTransparencyPercent = preferences[PreferencesKeys.NOTE_CARD_BACKGROUND_TRANSPARENCY_PERCENT],
             noteTitleTextHex = preferences[PreferencesKeys.NOTE_TITLE_TEXT_HEX],
             notePreviewTextHex = preferences[PreferencesKeys.NOTE_PREVIEW_TEXT_HEX],
             vaultCardBackgroundHex = preferences[PreferencesKeys.VAULT_CARD_BACKGROUND_HEX],
+            vaultCardBackgroundTransparencyPercent = preferences[PreferencesKeys.VAULT_CARD_BACKGROUND_TRANSPARENCY_PERCENT],
             vaultPreviewTextHex = preferences[PreferencesKeys.VAULT_PREVIEW_TEXT_HEX],
             vaultMetaTextHex = preferences[PreferencesKeys.VAULT_META_TEXT_HEX],
             editorTextSize = editorTextSize,
@@ -168,9 +174,21 @@ class SettingsDataStore(private val context: Context) {
         }
     }
     suspend fun setNoteCardBackgroundHex(value: String?) = setOptionalString(PreferencesKeys.NOTE_CARD_BACKGROUND_HEX, value)
+    suspend fun setNoteCardBackgroundTransparencyPercent(value: Int?) {
+        context.dataStore.edit { preferences ->
+            if (value == null) preferences.remove(PreferencesKeys.NOTE_CARD_BACKGROUND_TRANSPARENCY_PERCENT)
+            else preferences[PreferencesKeys.NOTE_CARD_BACKGROUND_TRANSPARENCY_PERCENT] = value.coerceIn(0, 100)
+        }
+    }
     suspend fun setNoteTitleTextHex(value: String?) = setOptionalString(PreferencesKeys.NOTE_TITLE_TEXT_HEX, value)
     suspend fun setNotePreviewTextHex(value: String?) = setOptionalString(PreferencesKeys.NOTE_PREVIEW_TEXT_HEX, value)
     suspend fun setVaultCardBackgroundHex(value: String?) = setOptionalString(PreferencesKeys.VAULT_CARD_BACKGROUND_HEX, value)
+    suspend fun setVaultCardBackgroundTransparencyPercent(value: Int?) {
+        context.dataStore.edit { preferences ->
+            if (value == null) preferences.remove(PreferencesKeys.VAULT_CARD_BACKGROUND_TRANSPARENCY_PERCENT)
+            else preferences[PreferencesKeys.VAULT_CARD_BACKGROUND_TRANSPARENCY_PERCENT] = value.coerceIn(0, 100)
+        }
+    }
     suspend fun setVaultPreviewTextHex(value: String?) = setOptionalString(PreferencesKeys.VAULT_PREVIEW_TEXT_HEX, value)
     suspend fun setVaultMetaTextHex(value: String?) = setOptionalString(PreferencesKeys.VAULT_META_TEXT_HEX, value)
 
