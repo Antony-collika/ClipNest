@@ -52,6 +52,7 @@ import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -250,8 +251,15 @@ fun SettingsScreen(
                                 value = transparency.toFloat(),
                                 onValueChange = { viewModel.setBackgroundOverlayTransparencyPercent(it.toInt()) },
                                 valueRange = 0f..100f,
-                                steps = 99,
-                                modifier = Modifier.fillMaxWidth().height(28.dp).testTag("settings_background_transparency_slider")
+                                steps = 0,
+                                colors = SliderDefaults.colors(
+                                    thumbColor = LocalThemePalette.current.colorScheme.primary,
+                                    activeTrackColor = LocalThemePalette.current.colorScheme.primary,
+                                    inactiveTrackColor = LocalThemePalette.current.colorScheme.surfaceVariant,
+                                    activeTickColor = Color.Transparent,
+                                    inactiveTickColor = Color.Transparent
+                                ),
+                                modifier = Modifier.fillMaxWidth().height(40.dp).testTag("settings_background_transparency_slider")
                             )
                         }
 
@@ -513,8 +521,15 @@ private fun CardTransparencyField(
             value = transparency.toFloat(),
             onValueChange = { onValueChange(it.toInt()) },
             valueRange = 0f..100f,
-            steps = 99,
-            modifier = Modifier.fillMaxWidth().height(28.dp)
+            steps = 0,
+            colors = SliderDefaults.colors(
+                thumbColor = LocalThemePalette.current.colorScheme.primary,
+                activeTrackColor = LocalThemePalette.current.colorScheme.primary,
+                inactiveTrackColor = LocalThemePalette.current.colorScheme.surfaceVariant,
+                activeTickColor = Color.Transparent,
+                inactiveTickColor = Color.Transparent
+            ),
+            modifier = Modifier.fillMaxWidth().height(40.dp)
         )
     }
 }
