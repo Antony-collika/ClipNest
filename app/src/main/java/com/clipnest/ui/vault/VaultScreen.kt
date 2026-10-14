@@ -28,7 +28,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.clipnest.ui.theme.CARD_BACKGROUND_ALPHA
 import com.clipnest.ui.theme.SCREEN_OVERLAY_BACKGROUND_ALPHA
 import com.clipnest.ui.theme.LocalThemePalette
 
@@ -158,7 +157,7 @@ private fun VaultCardList(
 ) {
     val palette = LocalThemePalette.current
     val colors = VaultRecyclerColors(
-        vaultClipboardCardBackground = LocalThemePalette.current.vaultClipboardCardBackground.copy(alpha = CARD_BACKGROUND_ALPHA).toArgb(),
+        vaultClipboardCardBackground = LocalThemePalette.current.vaultClipboardCardBackground.toArgb(),
         vaultClipboardCardSelectedBackground = LocalThemePalette.current.vaultClipboardCardSelectedBackground.toArgb(),
         vaultClipboardCardPressedBackground = LocalThemePalette.current.vaultClipboardCardPressedBackground.toArgb(),
         vaultClipboardCardDraggingBackground = LocalThemePalette.current.vaultClipboardCardDraggingBackground.toArgb(),
