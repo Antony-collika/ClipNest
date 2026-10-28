@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -30,6 +31,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.clipnest.ui.theme.SCREEN_OVERLAY_BACKGROUND_ALPHA
 import com.clipnest.ui.theme.LocalThemePalette
+import com.clipnest.ui.note.SharedSearchOverlay
 
 @Composable
 fun VaultScreen(
@@ -75,25 +77,39 @@ fun VaultScreen(
                         )
                     )
             )
-            if (uiState.cards.isEmpty()) {
-                VaultEmptyState(
-                    isSearch = uiState.searchQuery.isNotBlank(),
-                    onOpenCapture = { viewModel.captureCurrentClipboard(context) }
-                )
-            } else {
-                VaultCardList(
-                    cards = uiState.cards,
-                    selectedIds = uiState.selectedIds,
-                    revealedSensitiveIds = uiState.revealedSensitiveCardIds,
-                    isMaskingEnabled = uiState.userSettings.isSensitivePreviewMasked,
-                    showPinnedFirst = uiState.userSettings.showPinnedFirst,
-                    searchQuery = uiState.searchQuery,
-                    onToggleSelect = viewModel::toggleCardSelection,
-                    onLongPress = { id, anchorY -> viewModel.openPreview(id, anchorY) },
-                    onCopy = { id -> viewModel.copySingleCard(context, id) },
-                    onToggleRevealSensitive = viewModel::toggleRevealSensitive,
-                    onReorder = viewModel::reorderItems
-                )
+            Column(Modifier.fillMaxSize()) {
+                if (uiState.isSearchOpen) {
+                    SharedSearchOverlay(
+                        isOpen = uiState.isSearchOpen,
+                        query = uiState.searchQuery,
+                        placeholder = stringResource(com.clipnest.R.string.search_notes),
+                        onQueryChange = viewModel::setSearchQuery,
+                        onClose = viewModel::closeSearch,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                }
+                Box(Modifier.fillMaxSize().weight(1f)) {
+                    if (uiState.cards.isEmpty()) {
+                        VaultEmptyState(
+                            isSearch = uiState.searchQuery.isNotBlank(),
+                            onOpenCapture = { viewModel.captureCurrentClipboard(context) }
+                        )
+                    } else {
+                        VaultCardList(
+                            cards = uiState.cards,
+                            selectedIds = uiState.selectedIds,
+                            revealedSensitiveIds = uiState.revealedSensitiveCardIds,
+                            isMaskingEnabled = uiState.userSettings.isSensitivePreviewMasked,
+                            showPinnedFirst = uiState.userSettings.showPinnedFirst,
+                            searchQuery = uiState.searchQuery,
+                            onToggleSelect = viewModel::toggleCardSelection,
+                            onLongPress = { id, anchorY -> viewModel.openPreview(id, anchorY) },
+                            onCopy = { id -> viewModel.copySingleCard(id) },
+                            onToggleRevealSensitive = viewModel::toggleRevealSensitive,
+                            onReorder = viewModel::reorderItems
+                        )
+                    }
+                }
             }
         }
     }
