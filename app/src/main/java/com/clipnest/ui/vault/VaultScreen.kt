@@ -104,7 +104,7 @@ fun VaultScreen(
                             searchQuery = uiState.searchQuery,
                             onToggleSelect = viewModel::toggleCardSelection,
                             onLongPress = { id, anchorY -> viewModel.openPreview(id, anchorY) },
-                            onCopy = { id -> viewModel.copySingleCard(id) },
+                            onCopy = { id -> viewModel.copySingleCard(context, id) },
                             onToggleRevealSensitive = viewModel::toggleRevealSensitive,
                             onReorder = viewModel::reorderItems
                         )
