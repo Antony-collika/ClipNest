@@ -895,7 +895,7 @@ private fun SharedMainDock(
                 }
                 VerticalDivider(modifier = Modifier.height(20.dp), color = palette.dockDivider)
                 Box {
-                    IconButton(onClick = { onOverflowExpandedChange(true) }, modifier = Modifier.size(48.dp)) {
+                    IconButton(onClick = { onOverflowExpandedChange(true) }, modifier = Modifier.size(48.dp).testTag("main_overflow_button")) {
                         Icon(Icons.Default.MoreVert, contentDescription = stringResource(com.clipnest.R.string.more_options), tint = palette.dockIcon)
                     }
                     DropdownMenu(
