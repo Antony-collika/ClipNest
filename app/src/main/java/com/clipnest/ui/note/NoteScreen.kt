@@ -53,6 +53,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -218,7 +219,7 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
                     placeholder = androidx.compose.ui.res.stringResource(R.string.search_notes),
                     onQueryChange = onSearchQueryChange,
                     onClose = onCloseSearch,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    modifier = Modifier.zIndex(10f).padding(horizontal = 16.dp, vertical = 8.dp)
                 )
             }
             if (noteCards.isEmpty()) {
