@@ -4,12 +4,10 @@ name: Android CI/CD
 on:
   push:
     branches:
-      - Draft
-      - experiment/ime-caret-viewport
+      - restore-menu-function
   pull_request:
     branches:
-      - Draft
-      - experiment/ime-caret-viewport
+      - restore-menu-function
   workflow_dispatch:
 
 jobs:
