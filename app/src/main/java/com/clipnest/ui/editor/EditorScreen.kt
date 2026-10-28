@@ -204,6 +204,8 @@ fun EditorScreen(
             .fillMaxSize()
             .imePadding()
             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.88f))
+            // Experiment A: reserve a small safety gap above the IME.
+            .padding(bottom = 16.dp)
     ) {
         Column(Modifier.fillMaxSize()) {
             EditorNoteBreadcrumbBar(
