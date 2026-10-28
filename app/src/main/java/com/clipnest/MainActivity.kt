@@ -600,7 +600,7 @@ fun MainAppContent(
                 allSelectedPinned = if (isNoteTab) allSelectedNotesPinned else !isSettings && selectedCards.isNotEmpty() && selectedCards.all { it.pinned },
                 noteCanPin = noteSelectedIds.isNotEmpty(),
                 isSettings = isSettings,
-                isSearchOpen = if (isEditorTab) editorSearchOpen else if (isVaultTab) vaultState.isSearchOpen else false,
+                isSearchOpen = isEditorTab && editorSearchOpen,
                 searchQuery = if (isEditorTab) editorSearchQuery else if (isVaultTab) vaultState.searchQuery else if (isNoteTab) noteSearchQuery else "",
                 searchPlaceholder = if (isEditorTab) stringResource(com.clipnest.R.string.search_editor) else stringResource(com.clipnest.R.string.search_notes),
                 editorDocumentName = if (editorUiState.externalDocumentUri != null) editorUiState.documentName else stringResource(com.clipnest.R.string.editor),
@@ -807,10 +807,25 @@ fun MainAppContent(
                 overflowExpanded = dockOverflowExpanded,
                 onOverflowExpandedChange = { dockOverflowExpanded = it },
                 onOpenMenu = { scope.launch { drawerState.open() } },
+                isVault = isVaultTab,
+                selectedCount = vaultState.selectedIds.size,
+                allSelected = allVaultSelected,
+                showPinnedFirst = vaultState.userSettings.showPinnedFirst,
                 onOpenSearch = {
-                    noteSearchOpen = true
-                    scope.launch { pagerState.animateScrollToPage(0, animationSpec = tween(durationMillis = 180)) }
+                    if (isVaultTab) {
+                        vaultViewModel.openSearch()
+                    } else {
+                        noteSearchOpen = true
+                    }
                 },
+                onToggleSelectAll = {
+                    if (allVaultSelected) vaultViewModel.clearSelection() else vaultViewModel.selectAll()
+                },
+                onShareSelected = vaultViewModel::shareSelected,
+                onSaveFile = vaultViewModel::openExportDialog,
+                onCreateNoteFromVault = ::createNoteFromVault,
+                onOpenEditor = ::openEditorFromVault,
+                onToggleShowPinnedFirst = vaultViewModel::toggleShowPinnedFirst,
                 onCreateNote = ::openNewNote,
                 onCaptureClipboard = { vaultViewModel.captureCurrentClipboard(context) },
                 onViewModeChange = { noteViewMode = it },
@@ -832,6 +847,10 @@ private fun SharedMainDock(
     noteTopicId: Long?,
     notePinnedExpanded: Boolean,
     hasPinnedNotes: Boolean,
+    isVault: Boolean,
+    selectedCount: Int,
+    allSelected: Boolean,
+    showPinnedFirst: Boolean,
     overflowExpanded: Boolean,
     onOverflowExpandedChange: (Boolean) -> Unit,
     onOpenMenu: () -> Unit,
@@ -840,7 +859,13 @@ private fun SharedMainDock(
     onCaptureClipboard: () -> Unit,
     onViewModeChange: (com.clipnest.ui.note.NoteViewMode) -> Unit,
     onPinnedExpandedChange: (Boolean) -> Unit,
-    onOpenSettings: () -> Unit
+    onOpenSettings: () -> Unit,
+    onToggleSelectAll: () -> Unit,
+    onShareSelected: () -> Unit,
+    onSaveFile: () -> Unit,
+    onCreateNoteFromVault: () -> Unit,
+    onOpenEditor: () -> Unit,
+    onToggleShowPinnedFirst: () -> Unit
 ) {
     Box(Modifier.fillMaxSize()) {
         Surface(
@@ -873,24 +898,71 @@ private fun SharedMainDock(
                     IconButton(onClick = { onOverflowExpandedChange(true) }, modifier = Modifier.size(48.dp)) {
                         Icon(Icons.Default.MoreVert, contentDescription = stringResource(com.clipnest.R.string.more_options), tint = palette.dockIcon)
                     }
-                    DropdownMenu(expanded = overflowExpanded, onDismissRequest = { onOverflowExpandedChange(false) }) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(com.clipnest.R.string.note_list_view)) },
-                            onClick = { onOverflowExpandedChange(false); onViewModeChange(com.clipnest.ui.note.NoteViewMode.LIST) }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(com.clipnest.R.string.note_grid_view)) },
-                            onClick = { onOverflowExpandedChange(false); onViewModeChange(com.clipnest.ui.note.NoteViewMode.GRID) }
-                        )
-                        if (hasPinnedNotes) {
+                    DropdownMenu(
+                        expanded = overflowExpanded,
+                        onDismissRequest = { onOverflowExpandedChange(false) },
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        tonalElevation = 2.dp,
+                        shadowElevation = 2.dp,
+                        modifier = Modifier.testTag("main_overflow_menu")
+                    ) {
+                        if (isVault) {
                             DropdownMenuItem(
-                                text = { Text(stringResource(if (notePinnedExpanded) com.clipnest.R.string.collapse_pinned else com.clipnest.R.string.expand_pinned)) },
-                                onClick = { onOverflowExpandedChange(false); onPinnedExpandedChange(!notePinnedExpanded) }
+                                text = { Text(if (allSelected) stringResource(com.clipnest.R.string.clear_selection) else stringResource(com.clipnest.R.string.select_all)) },
+                                onClick = { onOverflowExpandedChange(false); onToggleSelectAll() },
+                                modifier = Modifier.testTag("main_menu_select_all")
                             )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(com.clipnest.R.string.share)) },
+                                enabled = selectedCount > 0,
+                                onClick = { onOverflowExpandedChange(false); onShareSelected() },
+                                modifier = Modifier.testTag("main_menu_share")
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(com.clipnest.R.string.save_file)) },
+                                enabled = selectedCount > 0,
+                                onClick = { onOverflowExpandedChange(false); onSaveFile() },
+                                modifier = Modifier.testTag("main_menu_save_file")
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(com.clipnest.R.string.new_note)) },
+                                onClick = { onOverflowExpandedChange(false); onCreateNoteFromVault() },
+                                modifier = Modifier.testTag("main_menu_new_note")
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(com.clipnest.R.string.create_note_from_selection)) },
+                                enabled = selectedCount > 0,
+                                onClick = { onOverflowExpandedChange(false); onOpenEditor() },
+                                modifier = Modifier.testTag("main_menu_create_note_from_selection")
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(com.clipnest.R.string.show_pinned_first)) },
+                                trailingIcon = {
+                                    if (showPinnedFirst) Icon(Icons.Default.Check, contentDescription = stringResource(com.clipnest.R.string.active))
+                                },
+                                onClick = { onOverflowExpandedChange(false); onToggleShowPinnedFirst() },
+                                modifier = Modifier.testTag("main_menu_show_pinned_first")
+                            )
+                        } else {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(com.clipnest.R.string.note_list_view)) },
+                                onClick = { onOverflowExpandedChange(false); onViewModeChange(com.clipnest.ui.note.NoteViewMode.LIST) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(com.clipnest.R.string.note_grid_view)) },
+                                onClick = { onOverflowExpandedChange(false); onViewModeChange(com.clipnest.ui.note.NoteViewMode.GRID) }
+                            )
+                            if (hasPinnedNotes) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(if (notePinnedExpanded) com.clipnest.R.string.collapse_pinned else com.clipnest.R.string.expand_pinned)) },
+                                    onClick = { onOverflowExpandedChange(false); onPinnedExpandedChange(!notePinnedExpanded) }
+                                )
+                            }
                         }
                         DropdownMenuItem(
                             text = { Text(stringResource(com.clipnest.R.string.settings)) },
-                            onClick = { onOverflowExpandedChange(false); onOpenSettings() }
+                            onClick = { onOverflowExpandedChange(false); onOpenSettings() },
+                            modifier = Modifier.testTag("main_menu_settings")
                         )
                     }
                 }
