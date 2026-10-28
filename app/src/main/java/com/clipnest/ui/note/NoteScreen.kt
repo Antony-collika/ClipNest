@@ -48,6 +48,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
@@ -208,8 +211,10 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
                     onViewModeChanged = onViewModeChange
                 )
             if (isSearchOpen) {
-                SearchOverlay(
+                SharedSearchOverlay(
+                    isOpen = isSearchOpen,
                     query = searchQuery,
+                    placeholder = androidx.compose.ui.res.stringResource(R.string.search_notes),
                     onQueryChange = onSearchQueryChange,
                     onClose = onCloseSearch,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
@@ -295,12 +300,22 @@ allNotesLabel = androidx.compose.ui.res.stringResource(R.string.all_notes),
 }
 
 @Composable
-private fun SearchOverlay(
+internal fun SharedSearchOverlay(
+    isOpen: Boolean,
     query: String,
+    placeholder: String,
     onQueryChange: (String) -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val searchFocusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+    LaunchedEffect(isOpen) {
+        if (isOpen) {
+            searchFocusRequester.requestFocus()
+            keyboardController?.show()
+        }
+    }
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = LocalThemePalette.current.noteSearchBackground),
@@ -310,13 +325,13 @@ private fun SearchOverlay(
             modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Default.Search, contentDescription = androidx.compose.ui.res.stringResource(R.string.search_notes), tint = LocalThemePalette.current.noteSearchContent)
+            Icon(Icons.Default.Search, contentDescription = placeholder, tint = LocalThemePalette.current.noteSearchContent)
             androidx.compose.material3.TextField(
                 value = query,
                 onValueChange = onQueryChange,
-                placeholder = { Text(androidx.compose.ui.res.stringResource(R.string.search_notes), color = LocalThemePalette.current.noteSearchHint) },
+                placeholder = { Text(placeholder, color = LocalThemePalette.current.noteSearchHint) },
                 singleLine = true,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).focusRequester(searchFocusRequester),
                 colors = androidx.compose.material3.TextFieldDefaults.colors(
                     focusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
                     unfocusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
@@ -329,7 +344,10 @@ private fun SearchOverlay(
                     unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent
                 )
             )
-            IconButton(onClick = onClose) {
+            IconButton(onClick = {
+                keyboardController?.hide()
+                onClose()
+            }) {
                 Icon(Icons.Default.Clear, contentDescription = androidx.compose.ui.res.stringResource(R.string.close_search), tint = LocalThemePalette.current.noteSearchContent)
             }
         }
