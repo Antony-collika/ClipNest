@@ -344,15 +344,18 @@ fun EditorScreen(
             DropdownMenu(
                 expanded = overflowExpanded,
                 onDismissRequest = { overflowExpanded = false },
-                modifier = Modifier.testTag("editor_overflow_menu")
+                modifier = Modifier.testTag("editor_overflow_menu"),
+                // Do not let the menu popup take focus from NativeEditorView;
+                // this should preserve the current keyboard visibility.
+                properties = PopupProperties(focusable = false)
             ) {
                 DropdownMenuItem(
-                    text = { Text(stringResource(com.clipnest.R.string.search_editor)) },
+                    text = { Text(stringResource(com.clipnest.R.string.settings)) },
                     onClick = {
                         overflowExpanded = false
-                        viewModel.openSearchPublic()
+                        onOpenSettings()
                     },
-                    modifier = Modifier.testTag("editor_menu_search")
+                    modifier = Modifier.testTag("editor_menu_settings")
                 )
                 DropdownMenuItem(
                     text = { Text(stringResource(com.clipnest.R.string.open_file)) },
@@ -363,7 +366,7 @@ fun EditorScreen(
                     modifier = Modifier.testTag("editor_menu_open_file")
                 )
                 DropdownMenuItem(
-                    text = { Text(stringResource(com.clipnest.R.string.return_to_editor)) },
+                    text = { Text("Back to Editor") },
                     enabled = uiState.externalDocumentUri != null || uiState.mode == EditorMode.NOTE,
                     onClick = {
                         overflowExpanded = false
@@ -392,12 +395,12 @@ fun EditorScreen(
                     modifier = Modifier.testTag("editor_menu_ask_ai")
                 )
                 DropdownMenuItem(
-                    text = { Text(stringResource(com.clipnest.R.string.settings)) },
+                    text = { Text("Search") },
                     onClick = {
                         overflowExpanded = false
-                        onOpenSettings()
+                        viewModel.openSearchPublic()
                     },
-                    modifier = Modifier.testTag("editor_menu_settings")
+                    modifier = Modifier.testTag("editor_menu_search")
                 )
             }
         }
