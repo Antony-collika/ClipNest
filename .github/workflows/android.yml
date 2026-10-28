@@ -5,9 +5,11 @@ on:
   push:
     branches:
       - Draft
+      - experiment/ime-caret-viewport
   pull_request:
     branches:
       - Draft
+      - experiment/ime-caret-viewport
   workflow_dispatch:
 
 jobs:
