@@ -123,6 +123,8 @@ fun EditorScreen(
     onRequestSaveFolder: () -> Unit,
     onRequestOpenFile: () -> Unit,
     onRequestExternalSaveAs: (String, String) -> Unit,
+    onAskAi: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
     onExit: (String?) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -158,6 +160,7 @@ fun EditorScreen(
     // transient callbacks while a character is inserted; the suggestion popup
     // must not be removed just because one callback has no usable rect.
     var topicSuggestionCaretRect by remember { mutableStateOf<Rect?>(null) }
+    var overflowExpanded by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(uiState.externalDocumentUri, uiState.documentName, uiState.externalDocumentFileCount) {
         if (uiState.externalDocumentUri != null) {
@@ -321,6 +324,81 @@ fun EditorScreen(
                         }
                     }
                 }
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = 16.dp)
+        ) {
+            SmallFloatingActionButton(
+                onClick = { overflowExpanded = true },
+                modifier = Modifier.testTag("editor_overflow_button")
+            ) {
+                Icon(
+                    Icons.Default.MoreVert,
+                    contentDescription = stringResource(com.clipnest.R.string.more_options)
+                )
+            }
+            DropdownMenu(
+                expanded = overflowExpanded,
+                onDismissRequest = { overflowExpanded = false },
+                modifier = Modifier.testTag("editor_overflow_menu")
+            ) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(com.clipnest.R.string.search_editor)) },
+                    onClick = {
+                        overflowExpanded = false
+                        viewModel.openSearchPublic()
+                    },
+                    modifier = Modifier.testTag("editor_menu_search")
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(com.clipnest.R.string.open_file)) },
+                    onClick = {
+                        overflowExpanded = false
+                        onRequestOpenFile()
+                    },
+                    modifier = Modifier.testTag("editor_menu_open_file")
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(com.clipnest.R.string.return_to_editor)) },
+                    enabled = uiState.externalDocumentUri != null || uiState.mode == EditorMode.NOTE,
+                    onClick = {
+                        overflowExpanded = false
+                        if (uiState.mode == EditorMode.NOTE) {
+                            viewModel.returnToFreeEditor()
+                        } else {
+                            viewModel.returnToInternalEditor(context.contentResolver)
+                        }
+                    },
+                    modifier = Modifier.testTag("editor_menu_return_to_editor")
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(com.clipnest.R.string.save_file)) },
+                    onClick = {
+                        overflowExpanded = false
+                        viewModel.onSaveClicked(context.contentResolver)
+                    },
+                    modifier = Modifier.testTag("editor_menu_save_file")
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(com.clipnest.R.string.ask_ai)) },
+                    onClick = {
+                        overflowExpanded = false
+                        onAskAi()
+                    },
+                    modifier = Modifier.testTag("editor_menu_ask_ai")
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(com.clipnest.R.string.settings)) },
+                    onClick = {
+                        overflowExpanded = false
+                        onOpenSettings()
+                    },
+                    modifier = Modifier.testTag("editor_menu_settings")
+                )
             }
         }
     }
