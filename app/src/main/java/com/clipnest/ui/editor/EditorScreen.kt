@@ -35,11 +35,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -335,7 +335,9 @@ fun EditorScreen(
         ) {
             SmallFloatingActionButton(
                 onClick = { overflowExpanded = !overflowExpanded },
-                modifier = Modifier.testTag("editor_overflow_button"),
+                modifier = Modifier
+                    .focusProperties { canFocus = false }
+                    .testTag("editor_overflow_button"),
                 containerColor = palette.dockBackground,
                 contentColor = palette.dockIcon,
                 elevation = FloatingActionButtonDefaults.elevation(
@@ -362,13 +364,18 @@ fun EditorScreen(
                 DropdownMenu(
                     expanded = overflowExpanded,
                     onDismissRequest = { overflowExpanded = false },
-                    modifier = Modifier
-                        .shadow(3.dp, dockShape)
-                        .clip(dockShape)
-                        .testTag("editor_overflow_menu"),
-                    // Do not let the menu popup take focus from NativeEditorView;
-                    // this should preserve the current keyboard visibility.
-                    properties = PopupProperties(focusable = false)
+                    modifier = Modifier.testTag("editor_overflow_menu"),
+                    shape = dockShape,
+                    containerColor = palette.dockBackground,
+                    contentColor = palette.dockIcon,
+                    tonalElevation = 0.dp,
+                    shadowElevation = 3.dp,
+                    // Keep the editor and IME focused. The FAB itself remains
+                    // clickable without becoming a competing focus target.
+                    properties = PopupProperties(
+                        focusable = false,
+                        dismissOnClickOutside = false
+                    )
                 ) {
                     CompositionLocalProvider(LocalContentColor provides palette.dockIcon) {
                         DropdownMenuItem(
