@@ -327,81 +327,105 @@ fun EditorScreen(
             }
         }
 
+        val dockShape = RoundedCornerShape(8.dp)
         Box(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(end = 16.dp, bottom = 16.dp)
         ) {
             SmallFloatingActionButton(
-                onClick = { overflowExpanded = true },
-                modifier = Modifier.testTag("editor_overflow_button")
+                onClick = { overflowExpanded = !overflowExpanded },
+                modifier = Modifier.testTag("editor_overflow_button"),
+                containerColor = palette.dockBackground,
+                contentColor = palette.dockIcon,
+                elevation = FloatingActionButtonDefaults.elevation(
+                    defaultElevation = 3.dp,
+                    pressedElevation = 3.dp,
+                    focusedElevation = 3.dp,
+                    hoveredElevation = 3.dp
+                )
             ) {
                 Icon(
                     Icons.Default.MoreVert,
                     contentDescription = stringResource(com.clipnest.R.string.more_options)
                 )
             }
-            DropdownMenu(
-                expanded = overflowExpanded,
-                onDismissRequest = { overflowExpanded = false },
-                modifier = Modifier.testTag("editor_overflow_menu"),
-                // Do not let the menu popup take focus from NativeEditorView;
-                // this should preserve the current keyboard visibility.
-                properties = PopupProperties(focusable = false)
+            MaterialTheme(
+                colorScheme = MaterialTheme.colorScheme.copy(
+                    surface = palette.dockBackground,
+                    surfaceContainer = palette.dockBackground,
+                    onSurface = palette.dockIcon,
+                    onSurfaceVariant = palette.dockIcon
+                ),
+                shapes = MaterialTheme.shapes.copy(extraSmall = dockShape)
             ) {
-                DropdownMenuItem(
-                    text = { Text(stringResource(com.clipnest.R.string.settings)) },
-                    onClick = {
-                        overflowExpanded = false
-                        onOpenSettings()
-                    },
-                    modifier = Modifier.testTag("editor_menu_settings")
-                )
-                DropdownMenuItem(
-                    text = { Text(stringResource(com.clipnest.R.string.open_file)) },
-                    onClick = {
-                        overflowExpanded = false
-                        onRequestOpenFile()
-                    },
-                    modifier = Modifier.testTag("editor_menu_open_file")
-                )
-                DropdownMenuItem(
-                    text = { Text("Back to Editor") },
-                    enabled = uiState.externalDocumentUri != null || uiState.mode == EditorMode.NOTE,
-                    onClick = {
-                        overflowExpanded = false
-                        if (uiState.mode == EditorMode.NOTE) {
-                            viewModel.returnToFreeEditor()
-                        } else {
-                            viewModel.returnToInternalEditor(context.contentResolver)
-                        }
-                    },
-                    modifier = Modifier.testTag("editor_menu_return_to_editor")
-                )
-                DropdownMenuItem(
-                    text = { Text(stringResource(com.clipnest.R.string.save_file)) },
-                    onClick = {
-                        overflowExpanded = false
-                        viewModel.onSaveClicked(context.contentResolver)
-                    },
-                    modifier = Modifier.testTag("editor_menu_save_file")
-                )
-                DropdownMenuItem(
-                    text = { Text(stringResource(com.clipnest.R.string.ask_ai)) },
-                    onClick = {
-                        overflowExpanded = false
-                        onAskAi()
-                    },
-                    modifier = Modifier.testTag("editor_menu_ask_ai")
-                )
-                DropdownMenuItem(
-                    text = { Text("Search") },
-                    onClick = {
-                        overflowExpanded = false
-                        viewModel.openSearchPublic()
-                    },
-                    modifier = Modifier.testTag("editor_menu_search")
-                )
+                DropdownMenu(
+                    expanded = overflowExpanded,
+                    onDismissRequest = { overflowExpanded = false },
+                    modifier = Modifier
+                        .shadow(3.dp, dockShape)
+                        .clip(dockShape)
+                        .testTag("editor_overflow_menu"),
+                    // Do not let the menu popup take focus from NativeEditorView;
+                    // this should preserve the current keyboard visibility.
+                    properties = PopupProperties(focusable = false)
+                ) {
+                    CompositionLocalProvider(LocalContentColor provides palette.dockIcon) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(com.clipnest.R.string.settings)) },
+                            onClick = {
+                                overflowExpanded = false
+                                onOpenSettings()
+                            },
+                            modifier = Modifier.testTag("editor_menu_settings")
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(com.clipnest.R.string.open_file)) },
+                            onClick = {
+                                overflowExpanded = false
+                                onRequestOpenFile()
+                            },
+                            modifier = Modifier.testTag("editor_menu_open_file")
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Back to Editor") },
+                            enabled = uiState.externalDocumentUri != null || uiState.mode == EditorMode.NOTE,
+                            onClick = {
+                                overflowExpanded = false
+                                if (uiState.mode == EditorMode.NOTE) {
+                                    viewModel.returnToFreeEditor()
+                                } else {
+                                    viewModel.returnToInternalEditor(context.contentResolver)
+                                }
+                            },
+                            modifier = Modifier.testTag("editor_menu_return_to_editor")
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(com.clipnest.R.string.save_file)) },
+                            onClick = {
+                                overflowExpanded = false
+                                viewModel.onSaveClicked(context.contentResolver)
+                            },
+                            modifier = Modifier.testTag("editor_menu_save_file")
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(com.clipnest.R.string.ask_ai)) },
+                            onClick = {
+                                overflowExpanded = false
+                                onAskAi()
+                            },
+                            modifier = Modifier.testTag("editor_menu_ask_ai")
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Search") },
+                            onClick = {
+                                overflowExpanded = false
+                                viewModel.openSearchPublic()
+                            },
+                            modifier = Modifier.testTag("editor_menu_search")
+                        )
+                    }
+                }
             }
         }
     }
