@@ -771,6 +771,28 @@ fun MainAppContent(
                             onRequestSaveFolder = { onRequestFolder { uri -> editorViewModel.setDefaultSaveFolder(uri, context.contentResolver) } },
                             onRequestOpenFile = ::openExternalFile,
                             onRequestExternalSaveAs = { name, mime -> onRequestExternalSaveAs(name, mime) { uri -> editorViewModel.completeExternalSaveAs(uri, context.contentResolver) } },
+                            onAskAi = {
+                                if (!askAiInProgress) {
+                                    val content = editorUiState.content.text
+                                    if (content.isBlank()) {
+                                        Toast.makeText(context, context.getString(com.clipnest.R.string.ask_ai_empty), Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        askAiInProgress = true
+                                        Toast.makeText(context, context.getString(com.clipnest.R.string.ask_ai_sent), Toast.LENGTH_SHORT).show()
+                                        scope.launch {
+                                            val result = askAiCoordinator.askAndSave(content)
+                                            askAiInProgress = false
+                                            Toast.makeText(
+                                                context,
+                                                if (result.isSuccess) context.getString(com.clipnest.R.string.ask_ai_saved)
+                                                else context.getString(com.clipnest.R.string.ask_ai_failed),
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+                                    }
+                                }
+                            },
+                            onOpenSettings = { navController.navigate(Screen.Settings.route) { launchSingleTop = true } },
                             onExit = { returnKey ->
                                 if (returnKey?.startsWith("topic:") == true) {
                                     scope.launch { pagerState.animateScrollToPage(0, animationSpec = tween(durationMillis = 180)) }
