@@ -190,6 +190,7 @@ class NativeEditorView @JvmOverloads constructor(
                 // see it, so the screen should follow again from here on.
                 followCaret = true
                 invalidate()
+                scheduleCaretVisibilityCheck()
             }
         })
     }
@@ -267,6 +268,7 @@ class NativeEditorView @JvmOverloads constructor(
         }
         EditorDiagnosticLog.log("LIFECYCLE", "onLayout  changed=$changed  scrollY=$scrollY  selection=$selectionStart-$selectionEnd")
         notifyCaretRectChanged()
+        scheduleCaretVisibilityCheck()
     }
 
     override fun onFocusChanged(focused: Boolean, direction: Int, previouslyFocusedRect: android.graphics.Rect?) {
@@ -339,6 +341,7 @@ class NativeEditorView @JvmOverloads constructor(
             followCaret = true
         }
         notifyCaretRectChanged()
+        scheduleCaretVisibilityCheck()
     }
 
     override fun onScrollChanged(l: Int, t: Int, oldl: Int, oldt: Int) {
@@ -659,6 +662,37 @@ class NativeEditorView @JvmOverloads constructor(
 
     private fun notifyCaretRectChanged() {
         caretRectChangeListener?.invoke(caretRectInView())
+    }
+
+    /**
+     * TextView's built-in caret scrolling can lag behind IME-driven layout changes.
+     * Recheck on the next animation frame, once the new text layout and viewport size
+     * are available, and move only the minimum distance needed to expose the caret.
+     */
+    private fun scheduleCaretVisibilityCheck() {
+        if (!followCaret) return
+        postOnAnimation {
+            if (!followCaret || !isAttachedToWindow || height <= 0) return@postOnAnimation
+            val lay = layout ?: return@postOnAnimation
+            val offset = selectionEnd.coerceIn(0, length())
+            val line = lay.getLineForOffset(offset)
+            val caretTop = compoundPaddingTop + lay.getLineTop(line) - scrollY
+            val caretBottom = compoundPaddingTop + lay.getLineBottom(line) - scrollY
+            val safeTop = compoundPaddingTop
+            val safeBottom = height - compoundPaddingBottom
+            val delta = when {
+                caretBottom > safeBottom -> caretBottom - safeBottom
+                caretTop < safeTop -> caretTop - safeTop
+                else -> 0
+            }
+            if (delta != 0) {
+                EditorDiagnosticLog.log(
+                    "CARET_VISIBILITY",
+                    "correcting viewport by $delta px; caret=$caretTop..$caretBottom safe=$safeTop..$safeBottom scrollY=$scrollY"
+                )
+                scrollBy(0, delta)
+            }
+        }
     }
 
     /** Current viewport anchor, for callers that want to read it without waiting for a callback. */
