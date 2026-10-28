@@ -51,6 +51,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
@@ -331,7 +332,7 @@ internal fun SharedSearchOverlay(
                 onValueChange = onQueryChange,
                 placeholder = { Text(placeholder, color = LocalThemePalette.current.noteSearchHint) },
                 singleLine = true,
-                modifier = Modifier.weight(1f).focusRequester(searchFocusRequester),
+                modifier = Modifier.weight(1f).focusRequester(searchFocusRequester).testTag("main_search_input"),
                 colors = androidx.compose.material3.TextFieldDefaults.colors(
                     focusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
                     unfocusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
