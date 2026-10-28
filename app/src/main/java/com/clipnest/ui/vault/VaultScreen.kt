@@ -20,6 +20,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -85,7 +86,7 @@ fun VaultScreen(
                         placeholder = stringResource(com.clipnest.R.string.search_notes),
                         onQueryChange = viewModel::setSearchQuery,
                         onClose = viewModel::closeSearch,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        modifier = Modifier.zIndex(10f).padding(horizontal = 16.dp, vertical = 8.dp)
                     )
                 }
                 Box(Modifier.fillMaxSize().weight(1f)) {
