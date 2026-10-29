@@ -35,6 +35,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -367,7 +368,6 @@ fun EditorScreen(
                     modifier = Modifier.testTag("editor_overflow_menu"),
                     shape = dockShape,
                     containerColor = palette.dockBackground,
-                    contentColor = palette.dockIcon,
                     tonalElevation = 0.dp,
                     shadowElevation = 3.dp,
                     // Keep the editor and IME focused. The FAB itself remains
