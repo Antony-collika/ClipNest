@@ -923,11 +923,15 @@ private fun SharedMainDock(
                     DropdownMenu(
                         expanded = overflowExpanded,
                         onDismissRequest = { onOverflowExpandedChange(false) },
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        tonalElevation = 2.dp,
-                        shadowElevation = 2.dp,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                        containerColor = palette.dockBackground,
+                        tonalElevation = 0.dp,
+                        shadowElevation = 3.dp,
                         modifier = Modifier.testTag("main_overflow_menu")
                     ) {
+                        androidx.compose.runtime.CompositionLocalProvider(
+                            androidx.compose.material3.LocalContentColor provides palette.dockIcon
+                        ) {
                         if (isVault) {
                             DropdownMenuItem(
                                 text = { Text(if (allSelected) stringResource(com.clipnest.R.string.clear_selection) else stringResource(com.clipnest.R.string.select_all)) },
@@ -986,6 +990,7 @@ private fun SharedMainDock(
                             onClick = { onOverflowExpandedChange(false); onOpenSettings() },
                             modifier = Modifier.testTag("main_menu_settings")
                         )
+                        }
                     }
                 }
             }
