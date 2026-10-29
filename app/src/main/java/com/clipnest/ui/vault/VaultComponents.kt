@@ -456,11 +456,15 @@ fun VaultTopBar(
                     DropdownMenu(
                         expanded = overflowExpanded,
                         onDismissRequest = { overflowExpanded = false },
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        tonalElevation = 2.dp,
-                        shadowElevation = 2.dp,
+                        shape = RoundedCornerShape(8.dp),
+                        containerColor = LocalThemePalette.current.dockBackground,
+                        tonalElevation = 0.dp,
+                        shadowElevation = 3.dp,
                         modifier = Modifier.testTag("vault_overflow_menu")
                     ) {
+                        androidx.compose.runtime.CompositionLocalProvider(
+                            androidx.compose.material3.LocalContentColor provides LocalThemePalette.current.dockIcon
+                        ) {
                         DropdownMenuItem(
                             text = { Text(stringResource(com.clipnest.R.string.save_file)) },
                             onClick = {
@@ -485,6 +489,7 @@ fun VaultTopBar(
                             },
                             modifier = Modifier.testTag("vault_menu_settings")
                         )
+                        }
                     }
                 }
             }
